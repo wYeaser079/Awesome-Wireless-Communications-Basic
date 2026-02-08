@@ -1,0 +1,688 @@
+
+╭─── Claude Code v2.1.37 ──────────────────────────────────────────────────────╮
+│                                                 │ Tips for getting started   │
+│           Welcome back Tech Shottify!           │ Run /init to create a CLA… │
+│                                                 │ ────────────────────────── │
+│                     ▐▛███▜▌                     │ Recent activity            │
+│                    ▝▜█████▛▘                    │ No recent activity         │
+│                      ▘▘ ▝▝                      │                            │
+│                                                 │                            │
+│              Opus 4.6 · Claude Max              │                            │
+│   D:\Personal\Awesome-Wireless-Communications   │                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ Read @chat/chat002_understanding_system_model_pt1.txt this file. File is  
+  large so you have to read it in chunks.                                   
+  Give me a summary of it.                                                  
+  Then read this file:                                                      
+  D:\Personal\Awesome-Wireless-Communications\papers\Cellular\Spectral_Effi 
+  ciency_of_Multiuser_Massive_MIMO-OFDM_THz_Wireless_Systems_with_Hybrid_Be 
+  amforming_under_Inter-carrier_Interference.pdf                            
+  --------------------------------                                          
+  Specially this part:                                                      
+  III.  PROBLEM FORMULATION AND SOLUTION APPROACH                           
+  -----------------                                                         
+  I want you to give me a very very detailed explanation of each line so    
+  that I can have phd level knowledge on these topics.                      
+  You will start explaining from the basic and in a easy way and then you   
+  will enter into more complex topics and will give me in depth knowledge.  
+  You will give me both theoretical and mathematical explanation. For       
+  mathematical part, you will use conventional sign like exponential sign,  
+  sum sign, suffix, prefix etc so that the writings look like its from a    
+  book.                                                                     
+  Do deep research and answer my questions.                                 
+  ⎿  Read chat\chat002_understanding_system_model_pt1.txt (488 lines)
+
+● I already have the chat file content from the context. Let me now read the PDF
+   paper's Section III.
+
+● Read 1 file (ctrl+o to expand)
+
+● Summary of Chat File (chat002)
+
+  The previous session provided a PhD-level explanation of Section II: System 
+  and Channel Models from Shaheed et al.'s paper. It covered:
+
+  - System Model: Why the combination of multi-user + OFDM + massive MIMO + THz
+  was chosen; the hybrid beamforming architecture (N_RF RF chains vs N_t
+  antennas); single-antenna users with SDMA; OFDM parameter tradeoffs (K
+  subcarriers, cyclic prefix overhead, ICI sensitivity)
+  - THz Channel Model: Saleh-Valenzuela cluster-based model; the full channel
+  equation H_q(f,d) with normalization factor √(N_t/N_c·N_ray), double summation
+   over clusters/rays, complex channel gains α, array response vectors a(φ,θ),
+  and antenna gains G_t·G_r
+  - Array Response Vector: UPA geometry derivation from first principles (phase
+  shift from wave vector · position vector), why UPA over ULA for 3D THz
+  beamforming
+  - Path Loss Model: Friis spreading loss (c/4πfd)² plus THz-specific molecular
+  absorption e^(-k_abs·d) via Beer-Lambert law; why 0.3 THz is chosen
+  (transmission window)
+
+  ---
+  Now, here is the deep explanation of Section III.
+
+  ---
+  Section III: PROBLEM FORMULATION AND SOLUTION APPROACH — PhD-Level Deep Dive
+
+  I will build this from the ground up: first the conceptual foundation, then
+  the mathematical formulation, then the optimization and algorithms.
+
+  ---
+  Part A: SINR Model and Problem Formulation
+
+  1. The Matrix Definitions — Setting the Stage
+
+  "Let H be the channel matrix, F be the digital beamforming matrix with size 
+  N_RF × U × K, and W be the analog beamformer with size N_t × N_RF."
+
+  Why two separate matrices?
+
+  This is the mathematical expression of hybrid beamforming. In a fully digital
+  system, you would have a single precoding matrix. In a hybrid system, the
+  precoding is factored into two stages:
+
+  Signal flow:
+  Data symbols s → [Digital Precoder F] → [RF Chains + DAC] → [Analog Precoder
+  W] → Antennas → Air
+
+  The digital precoder F:
+  - Size: N_RF × U (per subcarrier, hence × K total)
+  - Operates in baseband (complex-valued, unconstrained in magnitude/phase)
+  - One matrix per subcarrier k because digital processing happens before IDFT,
+  so it can be frequency-selective
+  - Maps U user data streams to N_RF RF chains
+
+  The analog precoder W:
+  - Size: N_t × N_RF
+  - Operates in RF domain using phase shifters
+  - Shared across all subcarriers — this is critical! Analog phase shifters
+  operate on the time-domain signal after the IDFT, so they cannot distinguish
+  between subcarriers
+  - Maps N_RF RF chain outputs to N_t antenna elements
+  - Each element has constant modulus: |W_{m,n}| = 1/√N_t (phase-only control)
+
+  Why F is 3-dimensional (N_RF × U × K):
+  - For each subcarrier k ∈ {1, ..., K}, there is a separate N_RF × U digital 
+  precoding matrix
+  - This allows the digital precoder to adapt to frequency-selective channels
+  - The analog precoder W cannot do this — it is a single matrix for all K
+  subcarriers
+
+  The combined precoder for user q on subcarrier k is:
+  W · F_q[k]    ∈  ℂ^(N_t × 1)
+  This is the effective beamforming vector that shapes the transmitted signal
+  for user q on subcarrier k.
+
+  ---
+  2. The Received Signal Model (Equation 4)
+
+  y[k] = S₀ H_q[k] W Fq[k] s_q[k] + Δ{q,k} + n[k]
+
+  This is the most important equation in the paper. Let me derive it from 
+  scratch.
+
+  Background: What Happens in an OFDM System Without ICI
+
+  In a perfect OFDM system, the received signal on subcarrier k for user q would
+   be:
+
+  y_ideal[k] = H_q[k] · W · F_q[k] · s_q[k]  +  Σ_{u≠q} H_q[k] · W · F_u[k] ·
+  s_u[k]  +  n[k]
+                 \_________________________/
+  \________________________________________/     \___/
+                   Desired signal                        Multi-user interference
+   (MUI)           Noise
+
+  The subcarriers are orthogonal — subcarrier k only sees channel H_q[k], and
+  there is no leakage from other subcarriers. The only interference is from
+  other users on the same subcarrier k.
+
+  What Carrier Frequency Offset (CFO) Does
+
+  In practice, the oscillators at BS and UE are never perfectly synchronized.
+  There is a small frequency mismatch Δf_CFO between them. This mismatch
+  destroys the orthogonality between subcarriers.
+
+  Physical mechanism:
+  - OFDM relies on subcarriers being spaced exactly Δf = B/K apart
+  - The DFT/IDFT assumes each subcarrier is at frequency f_k = k·Δf
+  - CFO shifts all subcarriers by Δf_CFO
+  - When the receiver performs the DFT to demodulate subcarrier k, it no longer
+  perfectly isolates subcarrier k
+  - Energy from subcarriers i ≠ k leaks into the k-th bin
+
+  Mathematical derivation of ICI coefficients:
+
+  The normalized CFO is defined as:
+  ε = Δf_CFO / Δf
+  where Δf is the subcarrier spacing. The ICI coefficient from subcarrier i to 
+  subcarrier k is:
+
+  S_{i-k} = sin(π(i - k + ε)) / (K · sin(π(i - k + ε)/K)) · e^{jπ(i-k+ε)(K-1)/K}
+
+  Key properties of S_{i-k}:
+  - S₀ (when i = k): This is the useful signal coefficient. For small ε, |S₀| ≈
+  1. For ε = 0 (no CFO), S₀ = 1 exactly.
+  - S_{i-k} (when i ≠ k): These are the ICI coefficients. For ε = 0, all S_{i-k}
+   = 0 (perfect orthogonality). For ε > 0, they are non-zero.
+  - |S₀|² + Σ_{m≠0} |S_m|² = 1 (total power is conserved)
+
+  The paper's ICI coefficient S in Table I (0.1 ≤ S ≤ 0.3) represents a
+  simplified/parametric model of these coefficients, where a single value
+  characterizes the severity of ICI.
+
+  Now Let's Dissect Equation 4 Term by Term
+
+  y[k] = S₀ · H_q[k] · W · F_q[k] · s_q[k]  +  Δ_{q,k}  +  n[k]
+
+  Term 1: S₀ · H_q[k] · W · F_q[k] · s_q[k] — The Desired Signal
+
+  - s_q[k] ∈ ℂ: The data symbol intended for user q on subcarrier k. Typically
+  drawn from a constellation (QAM/PSK).
+  - F_q[k] ∈ ℂ^(N_RF × 1): The digital precoding vector for user q on subcarrier
+   k. This is the q-th column of the digital precoding matrix F[k].
+  - W ∈ ℂ^(N_t × N_RF): The analog precoding matrix. Maps RF chain signals to
+  antennas.
+  - W · F_q[k] ∈ ℂ^(N_t × 1): The combined beamforming vector. This is the
+  actual spatial beam pattern directed toward user q.
+  - H_q[k] ∈ ℂ^(1 × N_t): The channel vector for user q on subcarrier k (row
+  vector, since user has single antenna).
+  - H_q[k] · W · F_q[k] ∈ ℂ: The effective scalar channel gain after
+  beamforming. This is the "end-to-end" channel from BS to user q.
+  - S₀: The ICI coefficient for the desired subcarrier (self-subcarrier).
+  Represents the attenuation of the desired signal due to CFO. |S₀| < 1 when CFO
+   exists, meaning some desired signal power is lost.
+
+  Term 2: Δ_{q,k} — The Total Interference
+
+  This is defined as:
+
+  Δ_{q,k} = Σ_{u=1, u≠q}^{U}  Σ_{i=0}^{K}  S_{i-k} · H_q[i] · W · F_u[i] ·
+  s_u[i]
+           + Σ_{i=0, i≠k}^{K}  S_{i-k} · H_q[i] · W · F_q[i] · s_q[i]
+
+  This interference term has two distinct components. Understanding them is
+  critical:
+
+  Component 1: Inter-User Interference (IUI) with ICI
+  Σ_{u=1, u≠q}^{U}  Σ_{i=0}^{K}  S_{i-k} · H_q[i] · W · F_u[i] · s_u[i]
+  - Outer sum: Over all other users u ≠ q
+  - Inner sum: Over all subcarriers i = 0 to K
+  - S_{i-k}: ICI coefficient from subcarrier i to subcarrier k
+  - H_q[i] · W · F_u[i]: The effective channel from BS's beam for user u on
+  subcarrier i, as seen by user q's channel on subcarrier i
+
+  This means: User q's reception on subcarrier k is corrupted by transmissions
+  intended for every other user u on every subcarrier i, weighted by the ICI
+  coefficient S_{i-k}.
+
+  Without ICI (ε = 0): S_{i-k} = 0 for i ≠ k, so only the i = k term survives,
+  and this reduces to conventional multi-user interference on the same
+  subcarrier.
+
+  Component 2: Self-User ICI (Inter-Carrier Interference from user q's own
+  signal)
+  Σ_{i=0, i≠k}^{K}  S_{i-k} · H_q[i] · W · F_q[i] · s_q[i]
+  - Sum over all subcarriers i ≠ k (excluding the desired subcarrier)
+  - This is user q's own signal on other subcarriers leaking into subcarrier k
+  - Even without other users, CFO would cause this self-interference
+
+  This is a subtle but important point: ICI creates interference from yourself.
+  Your own symbols on neighboring subcarriers contaminate your desired 
+  subcarrier.
+
+  Term 3: n[k] — Noise
+  - Additive White Gaussian Noise (AWGN)
+  - n[k] ~ 𝒞𝒩(0, σ²_n): Complex Gaussian with variance σ²_n
+  - Independent across subcarriers (whiteness property)
+
+  ---
+  3. The SINR Expression (Equation 5)
+
+                      |S₀|² · |H_q[k] · W · F_q[k]|²
+  SINR_{q,k} = ─────────────────────────────────────────
+                        |Δ_{q,k}|²  +  ψ
+
+  where ψ = Kσ²_n / P.
+
+  Let me explain every aspect:
+
+  Numerator: |S₀|² · |H_q[k] · W · F_q[k]|²
+  - This is the desired signal power
+  - |S₀|² < 1 when CFO exists → the desired signal is attenuated
+  - |H_q[k] · W · F_q[k]|² is the effective beamforming gain: how well the beam
+  is pointed at user q
+  - The goal of beamforming is to maximize this term for each user
+
+  Denominator: |Δ_{q,k}|² + ψ
+  - |Δ_{q,k}|²: Total interference power (IUI + ICI combined)
+  - ψ = Kσ²_n / P: Normalized noise power
+
+  Why ψ = Kσ²_n / P and not just σ²_n?
+
+  This comes from the power normalization. The total transmit power P is divided
+   among K subcarriers and U users. The per-subcarrier, per-user power is
+  P/(KU). When you normalize the SINR expression by dividing numerator and
+  denominator by P/K, the noise term becomes Kσ²_n/P. This is equivalent to 
+  1/SNR where SNR = P/(Kσ²_n).
+
+  Physical interpretation of SINR_{q,k}:
+  - High SINR → user q can reliably decode subcarrier k → high data rate
+  - Low SINR → user q cannot distinguish signal from interference+noise → low
+  data rate or errors
+  - SINR depends on both the beamforming design (W, F) and the channel
+  realization (H)
+
+  ---
+  4. Spectral Efficiency (Equations 6 and 7)
+
+  Per-user, per-subcarrier spectral efficiency:
+  γ_{q,k} = log₂(1 + SINR_{q,k})    [bits/s/Hz]
+
+  This is the Shannon capacity formula for a Gaussian channel. It represents the
+   maximum achievable rate on subcarrier k for user q.
+
+  Why log₂(1 + SINR)?
+  - Derived from Shannon's channel capacity theorem
+  - For a complex Gaussian channel with SNR = ρ, the capacity is log₂(1 + ρ) 
+  bits per channel use
+  - The "+1" accounts for the noise floor: even with zero signal (SINR = 0), the
+   rate is log₂(1) = 0
+
+  Total system spectral efficiency:
+  SE = Σ_{q=1}^{U}  Σ_{k=1}^{K}  γ_{q,k}    [bits/s/Hz]
+
+  - Sum over all U users and all K subcarriers
+  - This is the total throughput of the system normalized by bandwidth
+  - This is what we want to maximize by choosing W and F properly
+
+  The optimization problem (implicitly stated):
+  max_{W, F}    SE = Σ_{q=1}^{U} Σ_{k=1}^{K} log₂(1 + SINR_{q,k})
+
+  subject to:
+      |W_{m,n}| = 1/√N_t        (constant modulus for analog precoder)
+      ‖W · F_u[k]‖²_F = 1       (power constraint per user per subcarrier)
+
+  Why this problem is hard:
+  1. The objective function (sum of log₂(1+SINR)) is non-convex in W and F
+  jointly
+  2. The constant modulus constraint |W_{m,n}| = 1/√N_t makes the feasible set a
+   manifold, not a convex set
+  3. W appears in both numerator and denominator of SINR → fractional
+  programming
+  4. W is shared across all subcarriers but F is per-subcarrier → coupling
+  between subcarrier problems
+  5. The ICI terms create coupling between all subcarriers in the SINR
+  expression
+
+  ---
+  Part B: Low Complexity Hybrid Precoding Design
+
+  5. The Key Insight: Minimize Interference Instead of Maximize Rate
+
+  "To reduce the complexity and the optimization time of the system, the total
+  interference for each user in each sub-carrier is minimized instead of
+  maximizing the entire spectral efficiency R."
+
+  Why this is a valid approximation:
+
+  At high SINR:
+  log₂(1 + SINR) ≈ log₂(SINR) = log₂(Signal Power) − log₂(Interference + Noise)
+
+  Maximizing this is equivalent to maximizing signal power AND minimizing 
+  interference. Since the analog precoder primarily controls beam direction 
+  (which affects both signal and interference), and the digital precoder handles
+   user separation, minimizing total interference with respect to W is a
+  reasonable proxy.
+
+  At moderate/low SINR, this approximation is less tight, which explains the
+  small performance gap shown in Figure 2 of the paper.
+
+  6. The Interference Expression (Equation 8)
+
+  I_{q,k} = |Δ_{q,k}|²
+
+         = Σ_{u=1, u≠q}^{U}  Σ_{i=0}^{K}  |S_{i-k}|² · |H_q[i] · W · F_u[i]|²
+
+           + Σ_{i=0, i≠k}^{K}  |S_{i-k}|² · |H_q[i] · W · F_q[i]|²
+
+  How did |Δ_{q,k}|² expand to this form?
+
+  Starting from:
+  Δ_{q,k} = Σ_{u≠q} Σ_i S_{i-k} · H_q[i] · W · F_u[i] · s_u[i]  +  Σ_{i≠k}
+  S_{i-k} · H_q[i] · W · F_q[i] · s_q[i]
+
+  Taking |Δ_{q,k}|² = E[|Δ_{q,k}|²] (expected interference power):
+  - The symbols s_u[i] are independent across users and subcarriers
+  - E[|s_u[i]|²] = 1 (unit power symbols after normalization)
+  - Cross-terms vanish due to independence: E[s_u[i] · s*_v[j]] = 0 for (u,i) ≠
+  (v,j)
+
+  Therefore:
+  E[|Δ_{q,k}|²] = Σ_{u≠q} Σ_i |S_{i-k}|² · |H_q[i] · W · F_u[i]|² · E[|s_u[i]|²]
+                  + Σ_{i≠k} |S_{i-k}|² · |H_q[i] · W · F_q[i]|² · E[|s_q[i]|²]
+
+  Since E[|s|²] = 1, we get Equation 8.
+
+  Physical interpretation of each term in I_{q,k}:
+
+  - |S_{i-k}|²: How much power leaks from subcarrier i to subcarrier k (ICI
+  severity)
+  - |H_q[i] · W · F_u[i]|²: How much the beam for user u on subcarrier i
+  "illuminates" user q through the channel on subcarrier i
+
+  First sum (IUI+ICI): Other users' beams on all subcarriers leaking into user
+  q's subcarrier k
+  Second sum (Self-ICI): User q's own beams on other subcarriers leaking into
+  subcarrier k
+
+  ---
+  7. The Reformulated Optimization Problem (Equations 9–11)
+
+  min_W    Σ_{q=1}^{U}  Σ_{k=1}^{K}  I_{q,k}        ... (9)
+
+  subject to:
+      |(w_n)_m| = 1/√N_t,   1 ≤ n ≤ N_RF, 1 ≤ m ≤ N_t    ... (10)
+      ‖W · F_u[k]‖²_F = 1,  1 ≤ k ≤ K                     ... (11)
+
+  Constraint (10) — Constant Modulus:
+
+  Each element of W must have magnitude exactly 1/√N_t. This is because:
+  - Analog precoding is implemented with phase shifters
+  - Phase shifters can only change the phase, not the amplitude
+  - The 1/√N_t normalizes so that the total array power is correct
+  - Mathematically: W_{m,n} = (1/√N_t) · e^{jφ_{m,n}} for some phase φ_{m,n}
+
+  This constraint defines a complex circle manifold — each element lives on a
+  circle of radius 1/√N_t in the complex plane.
+
+  Constraint (11) — Power Normalization:
+
+  The combined precoder W·F_u[k] must have unit Frobenius norm. This ensures:
+  - Total transmit power per user per subcarrier is normalized to 1
+  - Combined with the power P in the SINR formula, this gives the correct
+  per-user power
+  - Prevents the optimizer from "cheating" by increasing power
+
+  Why this reformulation reduces complexity:
+
+  The original problem maximizes Σ log₂(1 + SINR_{q,k}), which:
+  - Has SINR as a ratio (fractional)
+  - The log makes the objective even more complex
+  - Gradient computation requires chain rule through log, fraction, and matrix
+  products
+
+  The new problem minimizes Σ I_{q,k}, which:
+  - Is a sum of squared magnitudes (quadratic-like structure)
+  - No log, no fraction
+  - Gradients are much simpler to compute
+  - The cost function is smoother and easier to optimize
+
+  ---
+  8. Digital Precoding: Zero-Forcing (Equations 12–13)
+
+  The Concept of Effective Channel
+
+  "The effective channel matrix, H_e for each sub-carrier k is computed as:
+  H_e[k]^H = H[k]^H · W"
+
+  H_e[k]^H = H[k]^H · W        ... (12)
+
+  where:
+  - H[k] ∈ ℂ^(U × N_t): The physical channel matrix (all U users, N_t antennas,
+  subcarrier k)
+  - W ∈ ℂ^(N_t × N_RF): The analog precoder
+  - H_e[k] ∈ ℂ^(U × N_RF): The effective channel seen by the digital precoder
+
+  Why "effective channel"?
+
+  The digital precoder F operates after the analog precoder W is fixed. From the
+   digital precoder's perspective:
+  - It only sees N_RF "virtual antennas" (the RF chain outputs)
+  - The actual channel H combined with the analog precoder W forms an equivalent
+   lower-dimensional channel H_e
+  - The digital precoder designs F based on H_e, not H
+
+  This is the key to the alternating optimization approach: fix W, design F for
+  the effective channel, then improve W.
+
+  Zero-Forcing Precoder
+
+  F_u[k] = (H_e[k] · H_e[k]^H)^{-1} · H_e[k]        ... (13)
+
+  What Zero-Forcing does:
+
+  ZF precoding eliminates multi-user interference completely (on the same
+  subcarrier). It designs F such that:
+  H_e[k]^H · F_u[k] = { 1  if output corresponds to user u
+                       { 0  if output corresponds to any other user
+
+  Derivation:
+
+  The received signal (ignoring ICI) for all users on subcarrier k:
+  y[k] = H_e[k]^H · F[k] · s[k] + n[k]
+
+  We want H_e[k]^H · F[k] = I_U (identity matrix). The solution is the
+  pseudo-inverse:
+  F[k] = H_e[k] · (H_e[k]^H · H_e[k])^{-1}     (right pseudo-inverse)
+
+  The paper writes it as (H_e · H_e^H)^{-1} · H_e, which is the left
+  pseudo-inverse form, applicable when H_e has dimensions such that this is the
+  Moore-Penrose pseudo-inverse.
+
+  When does ZF work well?
+  - When N_RF ≥ U (more RF chains than users) — necessary for the inverse to
+  exist
+  - When channels of different users are sufficiently different
+  (well-conditioned H_e)
+  - In massive MIMO: channels tend to be nearly orthogonal, so ZF works very
+  well
+
+  When does ZF fail?
+  - When channels are correlated (ill-conditioned H_e · H_e^H)
+  - ZF can amplify noise in this case (noise enhancement problem)
+  - Regularized ZF (MMSE) addresses this but adds complexity
+
+  Power Normalization
+
+  "F_u[k] = F_u[k] / ‖W · F_u[k]‖²_F"
+
+  After computing the ZF precoder, the combined precoder W·F_u[k] may not
+  satisfy the power constraint ‖W·F_u[k]‖²_F = 1. This normalization step scales
+   each user's precoder to satisfy constraint (11).
+
+  ---
+  9. Analog Precoding: Riemannian Manifold Optimization
+
+  This is the most mathematically sophisticated part of the paper.
+
+  Why Not Standard Gradient Descent?
+
+  The constant modulus constraint |W_{m,n}| = 1/√N_t means the feasible set is
+  not a convex set in Euclidean space. Standard gradient descent would:
+  1. Compute a gradient in unconstrained space
+  2. Take a step
+  3. The new point would violate |W_{m,n}| = 1/√N_t
+  4. You'd need to project back onto the constraint set
+
+  Instead, Riemannian optimization works directly on the constraint surface
+  (manifold), so every iterate automatically satisfies the constraints.
+
+  The Manifold (Equation 14)
+
+  M = { x ∈ ℂ^{N_t·U} : |x_i| = 1/√N_t,  i = 1, 2, ..., N_t·U }
+
+  where x = vec(W) (W reshaped into a vector).
+
+  What is this manifold geometrically?
+
+  Each element x_i lives on a circle of radius 1/√N_t in the complex plane. The 
+  full manifold M is a product of circles — a torus in high dimensions.
+  Formally:
+  M = S¹(1/√N_t) × S¹(1/√N_t) × ... × S¹(1/√N_t)    (N_t·N_RF times)
+
+  where S¹(r) is a circle of radius r.
+
+  This is a smooth manifold of dimension N_t·N_RF (one angular degree of freedom
+   per element, since the magnitude is fixed).
+
+  Tangent Space
+
+  The tangent space τ_x M at point x is the set of vectors tangent to M at x.
+  For a product-of-circles manifold, the tangent vector at x_i must be
+  perpendicular to x_i (in the complex plane):
+  τ_x M = { z ∈ ℂ^{N_t·U} : Re(z_i · x_i*) = 0,  ∀i }
+
+  Each tangent component z_i is perpendicular to x_i, meaning it represents a 
+  change in phase only (no change in magnitude).
+
+  Retraction (Equation 15)
+
+  R(x) = (1/√N_t) · vec[ x₁/|x₁|, x₂/|x₂|, ..., x_{N_t·U}/|x_{N_t·U}| ]
+
+  After taking a step in the tangent space (which may leave the manifold
+  slightly), the retraction maps the point back onto the manifold by:
+  1. Normalizing each element to have magnitude 1/√N_t
+  2. Preserving the phase of each element
+
+  This is the simplest and most computationally efficient retraction for a
+  product-of-circles manifold.
+
+  The Cost Function (Equation 16)
+
+  f(x) = R_sum = Σ_{q=1}^{U} Σ_{k=1}^{K} I_{q,k}
+
+  This is the total system interference — exactly what we want to minimize.
+
+  Algorithm 1: Conjugate Gradient on the Manifold
+
+  This is a Riemannian conjugate gradient (RCG) algorithm. Let me explain each
+  step:
+
+  Step 1: Input — F[k] for all k (fixed digital precoders), initial point x₀, 
+  step size α, threshold ε₁
+
+  Step 2: Initial direction
+  d₀ = T_{x₀}( df(x)/dx |_{x=x₀} )
+  - Compute the Euclidean gradient df/dx at x₀
+  - Project it onto the tangent space at x₀ using T_{x₀}(·)
+  - This gives the steepest descent direction on the manifold
+
+  Step 3: While loop — Continue until the cost function stops decreasing
+  (convergence)
+
+  Step 4: Update position — x_{t+1} = x_t + α·d_t (step in direction d_t)
+
+  Step 5: Retract — x_{t+1} = R(x_{t+1}) (map back onto manifold)
+
+  Step 6: Riemannian gradient — Compute gradient and project onto tangent space
+  at new point
+
+  Step 7: Polak-Ribière parameter β_{t+1}:
+  β_{t+1} = g^H_{t+1} · (g_{t+1} − T_{x_{t+1}}(g_t)) / ‖T_{x_{t+1}}(g_t)‖²_F
+  This is the Polak-Ribière formula adapted for manifolds. It determines how
+  much of the previous search direction to retain. The vector transport
+  T_{x_{t+1}}(g_t) moves the previous gradient g_t from the old tangent space to
+   the new tangent space (they are different spaces on a curved manifold).
+
+  Why conjugate gradient instead of steepest descent?
+  - Steepest descent has slow convergence (zig-zagging near the optimum)
+  - Conjugate gradient uses information from previous directions to avoid this
+  - Converges much faster for quadratic-like cost functions
+  - β controls the "memory" of previous directions
+
+  Step 8: Conjugate direction:
+  d_{t+1} = g_{t+1} + β_{t+1} · T_{x_{t+1}}(d_t)
+  The new search direction is the current gradient plus a fraction of the 
+  transported previous direction.
+
+  ---
+  10. Algorithm 2: The Full Hybrid Precoding Pipeline
+
+  This is an alternating optimization algorithm:
+
+  1. Initialize W randomly (uniform phase distribution)
+  2. Repeat:
+     a. Fix W → compute effective channel H_e = H^H · W
+     b. Compute ZF digital precoder F using H_e
+     c. Fix F → optimize analog precoder W using Algorithm 1 (manifold
+  optimization)
+     d. Compute total interference R_sum
+  3. Until R_sum converges (change < ε)
+
+  Why alternating optimization works:
+  - Joint optimization over (W, F) is extremely difficult
+  - Fixing one and optimizing the other is much easier
+  - Each sub-problem has good structure: ZF has a closed-form solution; manifold
+   optimization is well-behaved
+  - Alternating optimization converges to a local optimum (not necessarily
+  global, but good in practice)
+
+  Convergence guarantee:
+  - Each step (digital or analog) reduces or maintains the cost
+  - R_sum is bounded below by 0
+  - A monotonically decreasing bounded sequence converges
+  - The algorithm is guaranteed to converge to a stationary point
+
+  ---
+  11. Computational Complexity Comparison
+
+  Conventional approach: Optimize the full SE = Σ log₂(1 + SINR_{q,k})
+  - Gradient of log₂(1 + SINR) involves: chain rule through log, quotient rule
+  for SINR (ratio), and matrix calculus
+  - Each gradient evaluation requires computing SINR for all users and
+  subcarriers
+  - The log and fraction create a highly nonlinear landscape
+
+  Proposed approach: Minimize Σ I_{q,k}
+  - Gradient of I_{q,k} is a quadratic form in W
+  - Much simpler computation: derivatives of |H·W·F|² are straightforward matrix
+   products
+  - No log, no fraction → smoother optimization landscape
+  - Result from Table II: 13× speedup (986.9 vs 74.0 seconds)
+
+  The tradeoff (visible in Figure 2): The proposed method achieves slightly
+  lower spectral efficiency than the conventional method, because minimizing
+  interference is not exactly equivalent to maximizing rate. But the gap is
+  small, making the 13× speedup worthwhile.
+
+  ---
+  Summary Table of Section III
+  Component: Received signal
+  Equation: y[k] = S₀·H_q·W·F_q·s_q + Δ + n
+  Purpose: Models desired signal + all interference + noise
+  ────────────────────────────────────────
+  Component: Interference Δ_{q,k}
+  Equation: Two double sums with S_{i-k}
+  Purpose: IUI + ICI combined (the paper's novelty)
+  ────────────────────────────────────────
+  Component: SINR
+  Equation: Signal power / (Interference + Noise)
+  Purpose: Quality metric per user per subcarrier
+  ────────────────────────────────────────
+  Component: Spectral efficiency
+  Equation: SE = ΣΣ log₂(1 + SINR)
+  Purpose: What we ultimately want to maximize
+  ────────────────────────────────────────
+  Component: Reformulated problem
+  Equation: min Σ I_{q,k}
+  Purpose: Simpler proxy: minimize interference
+  ────────────────────────────────────────
+  Component: Digital precoder (ZF)
+  Equation: F = (H_e·H_e^H)^{-1}·H_e
+  Purpose: Eliminates multi-user interference on same subcarrier
+  ────────────────────────────────────────
+  Component: Analog precoder (MO)
+  Equation: Conjugate gradient on manifold
+  Purpose: Finds optimal phases under constant-modulus constraint
+  ────────────────────────────────────────
+  Component: Hybrid algorithm
+  Equation: Alternating W↔F optimization
+  Purpose: Iterates until convergence
+  The paper's core contribution is extending the ICI-aware hybrid beamforming
+  framework from single-user (prior work [3],[4]) to multi-user, which
+  introduces the IUI+ICI coupling in Δ_{q,k}, and providing a computationally
+  efficient reformulation that avoids optimizing through the log-SINR
+  expression.
+
+✻ Crunched for 3m 3s
