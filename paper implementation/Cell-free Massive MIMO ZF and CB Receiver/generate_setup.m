@@ -92,15 +92,20 @@ function PL_dB = three_slope_pathloss(d, p)
     % Enforce minimum distance to avoid singularity
     d = max(d, 1);  % At least 1 m
 
+    % Convert distances to km (Hata-COST231 model uses km in log terms)
+    d_km  = d / 1000;
+    d0_km = p.d0 / 1000;
+    d1_km = p.d1 / 1000;
+
     % Three-slope path loss [dB] (negative value = attenuation)
     if d <= p.d0
         % Region 1: Very close (flat + free-space-like)
-        PL_dB = -L - 15*log10(p.d1) - 20*log10(p.d0);
+        PL_dB = -L - 15*log10(d1_km) - 20*log10(d0_km);
     elseif d <= p.d1
         % Region 2: Near field (slope = -20 dB/decade)
-        PL_dB = -L - 15*log10(p.d1) - 20*log10(d);
+        PL_dB = -L - 15*log10(d1_km) - 20*log10(d_km);
     else
         % Region 3: Far field (slope = -35 dB/decade)
-        PL_dB = -L - 35*log10(d);
+        PL_dB = -L - 35*log10(d_km);
     end
 end

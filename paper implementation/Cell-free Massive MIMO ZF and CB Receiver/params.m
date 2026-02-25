@@ -16,14 +16,20 @@ function p = params()
 
     % --- Coherence interval ---
     p.T   = 200;                % Coherence interval length [samples]
-    p.tau = 10;                 % Pilot sequence length [samples]
+    p.tau = p.K / 2;            % Pilot sequence length (Table 1: tau = K/2)
     p.prelog = 1 - p.tau/p.T;   % Pre-log factor for spectral efficiency
 
-    % --- Transmit powers (Section IV) ---
-    % Paper: rho_p = rho_u = 200 mW, noise power = -96 dBm (BW = 20 MHz)
-    p.pilot_power_mW = 200;     % Pilot transmit power [mW]
-    p.data_power_mW  = 200;     % Uplink data transmit power [mW]
-    p.noise_dBm      = -96;     % Noise power [dBm] (BW = 20 MHz)
+    % --- Transmit powers (Table 1) ---
+    % Paper: rho_p = rho_u = 100 mW
+    p.pilot_power_mW = 100;     % Pilot transmit power [mW]
+    p.data_power_mW  = 100;     % Uplink data transmit power [mW]
+
+    % --- Noise power (Table 1): N0 = kT * B * NF ---
+    p.noise_figure_dB = 9;      % Noise figure [dB]
+    p.bandwidth_MHz   = 20;     % System bandwidth [MHz]
+    kT_dBm_per_Hz = -174;       % Thermal noise floor [dBm/Hz] at T=290K
+    p.noise_dBm = kT_dBm_per_Hz + 10*log10(p.bandwidth_MHz * 1e6) ...
+                  + p.noise_figure_dB;   % ≈ -92 dBm
 
     % Normalized SNR = transmit_power / noise_power (linear scale)
     noise_mW  = 10^(p.noise_dBm / 10);       % Noise in mW
@@ -39,11 +45,9 @@ function p = params()
     p.sigma_sf = 8;             % Shadow fading std dev [dB]
     p.freq_GHz = 1.9;           % Carrier frequency [GHz]
 
-    % Noise figure
-    p.noise_figure_dB = 9;      % Noise figure [dB]
-    p.bandwidth_MHz   = 20;     % System bandwidth [MHz]
-
     % --- Monte Carlo ---
+%     p.num_setups       = 100;   % Number of random network realizations
+%     p.num_channel_real = 300;   % Channel realizations per setup
     p.num_setups       = 100;   % Number of random network realizations
     p.num_channel_real = 300;   % Channel realizations per setup
 
