@@ -407,7 +407,7 @@
 
   Key property: After Step (d), the residual satisfies:
 
-  $$\boldsymbol{\Phi}_\Lambda^H,\mathbf{r}^k = \mathbf{0}$$
+  Φ_Λᴴ · rᵏ = 0
 
   The residual is orthogonal to the span of all selected columns. This
   guarantees:
@@ -422,18 +422,17 @@
   Restricted Isometry Property (RIP): A matrix Φ satisfies the RIP of order K
   with constant δ_K ∈ (0,1) if for all K-sparse vectors x:
 
-  $$(1-\delta_K)|\mathbf{x}|_2^2 \leq |\boldsymbol{\Phi},\mathbf{x}|_2^2 \leq
-  (1+\delta_K)|\mathbf{x}|_2^2$$
+  (1 − δ_K) · ‖x‖₂² ≤ ‖Φ · x‖₂² ≤ (1 + δ_K) · ‖x‖₂²
 
   OMP exact recovery condition (Davenport & Wakin, 2010): OMP recovers any
   K-sparse signal if:
 
-  $$\delta_{K+1} < \frac{1}{3\sqrt{K}}$$
+  δ_{K+1} < 1 / (3√K)
 
   Tropp & Gilbert (2007): With Gaussian random Φ of size M × N, OMP succeeds
   with high probability when:
 
-  $$M = \mathcal{O}(K \ln N)$$
+  M = 𝒪(K ln N)
 
   This is information-theoretically near-optimal.
 
@@ -509,8 +508,7 @@
 
   (d) LEAST SQUARES: Solve using only column 3:
 
-  $$x_3 = \frac{\boldsymbol{\phi}_3^H,\mathbf{y}}{\boldsymbol{\phi}_3^H,\boldsym
-  bol{\phi}_3} = \frac{2.97}{0.99} = 3.0$$
+  x₃ = (φ₃ᴴ · y) / (φ₃ᴴ · φ₃) = 2.97 / 0.99 = 3.0
 
   (e) UPDATE RESIDUAL:
 
@@ -535,8 +533,7 @@
 
   (d) LEAST SQUARES: Solve using columns 3 and 5:
 
-  $$\mathbf{x}\Lambda = (\boldsymbol{\Phi}\Lambda^H,\boldsymbol{\Phi}\Lambda)^{-
-  1},\boldsymbol{\Phi}\Lambda^H,\mathbf{y}$$
+  x_Λ = (Φ_Λᴴ · Φ_Λ)⁻¹ · Φ_Λᴴ · y
 
   This yields: x₃ = 3.0, x₅ = -2.0 (exact recovery!)
 
@@ -544,7 +541,7 @@
 
   Result: OMP recovered the exact sparse signal in K = 2 iterations:
 
-  $$\hat{\mathbf{x}} = [0, 0, 3, 0, -2, 0]^T = \mathbf{x}_{true} ; ✓$$
+  x̂ = [0, 0, 3, 0, −2, 0]ᵀ = x_true  ✓
 
   ---
   PART E: OMP FOR HYBRID BEAMFORMING (The El Ayach et al. Algorithm)
@@ -557,21 +554,18 @@
 
   The transmit dictionary contains steering vectors at finely quantized angles:
 
-  $$\mathbf{A}_t = [\mathbf{a}_t(\tilde{\phi}_1), \mathbf{a}_t(\tilde{\phi}_2),
-  \ldots, \mathbf{a}t(\tilde{\phi}{N_G})] \in \mathbb{C}^{N_t \times N_G}$$
+  Aₜ = [aₜ(φ̃₁), aₜ(φ̃₂), ..., aₜ(φ̃_N_G)] ∈ ℂ^(Nₜ × N_G)
 
   For a ULA with half-wavelength spacing, the quantized angles are:
 
-  $$\tilde{\phi}_q = -\frac{\pi}{2} + \frac{(q-1)\pi}{N_G}, \quad q = 1, 2,
-  \ldots, N_G$$
+  φ̃_q = −π/2 + (q−1)π/N_G,   q = 1, 2, ..., N_G
 
   Dictionary size: Typically N_G = G·N_t where G is the oversampling factor (G =
    4 to 10). For N_t = 64, this means N_G = 256 to 640.
 
   Similarly, the receive dictionary:
 
-  $$\mathbf{A}_r = [\mathbf{a}_r(\tilde{\phi}_1), \mathbf{a}_r(\tilde{\phi}_2),
-  \ldots, \mathbf{a}r(\tilde{\phi}{N_G})] \in \mathbb{C}^{N_r \times N_G}$$
+  Aᵣ = [aᵣ(φ̃₁), aᵣ(φ̃₂), ..., aᵣ(φ̃_N_G)] ∈ ℂ^(Nᵣ × N_G)
 
   E.2 The OMP-Based Hybrid Precoder Design Algorithm
 
@@ -628,8 +622,7 @@
 
   The criterion:
 
-  $$k = \arg\max_\ell ;|\boldsymbol{\Psi}(\ell,:)|2^2 = \arg\max\ell
-  \sum_{s=1}^{N_s} |\mathbf{a}t(\tilde{\phi}\ell)^H,\mathbf{f}_{res,s}|^2$$
+  k = arg max_ℓ  ‖Ψ(ℓ,:)‖₂² = arg max_ℓ  Σₛ₌₁^Nₛ |aₜ(φ̃_ℓ)ᴴ · f_res,s|²
 
   picks the steering vector whose total projection energy across all N_s streams
    is maximum. This is the standard approach for Simultaneous OMP (SOMP) also
@@ -723,9 +716,7 @@
 
   The channel is built as:
 
-  $$\mathbf{H} = \sqrt{\frac{8 \times 4}{2 \times 2}}
-  \sum_{i=1}^{2}\sum_{\ell=1}^{2}
-  \alpha_{i\ell};\mathbf{a}r(\phi{i\ell}^r);\mathbf{a}t^H(\phi{i\ell}^t)$$
+  H = √(8×4 / (2×2)) · Σᵢ₌₁² Σₗ₌₁² αᵢₗ · aᵣ(φᵢₗʳ) · aₜᴴ(φᵢₗᵗ)
 
   The normalization factor is √(32/4) = √8 ≈ 2.83.
 
@@ -733,17 +724,13 @@
 
   Compute H = U Σ V^H, take the first N_s = 2 right singular vectors:
 
-  $$\mathbf{F}_{opt} = [\mathbf{v}_1, \mathbf{v}_2] \in \mathbb{C}^{8 \times
-  2}$$
+  F_opt = [v₁, v₂] ∈ ℂ^(8 × 2)
 
   Step 3: Build the Dictionary
 
   16 steering vectors for a ULA with 8 elements:
 
-  $$\mathbf{a}_t(\tilde{\phi}_q) = \frac{1}{\sqrt{8}}\begin{bmatrix}1 \
-  e^{j\pi\sin(\tilde{\phi}_q)} \ e^{j2\pi\sin(\tilde{\phi}_q)} \ \vdots \
-  e^{j7\pi\sin(\tilde{\phi}_q)}\end{bmatrix}, \quad \tilde{\phi}_q = -90° +
-  (q-1)\cdot\frac{180°}{16}$$
+  aₜ(φ̃_q) = (1/√8) · [1,  e^(jπsin(φ̃_q)),  e^(j2πsin(φ̃_q)),  ...,  e^(j7πsin(φ̃_q))]ᵀ,   φ̃_q = −90° + (q−1)·180°/16
 
   The 16 quantized angles: -90°, -78.75°, -67.5°, ..., 0°, ..., +78.75°.
 
