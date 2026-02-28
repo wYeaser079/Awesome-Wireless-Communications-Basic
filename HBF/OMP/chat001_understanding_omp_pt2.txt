@@ -1,0 +1,2745 @@
+
+╭─── Claude Code v2.1.56 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│   F:\Codes\Awesome-Wireless-Communications-Basic   │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ I want you to help me understand OMP techniques for hybrid beamforming.   
+  You will respond in chunks.                                               
+  In the first chunk, you will explain me about OMP for SU.                 
+  When, I will write "next", you will response next chunk which will        
+  discuss about the extendend version of OMP for multiuser scenario.        
+  In the 3rd chunk, you will write me the code implementation of OMP in     
+  MATLAB and detailed explaination of each line of the code.                
+  Your response should be very very very detailed and shouldn't miss        
+  anything.                                                                 
+  Your response will first explain in easy terms to have a better           
+  understanding first.                                                      
+  Then, you will do deep dive in the topic. You will explain using          
+  mathematical equations and using numerical examples. Your mathematical    
+  equations and numerical example should mainatain conventional sign like   
+  power, sum sign etc. and should look like it is from book.                
+  Do deep research on the web, on different journals, 6G blog site, IEEE    
+  sites, related online books for your response.                            
+  Always double check and verify your response. Don't give me any           
+  misinformation.                                                           
+
+● Let me do deep research on OMP for hybrid beamforming first.
+
+● 3 Task agents finished (ctrl+o to expand)
+   ├─ Research OMP hybrid beamforming SU · 52 tool uses · 56.3k tokens
+   │  ⎿  Done
+   ├─ Research OMP sparse recovery basics · 36 tool uses · 37.2k tokens
+   │  ⎿  Done
+   └─ Research hybrid beamforming architecture · 45 tool uses · 52.3k tokens
+      ⎿  Done
+
+● Now let me also check the memory files for any relevant context.
+
+● Recalled 1 memory (ctrl+o to expand)
+
+● Good. Now let me write a comprehensive Chunk 1 response. This will be very
+  detailed.
+
+  ---
+  CHUNK 1: OMP (Orthogonal Matching Pursuit) for Single-User Hybrid Beamforming
+
+  ---
+  PART A: THE EASY EXPLANATION (Building Intuition First)
+
+  What problem are we trying to solve?
+
+  Imagine you have a massive antenna array at a 5G base station — say 64 or 256
+  antennas operating at millimeter-wave (mmWave) frequencies (28 GHz, 60 GHz).
+  In a perfect world, you would attach one RF chain (a complete radio circuit:
+  DAC, mixer, amplifier, filter) to every single antenna. This is called fully 
+  digital beamforming, and it gives you maximum control — you can adjust both
+  the amplitude and phase of the signal at every antenna independently.
+
+  The problem: Each RF chain at mmWave costs a lot, consumes massive power, and
+  takes up physical space. With 64 antennas, you'd need 64 RF chains. That's
+  impractical.
+
+  The solution: Use only a few RF chains (say 4 or 8) and connect them to all 64
+   antennas using cheap phase shifters. Phase shifters can only rotate the
+  signal's phase (they can't change amplitude). This two-stage structure —
+  digital processing on a few RF chains, followed by analog phase shifting to
+  all antennas — is hybrid beamforming.
+
+  So where does OMP come in?
+
+  The big question is: how do you choose the phase shifter settings (analog 
+  part) and the digital weights? You want the hybrid system to perform as close
+  as possible to the fully digital system.
+
+  Here's the beautiful insight from the landmark paper by El Ayach, Rajagopal, 
+  Abu-Surra, Pi, and Heath (2014):
+
+  1. At mmWave, signals don't bounce around much. There are only a few dominant 
+  paths (clusters of scatterers) between transmitter and receiver. The channel
+  is spatially sparse — it has energy in only a few angular directions.
+  2. The optimal fully digital precoder (which you'd use if hardware wasn't a
+  constraint) concentrates energy in those few directions. So the optimal
+  precoder is sparse in the "dictionary" of all possible beam directions.
+  3. Finding the best few beam directions from a large set is exactly a sparse 
+  signal recovery problem — the same kind of problem that appears in compressed
+  sensing!
+  4. OMP (Orthogonal Matching Pursuit) is a fast, greedy algorithm from
+  compressed sensing that finds sparse solutions. It picks the best beam
+  direction one at a time, and at each step, it optimally adjusts all previously
+   picked directions.
+
+  In plain English: OMP is like a talent scout picking players for a team. At
+  each round, it scans all available players (beam directions), picks the one
+  that helps the most, then re-optimizes the entire team's strategy (digital
+  weights) before picking the next player.
+
+  Why "Orthogonal" Matching Pursuit?
+
+  The word "orthogonal" is crucial. A simpler version called Matching Pursuit 
+  (MP) would just pick a beam, subtract its contribution, and move on — never
+  looking back. OMP does something smarter: after picking a new beam, it
+  re-solves the entire least-squares problem over all selected beams. This
+  guarantees that the remaining "residual" (what's left to approximate) is
+  orthogonal to all chosen beams. This means:
+  - No beam is ever picked twice (zero correlation with residual)
+  - The approximation at each step is the best possible for that number of beams
+  - Convergence is much faster than plain MP
+
+  ---
+  PART B: DEEP DIVE — System Model and Channel Model
+
+  B.1 Hybrid Beamforming Architecture (Fully-Connected)
+
+  Consider a single-user point-to-point mmWave MIMO system:
+
+  ┌───────────────────┬────────┬────────────────────────────────────────┐
+  │     Parameter     │ Symbol │              Description               │
+  ├───────────────────┼────────┼────────────────────────────────────────┤
+  │ Transmit antennas │ N_t    │ Large array (e.g., 64, 128, 256)       │
+  ├───────────────────┼────────┼────────────────────────────────────────┤
+  │ Receive antennas  │ N_r    │ Smaller array (e.g., 16, 32, 64)       │
+  ├───────────────────┼────────┼────────────────────────────────────────┤
+  │ TX RF chains      │ N_RF^t │ Few chains (e.g., 4, 6, 8)             │
+  ├───────────────────┼────────┼────────────────────────────────────────┤
+  │ RX RF chains      │ N_RF^r │ Few chains (e.g., 4, 6, 8)             │
+  ├───────────────────┼────────┼────────────────────────────────────────┤
+  │ Data streams      │ N_s    │ Number of spatial multiplexing streams │
+  └───────────────────┴────────┴────────────────────────────────────────┘
+
+  Fundamental constraint on RF chains:
+
+  Nₛ ≤ N_RF^t ≤ Nₜ,      Nₛ ≤ N_RF^r ≤ Nᵣ
+
+  In the fully-connected architecture, every RF chain connects to every antenna
+  through a phase shifter. The number of phase shifters is N_t x N_RF^t at the
+  transmitter.
+
+  B.2 Signal Model
+
+  The transmitted signal vector is:
+
+  x = F_RF · F_BB · s
+
+  where:
+  - s ∈ ℂ^(N_s × 1) is the data symbol vector with E[ss^H] = (1/N_s)I_{N_s}
+  - F_BB ∈ ℂ^(N_RF^t × N_s) is the digital baseband precoder
+  - F_RF ∈ ℂ^(N_t × N_RF^t) is the analog RF precoder
+
+  The constant modulus constraint on the analog precoder (because phase shifters
+   can only change phase, not amplitude):
+
+  |[F_RF]ᵢ,ⱼ| = 1/√Nₜ,  ∀ i, j
+
+  Each entry can be written as:
+
+  [F_RF]ᵢ,ⱼ = (1/√Nₜ) · e^(jφᵢⱼ)
+
+  Total power constraint:
+
+  ‖F_RF · F_BB‖²_F = Nₛ
+
+  The received signal before combining:
+
+  r = √ρ · H · F_RF · F_BB · s + n
+
+  where:
+  - ρ is the average received power (SNR scaling factor)
+  - H ∈ ℂ^(N_r × N_t) is the channel matrix
+  - n ~ CN(0, σ_n² I_{N_r}) is AWGN noise
+
+  After hybrid combining at the receiver:
+
+  y = W_BB^H · W_RF^H · (√ρ · H · F_RF · F_BB · s + n)
+
+  where:
+  - W_RF ∈ ℂ^(N_r × N_RF^r) is the analog RF combiner (constant modulus)
+  - W_BB ∈ ℂ^(N_RF^r × N_s) is the digital baseband combiner
+
+  B.3 The Clustered Saleh-Valenzuela Channel Model
+
+  The mmWave channel is modeled using the extended Saleh-Valenzuela geometric 
+  channel model, which captures the clustered sparse scattering nature of mmWave
+   propagation:
+
+  H = √(Nₜ·Nᵣ / (N_cl·N_ray)) · Σᵢ₌₁^N_cl Σₗ₌₁^N_ray αᵢₗ · aᵣ(φᵢₗʳ, θᵢₗʳ) · aₜᴴ(φᵢₗᵗ, θᵢₗᵗ)
+
+  where:
+  - N_cl = number of scattering clusters (typically 3–8 for mmWave)
+  - N_ray = number of rays (sub-paths) per cluster (typically 5–10)
+  - α_{iℓ} ~ CN(0, σ²_{α,i}) = complex gain of the ℓ-th ray in the i-th cluster
+  - (φ^t_{iℓ}, θ^t_{iℓ}) = azimuth and elevation angles of departure (AoD)
+  - (φ^r_{iℓ}, θ^r_{iℓ}) = azimuth and elevation angles of arrival (AoA)
+  - a_t(·) and a_r(·) = transmit and receive array steering (response) vectors
+  - The prefactor √(N_t N_r / (N_cl N_ray)) normalizes so that E[‖H‖²_F] = N_t
+  N_r
+
+  Angular distribution: Rays within a cluster have angles distributed around the
+   cluster mean according to a Laplacian distribution:
+
+  p(θ) = (1 / (√2 · σ_θ)) · exp(−√2·|θ| / σ_θ)
+
+  with angular spread σ_θ ≈ 7.5° (typical for mmWave measurements from NYU and
+  Samsung).
+
+  Compact matrix notation:
+
+  H = √(Nₜ·Nᵣ / (N_cl·N_ray)) · Aᵣ · diag(α) · Aₜᴴ
+
+  where:
+  - A_t = [a_t(φ¹₁, θ¹₁), ..., a_t(φ^t_{N_cl,N_ray}, θ^t_{N_cl,N_ray})] ∈ ℂ^(N_t
+   × N_cl·N_ray)
+  - A_r = [a_r(φ¹₁, θ¹₁), ..., a_r(φ^r_{N_cl,N_ray}, θ^r_{N_cl,N_ray})] ∈ ℂ^(N_r
+   × N_cl·N_ray)
+  - α = [α_{1,1}, α_{1,2}, ..., α_{N_cl,N_ray}]^T
+
+  B.4 Array Steering Vectors
+
+  Uniform Linear Array (ULA) with N elements and inter-element spacing d
+  (typically d = λ/2):
+
+  a_ULA(φ) = (1/√N) · [1,  e^(j·2πd/λ·sin(φ)),  e^(j·2·2πd/λ·sin(φ)),  ...,  e^(j(N−1)·2πd/λ·sin(φ))]ᵀ
+
+  For half-wavelength spacing (d = λ/2), this simplifies to:
+
+  a_ULA(φ) = (1/√N) · [1,  e^(jπsin(φ)),  e^(j2πsin(φ)),  ...,  e^(j(N−1)πsin(φ))]ᵀ
+
+  Key observation: Every entry has magnitude 1/√N — steering vectors inherently 
+  satisfy the constant modulus constraint! This is why they are the natural
+  building blocks for the analog precoder.
+
+  Uniform Planar Array (UPA) with W columns × H rows (N = W·H total elements):
+
+  a_UPA(φ, θ) = a_az(φ, θ) ⊗ a_el(θ)
+
+  where ⊗ is the Kronecker product, and:
+
+  a_az(φ, θ) = (1/√W) · [1,  e^(jkd·sin(φ)sin(θ)),  ...,  e^(j(W−1)kd·sin(φ)sin(θ))]ᵀ
+
+  a_el(θ) = (1/√H) · [1,  e^(jkd·cos(θ)),  ...,  e^(j(H−1)kd·cos(θ))]ᵀ
+
+  where k = 2π/λ is the wave number.
+
+  B.5 Spectral Efficiency
+
+  The achievable spectral efficiency (bits/s/Hz) of the hybrid system is:
+
+  R = log₂ det(I_Nₛ + (ρ/Nₛ) · Rₙ⁻¹ · W_BB^H · W_RF^H · H · F_RF · F_BB · F_BB^H · F_RF^H · H^H · W_RF · W_BB)
+
+  where the effective noise covariance after combining is:
+
+  Rₙ = σₙ² · W_BB^H · W_RF^H · W_RF · W_BB
+
+  Upper bound (fully digital beamforming with waterfilling):
+
+  R_opt = Σᵢ₌₁^Nₛ log₂(1 + (ρ/Nₛ) · σᵢ²)
+
+  where σ_1 ≥ σ_2 ≥ ... ≥ σ_{N_s} are the N_s largest singular values of H.
+
+  ---
+  PART C: THE OPTIMIZATION PROBLEM
+
+  C.1 The Ideal (Intractable) Problem
+
+  Directly maximizing R over {F_RF, F_BB, W_RF, W_BB} is intractable because:
+  1. The constant modulus constraint on F_RF, W_RF defines a non-convex manifold
+  2. There is bilinear coupling between the analog and digital components
+  3. The joint optimization over transmitter and receiver is coupled through the
+   channel
+
+  C.2 The Surrogate Frobenius Norm Minimization
+
+  El Ayach et al. (2014) showed that at moderate-to-high SNR, maximizing R is
+  well-approximated by minimizing the Euclidean distance between the hybrid
+  precoder and the optimal unconstrained precoder:
+
+  Step 1: Compute the optimal unconstrained precoder from the SVD of the
+  channel:
+
+  H = U · Σ · V^H
+
+  F_opt = [v₁, v₂, ..., v_Nₛ] = V(:, 1:Nₛ)
+
+  (the first N_s right singular vectors, corresponding to the N_s largest
+  singular values)
+
+  Step 2: Solve the surrogate problem:
+
+  min_{F_RF, F_BB}  ‖F_opt − F_RF · F_BB‖_F
+
+  subject to   F_RF ∈ ℱ_RF,   ‖F_RF · F_BB‖²_F = Nₛ
+
+  where 𝓕_RF is the set of matrices with constant-modulus entries.
+
+  C.3 Recasting as a Sparse Approximation Problem
+
+  This is the central insight of the paper. Define a dictionary matrix of
+  candidate steering vectors:
+
+  Aₜ = [aₜ(φ̃₁), aₜ(φ̃₂), ..., aₜ(φ̃_N_G)] ∈ ℂ^(Nₜ × N_G)
+
+  where {φ̃₁, φ̃₂, ..., φ̃_{N_G}} is a fine grid of N_G quantized angles (with N_G
+  >> N_RF).
+
+  Since each column of F_RF should be a steering vector (to satisfy constant
+  modulus), we can write:
+
+  F_RF = Aₜ(:, 𝒮)
+
+  where 𝒮 ⊂ {1, 2, ..., N_G} with |𝒮| = N_RF^t is the set of selected column
+  indices.
+
+  Substituting into the optimization:
+
+  min_{F̃_BB}  ‖F_opt − Aₜ · F̃_BB‖_F
+
+  subject to   ‖F̃_BB‖_{row-0} ≤ N_RF^t
+
+  where:
+  - F̃_BB ∈ ℂ^(N_G × N_s) is an auxiliary matrix
+  - ‖F̃_BB‖_{row-0} counts the number of non-zero rows (row-sparsity)
+  - Only N_RF^t rows of F̃_BB can be non-zero (because we select N_RF^t steering
+  vectors)
+
+  This is a simultaneous sparse approximation (joint sparsity / MMV) problem!
+  The N_s columns of F_opt share the same sparse support (the same beam
+  directions serve all data streams).
+
+  ┌───────────────────────────┬────────────────────────────────────┐
+  │    Compressed Sensing     │         Hybrid Beamforming         │
+  ├───────────────────────────┼────────────────────────────────────┤
+  │ Dictionary matrix Φ       │ Steering vector dictionary A_t     │
+  ├───────────────────────────┼────────────────────────────────────┤
+  │ Sparse signal x           │ Row-sparse coefficient matrix F̃_BB │
+  ├───────────────────────────┼────────────────────────────────────┤
+  │ Observation y             │ Optimal precoder F_opt             │
+  ├───────────────────────────┼────────────────────────────────────┤
+  │ Sparsity level K          │ Number of RF chains N_RF           │
+  ├───────────────────────────┼────────────────────────────────────┤
+  │ Support set Λ             │ Selected beam direction indices 𝒮  │
+  ├───────────────────────────┼────────────────────────────────────┤
+  │ Non-zero coefficients x_Λ │ Baseband precoder F_BB             │
+  └───────────────────────────┴────────────────────────────────────┘
+
+  ---
+  PART D: OMP FUNDAMENTALS (FROM COMPRESSED SENSING)
+
+  Before presenting the hybrid beamforming OMP, let me explain the standard OMP 
+  algorithm for sparse recovery.
+
+  D.1 The Generic Sparse Recovery Problem
+
+  Given an underdetermined system:
+
+  y = Φ · x + n
+
+  where y ∈ ℂ^M, Φ ∈ ℂ^(M×N) with M << N, and x ∈ ℂ^N is K-sparse (at most K
+  non-zero entries, K << N).
+
+  Goal: recover x from y and Φ.
+
+  The ℓ₀ minimization:
+
+  min_x  ‖x‖₀   subject to   ‖y − Φ · x‖₂ ≤ ε
+
+  is NP-hard. OMP provides a greedy polynomial-time approximation.
+
+  D.2 The Standard OMP Algorithm
+
+  ╔══════════════════════════════════════════════════════════════╗
+  ║           ALGORITHM: Orthogonal Matching Pursuit            ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║                                                              ║
+  ║  INPUT:  Φ ∈ ℂ^(M×N),  y ∈ ℂ^M,  sparsity K               ║
+  ║  OUTPUT: K-sparse approximation x̂                           ║
+  ║                                                              ║
+  ║  1. INITIALIZE:                                              ║
+  ║     • r⁰ = y               (initial residual)               ║
+  ║     • Λ⁰ = ∅               (empty support set)              ║
+  ║     • k = 0                (iteration counter)               ║
+  ║                                                              ║
+  ║  2. REPEAT for k = 1, 2, ..., K:                            ║
+  ║                                                              ║
+  ║     (a) MATCH (Correlation):                                 ║
+  ║         Compute h_j = |⟨r^(k-1), φ_j⟩|  for j = 1,...,N    ║
+  ║                                                              ║
+  ║     (b) IDENTIFY (Atom Selection):                           ║
+  ║         λ^k = arg max_j |⟨r^(k-1), φ_j⟩|                   ║
+  ║                                                              ║
+  ║     (c) UPDATE SUPPORT:                                      ║
+  ║         Λ^k = Λ^(k-1) ∪ {λ^k}                              ║
+  ║                                                              ║
+  ║     (d) LEAST SQUARES (Orthogonal Projection):               ║
+  ║         x_Λ^k = (Φ_Λ^H Φ_Λ)^(-1) Φ_Λ^H y                 ║
+  ║                                                              ║
+  ║     (e) UPDATE RESIDUAL:                                     ║
+  ║         r^k = y - Φ_Λ x_Λ^k                                ║
+  ║                                                              ║
+  ║  3. RETURN: x̂ with entries x_Λ^K at indices Λ^K             ║
+  ╚══════════════════════════════════════════════════════════════╝
+
+  Key property: After Step (d), the residual satisfies:
+
+  $$\boldsymbol{\Phi}_\Lambda^H,\mathbf{r}^k = \mathbf{0}$$
+
+  The residual is orthogonal to the span of all selected columns. This
+  guarantees:
+  - No re-selection: Previously selected atoms have zero correlation with the
+  residual
+  - Monotonic decrease: ‖r^k‖₂ strictly decreases at each iteration
+  - Best k-term approximation: Among the selected atoms, the coefficients are
+  optimal (least-squares)
+
+  D.3 Convergence Guarantees
+
+  Restricted Isometry Property (RIP): A matrix Φ satisfies the RIP of order K
+  with constant δ_K ∈ (0,1) if for all K-sparse vectors x:
+
+  $$(1-\delta_K)|\mathbf{x}|_2^2 \leq |\boldsymbol{\Phi},\mathbf{x}|_2^2 \leq
+  (1+\delta_K)|\mathbf{x}|_2^2$$
+
+  OMP exact recovery condition (Davenport & Wakin, 2010): OMP recovers any
+  K-sparse signal if:
+
+  $$\delta_{K+1} < \frac{1}{3\sqrt{K}}$$
+
+  Tropp & Gilbert (2007): With Gaussian random Φ of size M × N, OMP succeeds
+  with high probability when:
+
+  $$M = \mathcal{O}(K \ln N)$$
+
+  This is information-theoretically near-optimal.
+
+  D.4 OMP vs. Matching Pursuit (MP) — Why "Orthogonal" Matters
+
+  ┌─────────────────────┬───────────────────────┬───────────────────────────┐
+  │       Aspect        │          MP           │            OMP            │
+  ├─────────────────────┼───────────────────────┼───────────────────────────┤
+  │ Coefficient update  │ Only new atom's       │ All coefficients          │
+  │                     │ coefficient           │ re-computed via LS        │
+  ├─────────────────────┼───────────────────────┼───────────────────────────┤
+  │ Residual            │ Orthogonal to latest  │ Orthogonal to all         │
+  │ orthogonality       │ atom only             │ selected atoms            │
+  ├─────────────────────┼───────────────────────┼───────────────────────────┤
+  │ Atom re-selection   │ Same atom can be      │ Never re-selects          │
+  │                     │ picked again          │ (guaranteed)              │
+  ├─────────────────────┼───────────────────────┼───────────────────────────┤
+  │ Convergence for     │ May need >> K         │ Exactly K iterations      │
+  │ K-sparse            │ iterations            │                           │
+  ├─────────────────────┼───────────────────────┼───────────────────────────┤
+  │ Per-iteration cost  │ O(MN)                 │ O(MN + Mk²)               │
+  └─────────────────────┴───────────────────────┴───────────────────────────┘
+
+  D.5 Simple Numerical Example of Standard OMP
+
+  Setup: M = 4 measurements, N = 6 unknowns, K = 2.
+
+  True sparse signal:
+  x_true = [0, 0, 3, 0, -2, 0]^T
+
+  Dictionary (measurement matrix) Φ (4×6):
+          col1   col2   col3   col4   col5   col6
+  Φ =  [ 0.5    0.3   -0.1    0.7    0.4    0.2 ]
+       [ 0.5   -0.4    0.8   -0.1    0.3   -0.5 ]
+       [-0.5    0.6    0.5    0.4   -0.7    0.3 ]
+       [ 0.5    0.6    0.3    0.5    0.5    0.8 ]
+
+  Observation (noiseless):
+  y = Φ · x_true = 3·φ₃ + (-2)·φ₅
+
+    = 3[-0.1, 0.8, 0.5, 0.3]^T + (-2)[0.4, 0.3, -0.7, 0.5]^T
+
+    = [-0.3, 2.4, 1.5, 0.9]^T + [-0.8, -0.6, 1.4, -1.0]^T
+
+    = [-1.1, 1.8, 2.9, -0.1]^T
+
+  ---
+  ITERATION 1:
+
+  (a) MATCH: Compute correlations h_j = ⟨r⁰, φ_j⟩ with r⁰ = y:
+
+  h₁ = 0.5(-1.1) + 0.5(1.8) + (-0.5)(2.9) + 0.5(-0.1)
+     = -0.55 + 0.90 - 1.45 - 0.05 = -1.15
+
+  h₂ = 0.3(-1.1) + (-0.4)(1.8) + 0.6(2.9) + 0.6(-0.1)
+     = -0.33 - 0.72 + 1.74 - 0.06 = 0.63
+
+  h₃ = (-0.1)(-1.1) + 0.8(1.8) + 0.5(2.9) + 0.3(-0.1)
+     = 0.11 + 1.44 + 1.45 - 0.03 = 2.97     ← LARGEST |h|
+
+  h₄ = 0.7(-1.1) + (-0.1)(1.8) + 0.4(2.9) + 0.5(-0.1)
+     = -0.77 - 0.18 + 1.16 - 0.05 = 0.16
+
+  h₅ = 0.4(-1.1) + 0.3(1.8) + (-0.7)(2.9) + 0.5(-0.1)
+     = -0.44 + 0.54 - 2.03 - 0.05 = -1.98
+
+  h₆ = 0.2(-1.1) + (-0.5)(1.8) + 0.3(2.9) + 0.8(-0.1)
+     = -0.22 - 0.90 + 0.87 - 0.08 = -0.33
+
+  (b) IDENTIFY: max |h_j| = |h₃| = 2.97 → Select column 3
+
+  (c) UPDATE SUPPORT: Λ¹ = {3}
+
+  (d) LEAST SQUARES: Solve using only column 3:
+
+  $$x_3 = \frac{\boldsymbol{\phi}_3^H,\mathbf{y}}{\boldsymbol{\phi}_3^H,\boldsym
+  bol{\phi}_3} = \frac{2.97}{0.99} = 3.0$$
+
+  (e) UPDATE RESIDUAL:
+
+  r¹ = y - φ₃ · 3.0 = [-1.1, 1.8, 2.9, -0.1]^T - [-0.3, 2.4, 1.5, 0.9]^T
+     = [-0.8, -0.6, 1.4, -1.0]^T
+
+  ---
+  ITERATION 2:
+
+  (a) MATCH: Compute correlations with r¹:
+
+  h₁ = -1.9,  h₂ = 0.24,  h₃ = 0.0 (orthogonal!),  h₄ = -0.44
+  h₅ = -1.98  ← LARGEST |h|
+  h₆ = -0.24
+
+  Notice h₃ = 0 — the residual is orthogonal to the previously selected column!
+  This is the hallmark of OMP.
+
+  (b) IDENTIFY: max |h_j| = |h₅| = 1.98 → Select column 5
+
+  (c) UPDATE SUPPORT: Λ² = {3, 5}
+
+  (d) LEAST SQUARES: Solve using columns 3 and 5:
+
+  $$\mathbf{x}\Lambda = (\boldsymbol{\Phi}\Lambda^H,\boldsymbol{\Phi}\Lambda)^{-
+  1},\boldsymbol{\Phi}\Lambda^H,\mathbf{y}$$
+
+  This yields: x₃ = 3.0, x₅ = -2.0 (exact recovery!)
+
+  (e) RESIDUAL: r² = y - Φ_Λ x_Λ = 0 (zero residual)
+
+  Result: OMP recovered the exact sparse signal in K = 2 iterations:
+
+  $$\hat{\mathbf{x}} = [0, 0, 3, 0, -2, 0]^T = \mathbf{x}_{true} ; ✓$$
+
+  ---
+  PART E: OMP FOR HYBRID BEAMFORMING (The El Ayach et al. Algorithm)
+
+  Now we apply OMP to the hybrid beamforming sparse approximation problem. The
+  key difference from standard OMP: we recover a row-sparse matrix (not a sparse
+   vector), because there are N_s data streams to handle simultaneously.
+
+  E.1 Dictionary Construction
+
+  The transmit dictionary contains steering vectors at finely quantized angles:
+
+  $$\mathbf{A}_t = [\mathbf{a}_t(\tilde{\phi}_1), \mathbf{a}_t(\tilde{\phi}_2),
+  \ldots, \mathbf{a}t(\tilde{\phi}{N_G})] \in \mathbb{C}^{N_t \times N_G}$$
+
+  For a ULA with half-wavelength spacing, the quantized angles are:
+
+  $$\tilde{\phi}_q = -\frac{\pi}{2} + \frac{(q-1)\pi}{N_G}, \quad q = 1, 2,
+  \ldots, N_G$$
+
+  Dictionary size: Typically N_G = G·N_t where G is the oversampling factor (G =
+   4 to 10). For N_t = 64, this means N_G = 256 to 640.
+
+  Similarly, the receive dictionary:
+
+  $$\mathbf{A}_r = [\mathbf{a}_r(\tilde{\phi}_1), \mathbf{a}_r(\tilde{\phi}_2),
+  \ldots, \mathbf{a}r(\tilde{\phi}{N_G})] \in \mathbb{C}^{N_r \times N_G}$$
+
+  E.2 The OMP-Based Hybrid Precoder Design Algorithm
+
+  ╔═══════════════════════════════════════════════════════════════════╗
+  ║   ALGORITHM 1: Spatially Sparse Precoding via OMP                ║
+  ║   (El Ayach, Rajagopal, Abu-Surra, Pi, Heath — IEEE TWC 2014)   ║
+  ╠═══════════════════════════════════════════════════════════════════╣
+  ║                                                                   ║
+  ║  INPUT:                                                           ║
+  ║    F_opt ∈ ℂ^(Nt × Ns)   — optimal unconstrained precoder       ║
+  ║    A_t ∈ ℂ^(Nt × N_G)    — dictionary of TX steering vectors    ║
+  ║    N_RF^t                  — number of TX RF chains               ║
+  ║                                                                   ║
+  ║  OUTPUT:                                                          ║
+  ║    F_RF ∈ ℂ^(Nt × N_RF^t) — analog RF precoder                 ║
+  ║    F_BB ∈ ℂ^(N_RF^t × Ns) — digital baseband precoder          ║
+  ║                                                                   ║
+  ║  1. INITIALIZE:                                                   ║
+  ║     F_RF = [ ]   (empty matrix)                                   ║
+  ║     F_res = F_opt   (residual matrix = target precoder)           ║
+  ║                                                                   ║
+  ║  2. FOR i = 1, 2, ..., N_RF^t:                                   ║
+  ║                                                                   ║
+  ║     (a) COMPUTE PROJECTION:                                       ║
+  ║         Ψ = A_t^H · F_res         ∈ ℂ^(N_G × Ns)               ║
+  ║                                                                   ║
+  ║     (b) SELECT BEST ATOM:                                         ║
+  ║         k = arg max_ℓ  [Ψ Ψ^H]_{ℓ,ℓ}                           ║
+  ║           = arg max_ℓ  ‖Ψ(ℓ,:)‖₂²                              ║
+  ║         (Steering vector with max total energy across             ║
+  ║          all Ns streams simultaneously)                           ║
+  ║                                                                   ║
+  ║     (c) AUGMENT ANALOG PRECODER:                                  ║
+  ║         F_RF = [F_RF | A_t(:,k)]                                 ║
+  ║                                                                   ║
+  ║     (d) COMPUTE DIGITAL PRECODER (Least Squares):                 ║
+  ║         F_BB = (F_RF^H F_RF)^(-1) F_RF^H F_opt                  ║
+  ║                                                                   ║
+  ║     (e) UPDATE RESIDUAL:                                          ║
+  ║         F_res = (F_opt - F_RF F_BB) / ‖F_opt - F_RF F_BB‖_F    ║
+  ║                                                                   ║
+  ║  3. NORMALIZE (power constraint):                                 ║
+  ║     F_BB = √(Ns) · F_BB / ‖F_RF F_BB‖_F                        ║
+  ║                                                                   ║
+  ║  4. RETURN: F_RF, F_BB                                            ║
+  ╚═══════════════════════════════════════════════════════════════════╝
+
+  E.3 Why the Selection Criterion Uses ‖Ψ(ℓ,:)‖²₂
+
+  In standard OMP (single vector recovery), we pick the atom with largest |⟨r,
+  φ_j⟩|. Here, we have N_s residual columns (one per data stream). The atom
+  selection must consider all streams jointly to enforce shared support (same
+  beam directions for all streams).
+
+  The criterion:
+
+  $$k = \arg\max_\ell ;|\boldsymbol{\Psi}(\ell,:)|2^2 = \arg\max\ell
+  \sum_{s=1}^{N_s} |\mathbf{a}t(\tilde{\phi}\ell)^H,\mathbf{f}_{res,s}|^2$$
+
+  picks the steering vector whose total projection energy across all N_s streams
+   is maximum. This is the standard approach for Simultaneous OMP (SOMP) also
+  known as MMV-OMP (Multiple Measurement Vector OMP).
+
+  E.4 The OMP-Based Hybrid Combiner Design Algorithm
+
+  The combiner design follows a similar procedure but targets the MMSE combiner
+  and uses a weighted projection to account for signal statistics:
+
+  ╔═══════════════════════════════════════════════════════════════════╗
+  ║   ALGORITHM 2: Spatially Sparse Combining via OMP                ║
+  ╠═══════════════════════════════════════════════════════════════════╣
+  ║                                                                   ║
+  ║  INPUT:                                                           ║
+  ║    H, F_RF, F_BB, A_r, N_RF^r, SNR = ρ/σ²_n                    ║
+  ║                                                                   ║
+  ║  OUTPUT:                                                          ║
+  ║    W_RF ∈ ℂ^(Nr × N_RF^r),  W_BB ∈ ℂ^(N_RF^r × Ns)            ║
+  ║                                                                   ║
+  ║  1. COMPUTE COVARIANCE:                                           ║
+  ║     R_x = (SNR/Ns) H F_RF F_BB F_BB^H F_RF^H H^H + I_{Nr}     ║
+  ║                                                                   ║
+  ║  2. COMPUTE MMSE TARGET:                                          ║
+  ║     W_MMSE (unconstrained Wiener filter)                          ║
+  ║                                                                   ║
+  ║  3. INITIALIZE:                                                   ║
+  ║     W_RF = [ ],   W_res = W_MMSE                                 ║
+  ║                                                                   ║
+  ║  4. FOR i = 1, ..., N_RF^r:                                      ║
+  ║                                                                   ║
+  ║     (a) Ψ = A_r^H · R_x · W_res    (weighted correlation)       ║
+  ║                                                                   ║
+  ║     (b) k = arg max_ℓ [Ψ Ψ^H]_{ℓ,ℓ}                           ║
+  ║                                                                   ║
+  ║     (c) W_RF = [W_RF | A_r(:,k)]                                ║
+  ║                                                                   ║
+  ║     (d) W_BB = (W_RF^H R_x W_RF)^(-1) W_RF^H R_x W_MMSE       ║
+  ║         (weighted least squares)                                  ║
+  ║                                                                   ║
+  ║     (e) W_res = (W_MMSE - W_RF W_BB) / ‖W_MMSE - W_RF W_BB‖_F  ║
+  ║                                                                   ║
+  ║  5. RETURN: W_RF, W_BB                                            ║
+  ╚═══════════════════════════════════════════════════════════════════╝
+
+  Key difference: The projection and LS steps are weighted by R_x (the received
+  signal covariance) to account for signal-plus-noise statistics.
+
+  ---
+  PART F: NUMERICAL EXAMPLE FOR HYBRID BEAMFORMING OMP
+
+  Let me walk through a small-scale numerical example.
+
+  Setup
+
+  ┌───────────┬─────────────────────────────────────────────────┐
+  │ Parameter │                      Value                      │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_t       │ 8 (transmit antennas, ULA)                      │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_r       │ 4 (receive antennas, ULA)                       │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_s       │ 2 (data streams)                                │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_RF^t    │ 3 (TX RF chains)                                │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_cl      │ 2 (clusters)                                    │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_ray     │ 2 (rays per cluster)                            │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ d         │ λ/2                                             │
+  ├───────────┼─────────────────────────────────────────────────┤
+  │ N_G       │ 16 (dictionary size, oversampling factor G = 2) │
+  └───────────┴─────────────────────────────────────────────────┘
+
+  Step 1: Generate the Channel
+
+  With 2 clusters × 2 rays = 4 total paths:
+
+  ┌────────────┬───────────────┬─────────┬─────────┐
+  │ Path (i,ℓ) │    α_{iℓ}     │ AoD φ^t │ AoA φ^r │
+  ├────────────┼───────────────┼─────────┼─────────┤
+  │ (1,1)      │ 0.8 e^{j·0.3} │ 30°     │ -20°    │
+  ├────────────┼───────────────┼─────────┼─────────┤
+  │ (1,2)      │ 0.5 e^{j·1.1} │ 35°     │ -15°    │
+  ├────────────┼───────────────┼─────────┼─────────┤
+  │ (2,1)      │ 0.7 e^{j·2.0} │ -45°    │ 60°     │
+  ├────────────┼───────────────┼─────────┼─────────┤
+  │ (2,2)      │ 0.4 e^{j·0.7} │ -40°    │ 55°     │
+  └────────────┴───────────────┴─────────┴─────────┘
+
+  The channel is built as:
+
+  $$\mathbf{H} = \sqrt{\frac{8 \times 4}{2 \times 2}}
+  \sum_{i=1}^{2}\sum_{\ell=1}^{2}
+  \alpha_{i\ell};\mathbf{a}r(\phi{i\ell}^r);\mathbf{a}t^H(\phi{i\ell}^t)$$
+
+  The normalization factor is √(32/4) = √8 ≈ 2.83.
+
+  Step 2: Compute Optimal Precoder via SVD
+
+  Compute H = U Σ V^H, take the first N_s = 2 right singular vectors:
+
+  $$\mathbf{F}_{opt} = [\mathbf{v}_1, \mathbf{v}_2] \in \mathbb{C}^{8 \times
+  2}$$
+
+  Step 3: Build the Dictionary
+
+  16 steering vectors for a ULA with 8 elements:
+
+  $$\mathbf{a}_t(\tilde{\phi}_q) = \frac{1}{\sqrt{8}}\begin{bmatrix}1 \
+  e^{j\pi\sin(\tilde{\phi}_q)} \ e^{j2\pi\sin(\tilde{\phi}_q)} \ \vdots \
+  e^{j7\pi\sin(\tilde{\phi}_q)}\end{bmatrix}, \quad \tilde{\phi}_q = -90° +
+  (q-1)\cdot\frac{180°}{16}$$
+
+  The 16 quantized angles: -90°, -78.75°, -67.5°, ..., 0°, ..., +78.75°.
+
+  Step 4: Run OMP (3 iterations for 3 RF chains)
+
+  Iteration 1:
+  - Compute Ψ = A_t^H F_opt (16 × 2 matrix)
+  - For each row ℓ: compute ‖Ψ(ℓ,:)‖²₂ = |Ψ_{ℓ,1}|² + |Ψ_{ℓ,2}|²
+  - The maximum occurs at the dictionary index closest to one of the dominant
+  AoDs (likely near 30° or -45°)
+  - Suppose index k₁ corresponds to angle ≈ 30° (near the first cluster's AoD)
+  - Set F_RF = [a_t(30°)] (8 × 1 matrix)
+  - Compute F_BB = (F_RF^H F_RF)^(-1) F_RF^H F_opt (1 × 2 matrix)
+  - Update residual: F_res = normalized(F_opt - F_RF F_BB)
+
+  Iteration 2:
+  - Compute Ψ = A_t^H F_res (16 × 2)
+  - The maximum now occurs near the second cluster's AoD (≈ -45°)
+  - Set F_RF = [a_t(30°), a_t(-45°)] (8 × 2)
+  - Recompute F_BB = (F_RF^H F_RF)^(-1) F_RF^H F_opt (2 × 2)
+  - Notice: the least squares re-optimizes both columns simultaneously!
+  - Update residual
+
+  Iteration 3:
+  - Compute Ψ = A_t^H F_res (16 × 2)
+  - Selects a third direction (possibly near 35° or -40°, the secondary rays)
+  - F_RF becomes 8 × 3, F_BB becomes 3 × 2
+  - Final normalization: F_BB = √(N_s) · F_BB / ‖F_RF F_BB‖_F
+
+  Step 5: Performance
+
+  The spectral efficiency of the hybrid system approaches that of the fully
+  digital system. For a typical scenario with N_RF = 3 ≥ 2·N_s = 4 (close to the
+   2N_s rule), the gap is typically < 1 dB.
+
+  ---
+  PART G: PERFORMANCE ANALYSIS
+
+  G.1 Key Results from the Literature
+
+  Result 1 (El Ayach et al. 2014): With N_RF^t = N_RF^r = N_s (minimum RF
+  chains), OMP hybrid beamforming achieves spectral efficiency within 1–2 dB of
+  the fully digital bound at moderate-to-high SNR.
+
+  Result 2: With N_RF ≥ 2·N_s (twice the number of data streams), the
+  performance gap essentially vanishes, and hybrid beamforming achieves
+  near-identical performance to fully digital.
+
+  Result 3 (Scaling behavior): As N_t increases (more antennas), the channel
+  becomes increasingly sparse in the angular domain, and the OMP approximation
+  becomes tighter. This is because the beamwidth narrows (∝ 1/N_t), and the
+  dictionary provides finer angular resolution.
+
+  G.2 Complexity
+
+  ┌──────────────────────┬─────────────────────────────────────────────┐
+  │      Operation       │                 Complexity                  │
+  ├──────────────────────┼─────────────────────────────────────────────┤
+  │ SVD of H             │ O(N_t · N_r · min(N_t, N_r))                │
+  ├──────────────────────┼─────────────────────────────────────────────┤
+  │ OMP correlation step │ O(N_G · N_t · N_s) per iteration            │
+  ├──────────────────────┼─────────────────────────────────────────────┤
+  │ OMP least squares    │ O(N_t · k² · N_s) at iteration k            │
+  ├──────────────────────┼─────────────────────────────────────────────┤
+  │ Total OMP            │ O(N_RF · N_G · N_t · N_s)                   │
+  ├──────────────────────┼─────────────────────────────────────────────┤
+  │ Exhaustive search    │ O(C(N_G, N_RF)) — combinatorially explosive │
+  └──────────────────────┴─────────────────────────────────────────────┘
+
+  OMP reduces the beam search from a combinatorial explosion to linear in N_RF.
+
+  G.3 Limitations
+
+  1. Dictionary resolution: Performance depends on how well the grid angles
+  match the true AoDs. A coarser grid introduces quantization loss. Increasing
+  N_G helps but increases computation.
+  2. Greedy suboptimality: OMP is greedy — it doesn't guarantee the global
+  optimum. In rare cases, the first beam selection can "lock in" a suboptimal
+  direction.
+  3. Phase quantization: Practical phase shifters have finite resolution (e.g.,
+  3–4 bits). The selected steering vectors must be quantized, introducing
+  additional loss.
+  4. Narrowband assumption: The basic algorithm assumes a narrowband
+  (flat-fading) channel. Wideband (OFDM) extensions exist but require additional
+   modifications (e.g., Alkhateeb et al., 2016).
+
+  G.4 Typical Simulation Parameters
+
+  ┌─────────────────────────┬────────┬────────────────────────┐
+  │        Parameter        │ Symbol │     Typical Values     │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ Carrier frequency       │ f_c    │ 28 GHz, 60 GHz, 73 GHz │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ TX antennas             │ N_t    │ 64, 128, 256           │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ RX antennas             │ N_r    │ 16, 32, 64             │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ TX RF chains            │ N_RF^t │ 4, 6, 8                │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ Data streams            │ N_s    │ 1, 2, 3, 4             │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ Clusters                │ N_cl   │ 3–8                    │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ Rays/cluster            │ N_ray  │ 5–10                   │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ Angular spread          │ σ_θ    │ 7.5° (Laplacian)       │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ Dictionary oversampling │ G      │ 4–10                   │
+  ├─────────────────────────┼────────┼────────────────────────┤
+  │ SNR range               │ ρ/σ²_n │ -30 dB to 0 dB         │
+  └─────────────────────────┴────────┴────────────────────────┘
+
+  ---
+  PART H: KEY REFERENCES
+
+  1. El Ayach, O., Rajagopal, S., Abu-Surra, S., Pi, Z., and Heath, R. W., Jr.
+  (2014). "Spatially Sparse Precoding in Millimeter Wave MIMO Systems," IEEE 
+  Trans. Wireless Commun., vol. 13, no. 3, pp. 1499–1513. — The foundational 
+  paper.
+  2. Pati, Y. C., Rezaiifar, R., and Krishnaprasad, P. S. (1993). "Orthogonal
+  Matching Pursuit: Recursive Function Approximation with Applications to
+  Wavelet Decomposition," 27th Asilomar Conf. — Original OMP algorithm.
+  3. Tropp, J. A. and Gilbert, A. C. (2007). "Signal Recovery from Random
+  Measurements via Orthogonal Matching Pursuit," IEEE Trans. Info. Theory, vol.
+  53, no. 12, pp. 4655–4666. — OMP recovery guarantees.
+  4. Heath, R. W., Jr., et al. (2016). "An Overview of Signal Processing
+  Techniques for Millimeter Wave MIMO Systems," IEEE JSTSP, vol. 10, no. 3, pp.
+  436–453. — Comprehensive survey.
+  5. Alkhateeb, A., El Ayach, O., Leus, G., and Heath, R. W., Jr. (2014).
+  "Channel Estimation and Hybrid Precoding for Millimeter Wave Cellular
+  Systems," IEEE JSTSP, vol. 8, no. 5, pp. 831–846. — Channel estimation under 
+  hybrid constraints.
+  6. Saleh, A. A. M. and Valenzuela, R. A. (1987). "A Statistical Model for
+  Indoor Multipath Propagation," IEEE JSAC, vol. 5, no. 2, pp. 128–137. —
+  Original channel model.
+  7. Molisch, A. F., et al. (2017). "Hybrid Beamforming for Massive MIMO — A
+  Survey," IEEE Commun. Mag., vol. 55, no. 9, pp. 134–141.
+
+  ---
+  End of Chunk 1. Type "next" for Chunk 2: Extended OMP for Multi-User (MU)
+  Hybrid Beamforming.
+
+✻ Cooked for 14m 51s
+
+❯ next.                                                                     
+  Don't write mathematical equation in latex form. Write it so that I can   
+  understand it in the chat or it look like it is written in book in the    
+  chat. Latex coding doesn't get converted in the chat.                     
+
+● Let me do deep research on OMP for multi-user hybrid beamforming first.
+
+● 3 Task agents finished (ctrl+o to expand)
+   ├─ Research MU OMP hybrid beamforming · 81 tool uses · 65.3k tokens
+   │  ⎿  Done
+   ├─ Research MU-MIMO digital precoding · 51 tool uses · 53.1k tokens
+   │  ⎿  Done
+   └─ Research advanced MU OMP variants · 47 tool uses · 52.4k tokens
+      ⎿  Done
+
+● CHUNK 2: Extended OMP for Multi-User (MU) Hybrid Beamforming
+
+  ---
+  PART A: THE EASY EXPLANATION (Building Intuition First)
+
+  What changes when we go from one user to many users?
+
+  In Chunk 1, we had a single user. The base station (BS) designed its analog
+  beams (via OMP) and digital weights to maximize that one user's data rate.
+  Life was simple — all beams served one user, no interference to worry about.
+
+  Now imagine the BS needs to serve K users simultaneously — say 4 smartphones,
+  each in a different location around the cell. This introduces a massive new
+  challenge: multi-user interference (MUI). The signal intended for User 1 also
+  arrives at User 2, User 3, and User 4 as interference.
+
+  The "shared hardware" problem
+
+  Here is the crux of the multi-user challenge:
+
+  The analog precoder F_RF is a single piece of hardware. It is implemented with
+   physical phase shifters soldered onto a circuit board. You cannot have one
+  F_RF for User 1 and a different F_RF for User 2. Every user is served through
+  the same set of analog beams.
+
+  Think of it like a spotlight rig at a concert. You have, say, 4 spotlights (=
+  4 RF chains) that must illuminate 4 performers on a stage. Each spotlight can
+  only point in one direction at a time. You need to decide: which 4 directions
+  should the spotlights point to best serve all 4 performers?
+
+  In single-user mode, all 4 spotlights could point at one performer — maximum
+  brightness. In multi-user mode, you typically point one spotlight per
+  performer. But what if two performers are standing very close together?
+  Pointing a spotlight at one will spill light onto the other — that's
+  interference.
+
+  The two-stage design philosophy
+
+  Since jointly optimizing the analog and digital parts for multiple users is
+  extremely hard (non-convex, coupled, high-dimensional), the community adopted
+  an elegant two-stage decoupled approach:
+
+  Stage 1 — Analog Precoder (F_RF): Use OMP (or its multi-user extension) to
+  select the best beam directions from a dictionary of steering vectors. This
+  stage provides coarse spatial filtering — pointing beams toward the users and
+  capturing array gain.
+
+  Stage 2 — Digital Precoder (F_BB): Once F_RF is fixed, compute the effective 
+  channel (the channel as seen through the analog beams). This is a much smaller
+   matrix. Then apply standard multi-user digital techniques — Zero-Forcing 
+  (ZF), MMSE, or Block Diagonalization (BD) — on this small effective channel to
+   cancel inter-user interference.
+
+  The beauty: Stage 1 handles the "which directions to beam" problem. Stage 2
+  handles the "how to eliminate interference between users" problem. Each stage
+  does what it's best at.
+
+  How does OMP extend to multiple users?
+
+  There are two main approaches:
+
+  Approach 1: Per-User OMP — Each user independently runs OMP on its own channel
+   to find its preferred beam directions. The BS then aggregates all users'
+  preferred beams into a single shared F_RF. Simple, distributed, low feedback
+  overhead. But users may pick conflicting (overlapping) beams.
+
+  Approach 2: Joint OMP — The BS has full channel knowledge of all users. It
+  constructs a "joint target precoder" for all users combined, then runs OMP
+  once on this joint target. The beam selection at each iteration considers all 
+  users simultaneously, picking whichever beam helps the collective the most.
+  Better performance, but requires full CSI at the BS.
+
+  After either approach, the digital precoder is computed on the
+  reduced-dimension effective channel using ZF, MMSE, or BD.
+
+  ---
+  PART B: DEEP DIVE — Multi-User System Model
+
+  B.1 Multi-User Downlink System Model
+
+  Consider a mmWave MU-MIMO downlink:
+
+   Base Station (BS)                              Users
+   ┌─────────────────┐
+   │  N_t antennas    │          H_1           ┌──── User 1: N_r,1 antennas
+   │  N_RF RF chains  │ ────────────────────── │
+   │                  │          H_2           ├──── User 2: N_r,2 antennas
+   │  Serves K users  │ ────────────────────── │
+   │  simultaneously  │          ...           ├──── ...
+   │                  │          H_K           │
+   │                  │ ────────────────────── └──── User K: N_r,K antennas
+   └─────────────────┘
+
+  Parameters:
+  - N_t = number of BS transmit antennas (large, e.g., 64–256)
+  - N_RF = number of BS RF chains (small, e.g., 4–16)
+  - K = number of users
+  - N_r,k = number of receive antennas at user k
+  - N_s,k = number of data streams for user k
+  - Total streams: N_s = N_s,1 + N_s,2 + ... + N_s,K
+
+  Constraint: N_s <= N_RF <= N_t
+
+  B.2 Transmitted Signal
+
+  The BS transmits:
+
+  x = F_RF * F_BB * s
+
+    = F_RF * [f_BB,1 | f_BB,2 | ... | f_BB,K] * [s_1; s_2; ...; s_K]
+
+  where:
+  - F_RF is in C^(N_t x N_RF) — the shared analog precoder (constant modulus)
+  - F_BB = [f_BB,1, f_BB,2, ..., f_BB,K] is in C^(N_RF x N_s) — the composite
+  digital precoder
+  - f_BB,k is in C^(N_RF x N_s,k) — the digital precoder for user k
+  - s_k is in C^(N_s,k x 1) — data symbols for user k
+
+  Critical: F_RF is one matrix shared by all K users. Only F_BB has per-user
+  columns.
+
+  B.3 Received Signal at User k
+
+  The signal received at user k (before combining):
+
+  r_k = sqrt(rho) * H_k * F_RF * F_BB * s + n_k
+
+  Expanding per user:
+
+  r_k = sqrt(rho) * H_k * F_RF * f_BB,k * s_k       ← desired signal
+      + sqrt(rho) * SUM(j=1..K, j!=k) H_k * F_RF * f_BB,j * s_j   ← MUI
+      + n_k                                            ← noise
+
+  This is the fundamental difference from single-user: the multi-user 
+  interference (MUI) term. User k sees signals intended for all other users as
+  interference.
+
+  After user k applies its hybrid combiner W_k = W_RF,k * W_BB,k:
+
+  y_k = W_BB,k^H * W_RF,k^H * r_k
+
+  B.4 The SINR and Rate Expressions
+
+  For single-stream per user (the common case where each user has one RF chain
+  and receives one stream):
+
+  The effective channel for user k after both TX and RX analog processing:
+
+  h_eff,k = w_RF,k^H * H_k * F_RF     (a 1 x N_RF row vector)
+
+  The SINR at user k:
+
+                      (rho/N_s) * |h_eff,k * f_BB,k|^2
+  SINR_k = ─────────────────────────────────────────────────────
+            (rho/N_s) * SUM(j!=k) |h_eff,k * f_BB,j|^2 + sigma_n^2
+
+  The achievable rate for user k:
+
+  R_k = log2(1 + SINR_k)    [bits/s/Hz]
+
+  The sum rate across all users:
+
+  R_sum = SUM(k=1..K) R_k = SUM(k=1..K) log2(1 + SINR_k)
+
+  For multi-stream per user (each user has multiple RF chains):
+
+  R_k = log2 det(I + R_n,k^(-1) * W_BB,k^H * W_RF,k^H * H_k * F_RF
+                      * f_BB,k * f_BB,k^H * F_RF^H * H_k^H * W_RF,k * W_BB,k)
+
+  where the interference-plus-noise covariance is:
+
+  R_n,k = SUM(j!=k) W_k^H * H_k * F_RF * f_BB,j * f_BB,j^H * F_RF^H * H_k^H *
+  W_k
+          + sigma_n^2 * W_BB,k^H * W_RF,k^H * W_RF,k * W_BB,k
+
+  B.5 The Optimization Problem
+
+  The sum-rate maximization problem:
+
+  maximize      SUM(k=1..K) R_k
+    over        F_RF, {f_BB,k}, {W_RF,k}, {W_BB,k}
+
+  subject to:   |[F_RF]_{i,j}| = 1/sqrt(N_t)         (constant modulus at TX)
+                |[W_RF,k]_{i,j}| = 1/sqrt(N_r,k)     (constant modulus at RX)
+                ||F_RF * F_BB||_F^2 = P_total          (power constraint)
+
+  This is much harder than the single-user case because:
+
+  1. F_RF must serve ALL users through shared hardware
+  2. The digital precoder must simultaneously maximize per-user signal power AND
+   suppress MUI
+  3. Joint optimization across all users' precoders AND combiners is non-convex
+  and coupled
+
+  ---
+  PART C: THE TWO-STAGE APPROACH
+
+  C.1 Why Decouple?
+
+  Direct joint optimization is intractable. The two-stage approach exploits a
+  key structural insight:
+
+  - Analog beamforming provides spatial gain by pointing beams at users — this
+  depends on the angular structure of channels (slow-varying)
+  - Digital precoding manages interference — this depends on the instantaneous 
+  effective channel (fast-varying, but low-dimensional)
+
+  By separating these concerns, each stage becomes tractable.
+
+  C.2 Stage 1: Design F_RF (Analog Precoder via OMP)
+
+  There are two sub-approaches:
+
+  Approach 1: Per-User Independent OMP
+
+  Each user independently finds its preferred beams:
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM: Per-User OMP for MU Analog Precoder                  │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  INPUT:                                                          │
+  │    H_k for k = 1,...,K       (each user's channel)               │
+  │    A_t in C^(N_t x N_G)     (dictionary of steering vectors)    │
+  │    N_RF                      (total RF chains)                   │
+  │                                                                  │
+  │  OUTPUT:                                                         │
+  │    F_RF in C^(N_t x N_RF)   (shared analog precoder)            │
+  │                                                                  │
+  │  1. Allocate beams per user:                                     │
+  │     N_beams,k = floor(N_RF / K) for each user k                 │
+  │     (or allocate proportionally based on channel quality)        │
+  │                                                                  │
+  │  2. FOR each user k = 1, 2, ..., K:                             │
+  │                                                                  │
+  │     (a) Compute SVD: H_k = U_k * Sigma_k * V_k^H               │
+  │     (b) Set F_opt,k = V_k(:, 1:N_s,k)                          │
+  │         (user k's optimal unconstrained precoder)                │
+  │     (c) Initialize: F_res,k = F_opt,k                           │
+  │                                                                  │
+  │     (d) FOR i = 1, 2, ..., N_beams,k:                           │
+  │         i.   Psi_k = A_t^H * F_res,k                            │
+  │         ii.  j* = argmax_j ||Psi_k(j,:)||_2^2                   │
+  │         iii. Append A_t(:,j*) to user k's beam list             │
+  │         iv.  Temporarily form F_temp from all of user k's beams  │
+  │         v.   F_BB_temp = (F_temp^H F_temp)^(-1) F_temp^H F_opt,k│
+  │         vi.  F_res,k = normalized(F_opt,k - F_temp * F_BB_temp) │
+  │         END FOR                                                  │
+  │                                                                  │
+  │  3. Aggregate all users' beams:                                  │
+  │     F_RF = [beams_user1 | beams_user2 | ... | beams_userK]      │
+  │                                                                  │
+  │  4. Remove duplicate columns (if two users selected same beam)   │
+  │                                                                  │
+  │  5. RETURN F_RF                                                  │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Pros:
+  - Low feedback: each user only reports beam indices (log2(N_G) bits per beam)
+  - Distributed: users can run OMP locally
+  - Compatible with beam training protocols
+
+  Cons:
+  - Ignores inter-user interference in the analog stage
+  - Beam conflicts when users share similar angular directions
+  - No guarantee the aggregate F_RF is well-conditioned for digital precoding
+
+  Approach 2: Joint Multi-User OMP
+
+  The BS uses full channel knowledge to jointly select beams for all users:
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM: Joint OMP for MU Analog Precoder                     │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  INPUT:                                                          │
+  │    H_k for k = 1,...,K, A_t, N_RF                                │
+  │                                                                  │
+  │  OUTPUT:                                                         │
+  │    F_RF in C^(N_t x N_RF), F_BB in C^(N_RF x N_s)              │
+  │                                                                  │
+  │  1. COMPUTE JOINT TARGET PRECODER:                               │
+  │     Option A: Concatenate per-user optimal precoders             │
+  │       F_opt_joint = [F_opt,1 | F_opt,2 | ... | F_opt,K]         │
+  │       (size: N_t x N_s)                                         │
+  │                                                                  │
+  │     Option B: Use Block Diagonalization on full channel          │
+  │       F_opt_joint = BD_precoder([H_1; H_2; ...; H_K])           │
+  │                                                                  │
+  │  2. INITIALIZE:                                                  │
+  │     F_RF = []   (empty)                                          │
+  │     F_res = F_opt_joint                                          │
+  │                                                                  │
+  │  3. FOR i = 1, 2, ..., N_RF:                                    │
+  │                                                                  │
+  │     (a) Psi = A_t^H * F_res                                     │
+  │                                                                  │
+  │     (b) k* = argmax_j ||Psi(j,:)||_2^2                          │
+  │         (select beam best for ALL users JOINTLY)                 │
+  │                                                                  │
+  │     (c) F_RF = [F_RF | A_t(:,k*)]                               │
+  │                                                                  │
+  │     (d) F_BB = (F_RF^H F_RF)^(-1) F_RF^H F_opt_joint           │
+  │                                                                  │
+  │     (e) F_res = normalized(F_opt_joint - F_RF * F_BB)            │
+  │                                                                  │
+  │  4. RETURN F_RF                                                  │
+  │     (F_BB will be recomputed in Stage 2 using ZF/MMSE/BD)       │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Critical difference: In step (b), the selection criterion ||Psi(j,:)||_2^2
+  sums the projection energy across ALL N_s columns (all users' streams), not
+  just one user's streams. This means the selected beam is the one that best
+  approximates the joint multi-user precoder — it naturally balances beam
+  allocation across users.
+
+  Pros:
+  - Globally optimized beam allocation
+  - Can handle unequal allocation (users with richer channels get more beams)
+  - Better conditioning of the effective channel
+  - Can implicitly avoid beam conflicts
+
+  Cons:
+  - Requires full CSI for all users at the BS
+  - Higher computational complexity
+  - Higher feedback overhead
+
+  C.3 Stage 2: Design F_BB (Digital Precoder on Effective Channel)
+
+  After F_RF is fixed, compute the effective channel for each user:
+
+                   ┌              ┐
+                   │  N_r,k x N_t │   N_t x N_RF
+  H_eff,k  =  H_k │              │ * F_RF
+                   └              ┘
+           =  H_k * F_RF
+
+  Size: N_r,k x N_RF
+
+  This is the dimensionality reduction: the digital precoder now works on an
+  N_RF-dimensional channel instead of N_t-dimensional. Since N_RF << N_t (e.g.,
+  8 vs 64), the digital processing is much cheaper.
+
+  The composite effective channel stacking all users:
+
+           ┌ h_eff,1 ┐     ┌ H_1 * F_RF ┐
+  H_eff =  │ h_eff,2 │  =  │ H_2 * F_RF │     (size: SUM(N_r,k) x N_RF)
+           │  ...    │     │    ...      │
+           └ h_eff,K ┘     └ H_K * F_RF ┘
+
+  Now we apply standard multi-user digital precoding on H_eff:
+
+  ---
+  PART D: DIGITAL PRECODING TECHNIQUES FOR STAGE 2
+
+  D.1 Zero-Forcing (ZF) Precoding
+
+  Applicable when: Each user receives a single stream (N_s,k = 1), so h_eff,k is
+   a 1 x N_RF row vector.
+
+  H_eff is then a K x N_RF matrix (requires N_RF >= K).
+
+  ZF precoder formula:
+
+  F_BB^ZF = H_eff^H * (H_eff * H_eff^H)^(-1)
+
+  This is the right pseudo-inverse of H_eff.
+
+  Size check: H_eff^H is N_RF x K, (H_eff * H_eff^H) is K x K, so F_BB^ZF is
+  N_RF x K.
+
+  Why it works: After ZF precoding:
+
+  H_eff * F_BB^ZF = H_eff * H_eff^H * (H_eff * H_eff^H)^(-1) = I_K
+
+  The effective channel times the ZF precoder gives the identity matrix! This
+  means:
+  - User k's effective received signal contains ONLY its own data: h_eff,k *
+  f_BB,k = 1
+  - Inter-user interference is ZERO: h_eff,k * f_BB,j = 0 for j != k
+
+  SINR under ZF:
+
+                          rho / N_s
+  SINR_k^ZF = ─────────────────────────────────
+               sigma_n^2 * [(H_eff H_eff^H)^(-1)]_{k,k}
+
+  The term [(H_eff H_eff^H)^(-1)]_{k,k} is the k-th diagonal element of the
+  inverse Gram matrix. When the effective channels of different users are nearly
+   aligned (poorly conditioned H_eff), this term blows up, causing noise 
+  enhancement — the big weakness of ZF.
+
+  Power normalization:
+
+  F_BB = sqrt(P_total) * F_BB^ZF / ||F_RF * F_BB^ZF||_F
+
+  D.2 MMSE / Regularized ZF (RZF) Precoding
+
+  Motivation: ZF completely nulls interference but amplifies noise. At low SNR,
+  this noise enhancement dominates. MMSE provides a better interference-vs-noise
+   tradeoff.
+
+  MMSE precoder formula:
+
+  F_BB^MMSE = H_eff^H * (H_eff * H_eff^H + alpha * I_K)^(-1)
+
+  where alpha is the regularization parameter:
+
+  alpha = K * sigma_n^2 / P_total    =    N_s / SNR
+
+  Behavior in limiting cases:
+
+  High SNR (alpha --> 0):  F_BB^MMSE --> F_BB^ZF
+                            (interference dominates, cancel it)
+
+  Low SNR (alpha --> inf):  F_BB^MMSE --> (1/alpha) * H_eff^H
+                            (noise dominates, use MRT for max signal power)
+
+  At high SNR, MMSE converges to ZF because interference is the dominant
+  impairment. At low SNR, MMSE converges to Maximum Ratio Transmission (MRT),
+  which maximizes desired signal power at the expense of allowing some
+  interference.
+
+  The MMSE precoder does not fully eliminate interference — some residual
+  |h_eff,k * f_BB,j|^2 remains non-zero. But the total MSE (signal distortion +
+  interference + noise) is minimized.
+
+  Typical gains: MMSE provides 1–3 dB improvement over ZF at SNR below 5 dB. At
+  SNR above 10 dB, they converge.
+
+  D.3 Block Diagonalization (BD)
+
+  Applicable when: Each user has multiple antennas and receives multiple streams
+   (N_s,k > 1). ZF pseudo-inverse doesn't work because each user's channel is a
+  matrix, not a vector.
+
+  BD extends ZF by using null-space projections to eliminate inter-user
+  interference while preserving per-user spatial multiplexing capability.
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM: Block Diagonalization for Multi-Stream MU-MIMO       │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  INPUT:                                                          │
+  │    H_eff,k = H_k * F_RF for k = 1,...,K    (per-user effective)  │
+  │                                                                  │
+  │  OUTPUT:                                                         │
+  │    f_BB,k for each user k                                        │
+  │                                                                  │
+  │  FOR each user k = 1, 2, ..., K:                                │
+  │                                                                  │
+  │  Step 1: Form the INTERFERENCE channel (all users EXCEPT k):    │
+  │                                                                  │
+  │           ┌ H_eff,1   ┐                                         │
+  │           │ H_eff,2   │                                         │
+  │  H_bar_k= │ ...       │   (stack all users except k)            │
+  │           │ H_eff,k-1 │                                         │
+  │           │ H_eff,k+1 │                                         │
+  │           │ ...       │                                         │
+  │           └ H_eff,K   ┘                                         │
+  │                                                                  │
+  │  Size: ( SUM(j!=k) N_r,j ) x N_RF                               │
+  │                                                                  │
+  │  Step 2: Compute the NULL SPACE of H_bar_k via SVD:             │
+  │                                                                  │
+  │  H_bar_k = U_bar * Sigma_bar * [V^(1) | V^(0)]^H               │
+  │                                                                  │
+  │  V^(0) spans the null space of H_bar_k                          │
+  │  Size of V^(0): N_RF x (N_RF - rank(H_bar_k))                  │
+  │                                                                  │
+  │  Any precoder in span(V^(0)) causes ZERO interference           │
+  │  to all other users, because H_bar_k * V^(0) = 0               │
+  │                                                                  │
+  │  Step 3: Project user k's channel onto null space:               │
+  │                                                                  │
+  │  H_tilde_k = H_eff,k * V^(0)                                    │
+  │  Size: N_r,k x (N_RF - rank(H_bar_k))                           │
+  │                                                                  │
+  │  This is user k's "interference-free" equivalent channel.        │
+  │                                                                  │
+  │  Step 4: SVD of the interference-free channel:                   │
+  │                                                                  │
+  │  H_tilde_k = U_tilde * Sigma_tilde * V_tilde^H                  │
+  │                                                                  │
+  │  Step 5: User k's digital precoder:                              │
+  │                                                                  │
+  │  f_BB,k = V^(0) * V_tilde(:, 1:N_s,k)                          │
+  │                                                                  │
+  │  (null-space projection * dominant directions within null space)  │
+  │                                                                  │
+  │  END FOR                                                         │
+  │                                                                  │
+  │  Assemble: F_BB = [f_BB,1 | f_BB,2 | ... | f_BB,K]             │
+  │  Normalize: F_BB = sqrt(P_total) * F_BB / ||F_RF * F_BB||_F    │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Feasibility condition: The null space V^(0) must have dimension >= N_s,k for
+  each user k. This requires:
+
+  N_RF  >=  SUM(j!=k) rank(H_eff,j) + N_s,k    for each k
+
+  In the simplest case (all users have same N_r, want N_s streams each):
+
+  N_RF  >=  (K-1) * N_r + N_s
+
+  Per-user rate after BD:
+
+  R_k = SUM(i=1..N_s,k) log2(1 + p_k,i * sigma_tilde_k,i^2 / sigma_n^2)
+
+  where sigma_tilde_k,i are the singular values of H_tilde_k (the
+  interference-free channel), and p_k,i are per-stream power allocations
+  (obtained via waterfilling).
+
+  D.4 Comparison of Digital Precoding Methods
+
+  ┌────────────────┬──────────────┬───────────────┬────────────────┐
+  │    Method      │  Streams/User│  Interference  │  Best SNR Range│
+  ├────────────────┼──────────────┼───────────────┼────────────────┤
+  │  ZF            │     1        │  Fully nulled  │  High SNR      │
+  │  MMSE / RZF    │     1        │  Partially     │  All SNR       │
+  │                │              │  suppressed    │  (esp. low)    │
+  │  BD            │  Multiple    │  Fully nulled  │  High SNR      │
+  │  RBD (reg. BD) │  Multiple    │  Partially     │  All SNR       │
+  │                │              │  suppressed    │                │
+  └────────────────┴──────────────┴───────────────┴────────────────┘
+
+  ---
+  PART E: THE BEAM CONFLICT PROBLEM
+
+  E.1 What Is a Beam Conflict?
+
+  When two users have dominant channel paths at nearly the same angle of
+  departure, they both "want" the same beam from the dictionary. For example:
+
+  User 1: dominant AoD = 28 degrees  -->  selects beam at 30 degrees
+  User 2: dominant AoD = 32 degrees  -->  also selects beam at 30 degrees
+                                          (closest beam in dictionary)
+
+  Now F_RF has a duplicate column (or nearly duplicate columns). The effective
+  channel H_eff becomes rank-deficient:
+
+  h_eff,1 = H_1 * F_RF  ≈  h_eff,2 = H_2 * F_RF
+
+  When we try to apply ZF: (H_eff * H_eff^H) is nearly singular, so its inverse
+  blows up. The ZF precoder amplifies noise enormously, killing performance.
+
+  E.2 Impact on Performance
+
+  When two users share the same beam direction:
+  - The condition number of H_eff * H_eff^H increases by orders of magnitude
+  - Sum rate can drop by 30–50% compared to the no-conflict case
+  - ZF wastes enormous power trying to separate nearly-identical effective
+  channels
+
+  E.3 Solutions to Beam Conflicts
+
+  Solution 1 — Conflicting-Aware (CA) Beam Selection:
+
+  Step 1: Each user selects preferred beam index
+  Step 2: Identify conflicting users (those selecting the same beam)
+  Step 3: For non-conflicting users: keep their selected beams
+  Step 4: For conflicting users: use SLNR (Signal-to-Leakage-plus-Noise Ratio)
+          criterion to find alternative beams:
+
+          For conflicting user k:
+            b_k = argmax_b  |h_k^H a(b)|^2 / (SUM(j!=k) |h_j^H a(b)|^2 +
+  sigma_n^2)
+                                    ↑ signal power               ↑ leakage to
+  others
+
+  Solution 2 — User Scheduling: Don't serve conflicting users at the same time.
+  Assign them to different time slots or frequency resources.
+
+  Solution 3 — Beam Splitting: Assign one user to a slightly left-of-center beam
+   and the other to a slightly right-of-center beam, creating spatial separation
+   even though their true channels are close.
+
+  ---
+  PART F: OMP VARIANTS FOR MULTI-USER SYSTEMS
+
+  F.1 Simultaneous OMP (SOMP) — Also Called MMV-OMP
+
+  SOMP is the natural extension of OMP to the Multiple Measurement Vector (MMV)
+  problem, where multiple sparse signals share the same support (sparsity
+  pattern).
+
+  How it maps to MU hybrid beamforming:
+  - Each user's channel is a different "measurement vector"
+  - All users share the same set of selected beams (common support = F_RF
+  columns)
+  - We want to find beams that jointly serve all users well
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM: Simultaneous OMP (SOMP)                              │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  INPUT:                                                          │
+  │    Y = [y_1 | y_2 | ... | y_L]    (M x L observation matrix)    │
+  │    A in C^(M x N)                  (dictionary)                  │
+  │    K                               (sparsity level)              │
+  │                                                                  │
+  │  OUTPUT:                                                         │
+  │    Support set S, coefficient matrix X_hat                       │
+  │                                                                  │
+  │  1. Initialize: R = Y, S = {}                                    │
+  │                                                                  │
+  │  2. FOR i = 1, 2, ..., K:                                       │
+  │                                                                  │
+  │     (a) Correlation: C = A^H * R         (N x L matrix)          │
+  │                                                                  │
+  │     (b) Select atom using ROW NORM:                              │
+  │         j* = argmax_j ||C(j,:)||_2                               │
+  │                                                                  │
+  │         KEY: This selects the atom most correlated               │
+  │         across ALL L measurement vectors simultaneously          │
+  │                                                                  │
+  │     (c) Update support: S = S union {j*}                         │
+  │                                                                  │
+  │     (d) Least squares: X_hat = A_S^(+) * Y                      │
+  │         (where A_S^(+) is the pseudo-inverse of A_S)             │
+  │                                                                  │
+  │     (e) Update residual: R = Y - A_S * X_hat                    │
+  │                                                                  │
+  │  3. RETURN S, X_hat                                              │
+  └──────────────────────────────────────────────────────────────────┘
+
+  In the hybrid beamforming context:
+  - Y corresponds to the joint target precoder F_opt_joint
+  - A corresponds to the steering vector dictionary A_t
+  - K = N_RF (number of RF chains / beams to select)
+  - L = N_s (total number of streams across all users)
+  - The row-norm selection naturally picks beams that are jointly useful
+
+  This is exactly the Joint OMP algorithm from Part C.2, Approach 2! The Joint
+  OMP for hybrid beamforming IS a SOMP applied to the multi-user precoder
+  approximation problem.
+
+  F.2 Generalized OMP (GOMP)
+
+  GOMP selects multiple beams per iteration instead of one:
+
+  Standard OMP:  1 beam per iteration,  N_RF iterations total
+  GOMP (S=2):    2 beams per iteration, N_RF/2 iterations total
+  GOMP (S=K):    K beams per iteration, N_RF/K iterations (one batch per user)
+
+  Algorithm difference — in the selection step:
+
+  Standard OMP:  j* = argmax_j  ||Psi(j,:)||_2^2       (pick top 1)
+  GOMP:          J* = indices of top S entries of {||Psi(j,:)||_2^2}  (pick top
+  S)
+
+  Advantage: Faster convergence, especially when each user needs ~S beams. One
+  iteration per user rather than one iteration per beam.
+
+  Disadvantage: Less fine-grained selection — picking S beams at once may not be
+   as optimal as picking them one-by-one with residual updates.
+
+  F.3 Group-Sparsity OMP
+
+  In mmWave channels, rays within the same scattering cluster have similar 
+  angles. This creates natural groups of adjacent beams in the dictionary.
+
+  Group OMP selects entire angular groups at once:
+
+  Instead of:  "pick the single best beam"
+  It does:     "pick the best angular cluster of beams"
+
+  Selection: p* = argmax_p  ||A_{G_p}^H * F_res||_F^2
+             (maximize projection energy of the ENTIRE group G_p)
+
+  This is more efficient when the channel has concentrated angular power
+  profiles — selecting all beams in a cluster simultaneously rather than
+  one-by-one.
+
+  ---
+  PART G: NUMERICAL EXAMPLE — MU OMP HYBRID BEAMFORMING
+
+  Setup
+
+  Parameters:
+    N_t  = 16  (BS transmit antennas, ULA)
+    N_RF = 4   (RF chains at BS)
+    K    = 2   (users)
+    N_r  = 1   (single antenna per user, for simplicity)
+    N_s  = 2   (one stream per user, total 2 streams)
+    N_G  = 32  (dictionary size, oversampling factor 2)
+    d    = lambda/2  (half-wavelength spacing)
+
+  Step 1: Channel Generation
+
+  Each user's channel follows Saleh-Valenzuela model with 2 clusters, 3 rays
+  each:
+
+  User 1: Dominant AoDs at ~25 degrees and ~-50 degrees
+  User 2: Dominant AoDs at ~70 degrees and ~-10 degrees
+
+  Both users' channels: h_1 in C^(1 x 16), h_2 in C^(1 x 16)
+
+  Step 2: Build Dictionary
+
+  32 steering vectors for 16-element ULA:
+
+  a_t(phi_q) = (1/sqrt(16)) * [1, e^(j*pi*sin(phi_q)), ...,
+  e^(j*15*pi*sin(phi_q))]^T
+
+  phi_q = -90 + (q-1) * 180/32  for q = 1,...,32
+        = -90, -84.4, -78.8, ..., 0, ..., +84.4 degrees
+
+  Step 3: Per-User OMP (Approach 1)
+
+  User 1 gets 2 beams (N_RF/K = 4/2 = 2):
+
+  Iteration 1:
+    Compute Psi_1 = A_t^H * h_1^H           (32 x 1 vector)
+    Find j* = argmax |Psi_1(j)|^2
+    --> Selects beam at ~25 degrees (near User 1's dominant AoD)
+    F_RF,1 = [a_t(25 deg)]                   (16 x 1)
+
+  Iteration 2:
+    Update residual
+    --> Selects beam at ~-50 degrees (User 1's second cluster)
+    F_RF,1 = [a_t(25 deg) | a_t(-50 deg)]    (16 x 2)
+
+  User 2 gets 2 beams:
+
+  Iteration 1: --> Selects beam at ~70 degrees
+  Iteration 2: --> Selects beam at ~-10 degrees
+  F_RF,2 = [a_t(70 deg) | a_t(-10 deg)]      (16 x 2)
+
+  Aggregate:
+
+  F_RF = [a_t(25 deg) | a_t(-50 deg) | a_t(70 deg) | a_t(-10 deg)]
+         (16 x 4 matrix — 4 selected beams from dictionary)
+
+  Step 4: Compute Effective Channel
+
+  h_eff,1 = h_1 * F_RF     (1 x 4 row vector)
+  h_eff,2 = h_2 * F_RF     (1 x 4 row vector)
+
+  H_eff = [h_eff,1]        (2 x 4 matrix)
+          [h_eff,2]
+
+  Each entry h_eff,k(j) represents how much of user k's channel energy passes
+  through beam j.
+
+  Example values (illustrative):
+
+           beam 1    beam 2    beam 3    beam 4
+           (25 deg) (-50 deg) (70 deg) (-10 deg)
+  User 1: [ 0.85     0.42     0.05      0.12  ]    (strong on beams 1,2)
+  User 2: [ 0.08     0.03     0.78      0.55  ]    (strong on beams 3,4)
+
+  Good news: the users are well-separated angularly, so H_eff is
+  well-conditioned!
+
+  Step 5: ZF Digital Precoding on Effective Channel
+
+  F_BB^ZF = H_eff^H * (H_eff * H_eff^H)^(-1)     (4 x 2 matrix)
+
+  After this:
+
+  H_eff * F_BB^ZF = [1  0]    (identity — interference cancelled!)
+                    [0  1]
+
+  Normalize: F_BB = sqrt(2) * F_BB^ZF / ||F_RF * F_BB^ZF||_F
+
+  Step 6: Compute Sum Rate
+
+  SINR_1 = (rho/2) * |h_eff,1 * f_BB,1|^2 / sigma_n^2
+  SINR_2 = (rho/2) * |h_eff,2 * f_BB,2|^2 / sigma_n^2
+
+  R_sum = log2(1 + SINR_1) + log2(1 + SINR_2)
+
+  What if we used Joint OMP instead?
+
+  With Joint OMP, the target is:
+
+  F_opt_joint = [v_1(H_1) | v_1(H_2)]    (16 x 2, concatenated first right
+  SVectors)
+
+  The joint OMP selection criterion considers BOTH columns simultaneously:
+
+  j* = argmax_j  |a_t(phi_j)^H f_opt,1|^2 + |a_t(phi_j)^H f_opt,2|^2
+                       ↑ correlation with user 1    ↑ correlation with user 2
+
+  This produces a beam set that globally balances the two users' needs. If the
+  two users are well-separated, the joint approach produces similar results to
+  per-user OMP. But when users overlap angularly, the joint approach can select
+  beams that are more discriminating between them.
+
+  ---
+  PART H: THE ALKHATEEB ET AL. (2015) LIMITED-FEEDBACK ALGORITHM
+
+  This is the most cited multi-user extension, from the paper: "Limited Feedback
+   Hybrid Precoding for Multi-User Millimeter Wave Systems" — Alkhateeb, Leus,
+  and Heath, IEEE Trans. Wireless Commun., Nov. 2015.
+
+  H.1 System Setting
+
+  - BS: N_BS antennas, N_RF RF chains
+  - K single-RF-chain users (each receives one stream)
+  - K <= N_RF <= N_BS
+
+  H.2 The Algorithm (Practical Codebook-Based)
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM: Limited-Feedback MU Hybrid Precoding                 │
+  │  (Alkhateeb, Leus, Heath — IEEE TWC 2015)                       │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  *** BEAM TRAINING PHASE ***                                     │
+  │                                                                  │
+  │  1. BS transmits pilot signals along each beam in codebook C_RF  │
+  │     C_RF contains |C_RF| candidate beams (steering vectors)      │
+  │                                                                  │
+  │  2. Each user k measures received power for every training beam: │
+  │     P_k(i) = |h_k^H * c_i|^2   for each beam c_i in C_RF       │
+  │                                                                  │
+  │  3. User k selects best TX-RX beam pair:                         │
+  │     i_k* = argmax_i  |w_k^H * H_k * c_i|^2                     │
+  │     (where w_k is user k's analog receive beam, also from        │
+  │      codebook search)                                            │
+  │                                                                  │
+  │  4. User k feeds back:                                           │
+  │     - Best beam index: i_k*        (needs log2(|C_RF|) bits)    │
+  │     - Quantized effective channel   (needs B_2 bits)             │
+  │                                                                  │
+  │  *** PRECODER CONSTRUCTION ***                                   │
+  │                                                                  │
+  │  5. BS assembles analog precoder from best beams:                │
+  │     F_RF = [c_{i_1*} | c_{i_2*} | ... | c_{i_K*}]              │
+  │                                                                  │
+  │  6. BS forms effective channel from feedback:                    │
+  │     H_eff = [h_eff,1; h_eff,2; ...; h_eff,K]   (K x N_RF)      │
+  │     where h_eff,k = w_k^H * H_k * F_RF  (from user k's report) │
+  │                                                                  │
+  │  7. BS computes ZF digital precoder:                             │
+  │     F_BB = H_eff^H * (H_eff * H_eff^H)^(-1)                    │
+  │                                                                  │
+  │  8. Normalize: F_BB = sqrt(P/K) * F_BB / ||F_RF * F_BB||_F     │
+  │                                                                  │
+  │  RETURN: F_RF, F_BB                                              │
+  └──────────────────────────────────────────────────────────────────┘
+
+  H.3 Key Theoretical Result — Rate Loss Bound
+
+  When analog beams use B_1 bits and digital effective channel uses B_2 bits:
+
+  Rate loss <= log2(1 + (P/sigma_n^2) * K * (2^(-B_1/(N_t-1)) +
+  2^(-B_2/(N_RF-1))))
+
+  Key insight: The digital feedback B_2 scales with N_RF (small, e.g., 4–8), NOT
+   with N_t (large, e.g., 64–256). This makes the feedback overhead dramatically
+   smaller than fully digital limited-feedback systems.
+
+  For example, with N_t = 64, N_RF = 4:
+  - Fully digital: feedback for 64-dimensional channel (huge)
+  - Hybrid: feedback for 4-dimensional effective channel (small!)
+
+  H.4 The Receiver Side
+
+  Each user k designs its analog combiner independently:
+
+  w_RF,k = argmax_{w in W}  |w^H * H_k * f_RF,k|
+
+  where W is the receive beam codebook and f_RF,k is the BS beam assigned to
+  user k
+
+  Since each user has a single RF chain, the combiner is just a single steering
+  vector — the one that maximizes the received power along the assigned BS beam
+  direction.
+
+  ---
+  PART I: PERFORMANCE ANALYSIS FOR MU HYBRID OMP
+
+  I.1 Typical Numerical Results from Literature
+
+  Setup: N_t = 64, K = 4 users (single antenna), N_cl = 8 clusters, N_ray = 10
+  rays, 28 GHz.
+
+  ┌─────────────────────────────┬────────────┬────────────┬────────────┐
+  │         Scheme              │ Sum Rate   │ Sum Rate   │ Sum Rate   │
+  │                             │ SNR = 0 dB │ SNR = 10dB │ SNR = 20dB │
+  ├─────────────────────────────┼────────────┼────────────┼────────────┤
+  │ Fully Digital ZF            │  ~8 bps/Hz │ ~18 bps/Hz │ ~30 bps/Hz │
+  │ Hybrid OMP + ZF (N_RF=2K=8)│  ~7.5      │ ~17        │ ~28        │
+  │ Hybrid OMP + ZF (N_RF=K=4) │  ~6        │ ~14        │ ~22        │
+  │ Analog-Only Beamforming     │  ~4        │ ~8         │ ~12        │
+  └─────────────────────────────┴────────────┴────────────┴────────────┘
+
+  I.2 Key Observations
+
+  Observation 1: The N_RF >= 2K rule. When the number of RF chains is at least
+  twice the number of users, hybrid OMP achieves within 1–2 dB of fully digital.
+   This is because with 2x oversampling, the analog precoder has enough degrees
+  of freedom to both capture channel energy AND provide the digital precoder
+  with a well-conditioned effective channel.
+
+  Observation 2: The digital stage recovers 5–15 dB. Comparing hybrid (analog +
+  digital) to analog-only, the digital ZF/MMSE stage provides a massive
+  improvement by eliminating inter-user interference. Analog-only cannot manage
+  MUI at all.
+
+  Observation 3: Joint OMP vs Per-User OMP. Joint OMP typically provides 2–4 dB
+  better sum rate than per-user OMP, especially when:
+  - Users have overlapping angular spreads (beam conflicts)
+  - N_RF is tightly limited relative to K
+  - Channel conditions are imbalanced across users
+
+  Observation 4: MMSE vs ZF. At low SNR (below 5 dB), MMSE provides ~1.5 bps/Hz
+  improvement over ZF. At high SNR (above 10 dB), they converge to within 0.5
+  bps/Hz.
+
+  I.3 Complexity Comparison
+
+  ┌─────────────────────┬─────────────────────────────────────────┐
+  │  Algorithm          │  Complexity                              │
+  ├─────────────────────┼─────────────────────────────────────────┤
+  │  Per-User OMP       │  O(K * (N_RF/K) * N_G * N_t)           │
+  │                     │  = O(N_RF * N_G * N_t)                  │
+  │                     │                                         │
+  │  Joint OMP          │  O(N_RF * N_G * N_t * K)               │
+  │                     │  (K times more due to joint residual)   │
+  │                     │                                         │
+  │  ZF on H_eff       │  O(K^2 * N_RF + K^3)                   │
+  │                     │  (much smaller than on full channel)    │
+  │                     │                                         │
+  │  BD on H_eff       │  O(K * (K*N_r)^2 * N_RF)               │
+  │                     │                                         │
+  │  Fully Digital ZF   │  O(K^2 * N_t + K^3)                    │
+  │                     │  (operates on full N_t-dim channel)     │
+  │                     │                                         │
+  │  Exhaustive beam    │  C(N_G, N_RF) evaluations               │
+  │  search             │  (combinatorially explosive)            │
+  └─────────────────────┴─────────────────────────────────────────┘
+
+  ---
+  PART J: EXTENSIONS AND PRACTICAL CONSIDERATIONS
+
+  J.1 Wideband OFDM Multi-User Extension
+
+  In OFDM, the analog precoder F_RF must be common across all subcarriers (it
+  operates in the time/RF domain, before the IFFT). But each subcarrier has a
+  different channel:
+
+  Channel at subcarrier m for user k:  H_k[m]
+
+  Analog precoder: F_RF (same for all m)
+  Digital precoder: F_BB[m] (can vary per subcarrier)
+
+  The approach:
+
+  Stage 1: Design F_RF using AVERAGE across subcarriers
+           F_opt_avg = (1/M) * SUM(m=1..M) F_opt[m]
+           Run OMP on F_opt_avg to get F_RF
+
+  Stage 2: For each subcarrier m separately:
+           H_eff[m] = [H_1[m]; ...; H_K[m]] * F_RF
+           F_BB[m] = ZF or MMSE on H_eff[m]
+
+  An important wideband issue is beam squint: a beam steered to angle phi at the
+   center frequency points to a slightly different angle at edge frequencies.
+  This can cause 1–3 dB loss for wideband systems with large arrays.
+
+  J.2 User Scheduling
+
+  With hybrid beamforming, user scheduling becomes critical because N_RF limits
+  the number of simultaneously servable users. The Semi-Orthogonal User 
+  Selection (SUS) algorithm selects users whose effective channels are
+  approximately orthogonal:
+
+  1. Compute effective channels h_eff,k for all candidate users
+  2. Select first user: k1 = argmax_k ||h_eff,k||^2 (strongest user)
+  3. For each subsequent slot:
+     - Project remaining users' channels onto orthogonal complement of selected
+  users
+     - Remove users whose projected component is too small (nearly parallel)
+     - Select the user with largest projected component
+  4. Repeat until N_RF users selected or pool exhausted
+
+  J.3 CSI Acquisition
+
+  Acquiring channel state information is the practical bottleneck. The
+  two-timescale approach helps:
+
+  - Slow timescale (every ~100 ms): Estimate channel covariance R_k for analog
+  precoder design
+  - Fast timescale (every ~1 ms): Estimate effective channel h_eff,k = h_k *
+  F_RF for digital precoder. This is only N_RF-dimensional, so pilot overhead
+  scales with N_RF (small), not N_t (large)
+
+  ---
+  PART K: KEY REFERENCES FOR CHUNK 2
+
+  1. Alkhateeb, A., Leus, G., and Heath, R. W., Jr. (2015). "Limited Feedback
+  Hybrid Precoding for Multi-User Millimeter Wave Systems," IEEE Trans. Wireless
+   Commun., vol. 14, no. 11, pp. 6481–6494. — The primary MU extension.
+  2. El Ayach, O., et al. (2014). "Spatially Sparse Precoding in Millimeter Wave
+   MIMO Systems," IEEE Trans. Wireless Commun., vol. 13, no. 3, pp. 1499–1513. —
+   Foundation for SU OMP, basis for MU extensions.
+  3. Spencer, Q. H., Swindlehurst, A. L., and Haardt, M. (2004). "Zero-Forcing
+  Methods for Downlink Spatial Multiplexing in Multiuser MIMO Channels," IEEE 
+  Trans. Signal Processing, vol. 52, no. 2. — Block Diagonalization.
+  4. Heath, R. W., Jr., et al. (2016). "An Overview of Signal Processing
+  Techniques for Millimeter Wave MIMO Systems," IEEE JSTSP, vol. 10, no. 3, pp.
+  436–453. — Comprehensive survey covering MU hybrid BF.
+  5. Adhikary, A., et al. (2013). "Joint Spatial Division and Multiplexing: The
+  Large-Scale Array Regime," IEEE Trans. Info. Theory. — JSDM framework for user
+   grouping.
+  6. Molisch, A. F., et al. (2017). "Hybrid Beamforming for Massive MIMO — A
+  Survey," IEEE Commun. Magazine, vol. 55, no. 9. — Architecture comparisons and
+   performance bounds.
+  7. Nguyen, D. H. N., et al. (2017). "Hybrid MMSE Precoding for mmWave
+  Multiuser MIMO Systems." — MMSE-based alternative to ZF in Stage 2.
+
+  ---
+  End of Chunk 2. Type "next" for Chunk 3: MATLAB Code Implementation with
+  Detailed Line-by-Line Explanation.
+
+✻ Baked for 11m 45s
+
+❯ /export HBF/OMP/chat001_understanding_omp_pt1.txt 
+  ⎿  Conversation exported to: HBF/OMP/chat001_understanding_omp_pt1.txt
+
+❯ next 
+
+● 2 Task agents finished (ctrl+o to expand)
+   ├─ Research MATLAB OMP hybrid beamforming · 84 tool uses · 96.3k tokens
+   │  ⎿  Done
+   └─ Research MATLAB OMP implementation details · 62 tool uses · 73.6k tokens
+      ⎿  Done
+
+● Let me check what files exist in the project directory.
+
+● Searched for 1 pattern, read 8 files (ctrl+o to expand)
+
+● Now let me read the remaining files.
+
+● Read 4 files (ctrl+o to expand)
+
+● Now I have all the code. Let me write Chunk 3.
+
+  CHUNK 3: MATLAB Code Implementation of OMP Hybrid Beamforming — Detailed 
+  Line-by-Line Explanation
+
+  ---
+  PART A: CODE ARCHITECTURE OVERVIEW
+
+  The implementation is organized into modular functions, each handling one
+  specific part of the hybrid beamforming pipeline. All files are located in
+  HBF/OMP/.
+
+  HBF/OMP/
+  │
+  ├── BUILDING BLOCKS
+  │   ├── array_response_ULA.m          -- Steering vector for ULA
+  │   ├── build_dictionary.m            -- Dictionary of candidate beams
+  │   └── generate_mmWave_channel.m     -- Saleh-Valenzuela channel generator
+  │
+  ├── SINGLE-USER OMP
+  │   ├── OMP_hybrid_precoding.m        -- OMP hybrid precoder (Algorithm 1)
+  │   ├── OMP_hybrid_combining.m        -- OMP hybrid combiner (Algorithm 2)
+  │   ├── compute_optimal_precoders.m   -- SVD-based optimal precoder + MMSE
+  combiner
+  │   ├── compute_spectral_efficiency.m -- Single-user spectral efficiency
+  │   └── beam_steering.m              -- Analog-only baseline
+  │
+  ├── MULTI-USER OMP
+  │   ├── OMP_hybrid_precoding_MU.m     -- MU OMP + ZF digital precoder
+  │   └── compute_MU_sum_rate.m         -- Per-user SINR and sum rate
+  │
+  └── SIMULATION SCRIPTS
+      ├── main_SU_OMP_simulation.m      -- Single-user Monte Carlo simulation
+      └── main_MU_OMP_simulation.m      -- Multi-user Monte Carlo simulation
+
+  No external toolboxes required. Everything is self-contained pure MATLAB.
+
+  ---
+  PART B: FILE 1 — array_response_ULA.m (Steering Vector)
+
+  This is the most fundamental building block. Every other file depends on it.
+
+  function a = array_response_ULA(N, theta)
+      n = (0:N-1).';
+      a = (1/sqrt(N)) * exp(1j * pi * n * sin(theta));
+  end
+
+  Line-by-line explanation:
+
+  Line 1: function a = array_response_ULA(N, theta)
+  - Defines a function that takes N (number of antenna elements) and theta
+  (angle in radians, measured from broadside) and returns the steering vector a.
+
+  Line 2: n = (0:N-1).';
+  - Creates a column vector of antenna element indices: [0; 1; 2; ...; N-1].
+  - The .' transposes the row vector to a column vector.
+  - These indices represent the physical position of each antenna element in
+  units of half-wavelength spacing.
+
+  Line 3: a = (1/sqrt(N)) * exp(1j * pi * n * sin(theta));
+  - This is the ULA steering vector formula for half-wavelength spacing (d =
+  lambda/2):
+
+  a(n) = (1/sqrt(N)) * exp(j * pi * n * sin(theta))
+
+  Breaking it down:
+  - 1j is MATLAB's imaginary unit (j = sqrt(-1))
+  - pi * n * sin(theta) comes from the phase shift formula: (2pid/lambda) * n *
+  sin(theta). With d = lambda/2, this simplifies to pi * n * sin(theta)
+  - 1/sqrt(N) normalizes so that ||a||^2 = a^H * a = 1 (unit norm). This is
+  crucial because it automatically satisfies the constant modulus constraint:
+  every entry has magnitude 1/sqrt(N)
+  - The output a is an N x 1 complex column vector
+
+  Physical meaning: Each entry represents the phase shift at the n-th antenna
+  element for a plane wave arriving at angle theta. At broadside (theta = 0),
+  all entries equal 1/sqrt(N) (all antennas in phase). At endfire (theta =
+  pi/2), the phase rotates by pi between adjacent elements.
+
+  ---
+  PART C: FILE 2 — build_dictionary.m (OMP Dictionary)
+
+  This builds the dictionary of candidate steering vectors that OMP searches
+  through.
+
+  function A_dict = build_dictionary(N, Nres)
+      A_dict = zeros(N, Nres);
+      theta_grid = linspace(-pi/2, pi/2, Nres + 1);
+      theta_grid = theta_grid(1:end-1);
+      for k = 1:Nres
+          A_dict(:, k) = array_response_ULA(N, theta_grid(k));
+      end
+  end
+
+  Line-by-line explanation:
+
+  Line 1: function A_dict = build_dictionary(N, Nres)
+  - Takes N (antenna count) and Nres (dictionary resolution / number of atoms).
+  - Typical choices: Nres = 2N (2x oversampling), Nres = 4N (4x oversampling).
+
+  Line 2: A_dict = zeros(N, Nres);
+  - Pre-allocates the N x Nres dictionary matrix.
+  - Each column will be a steering vector at a quantized angle.
+
+  Lines 3-4: theta_grid = linspace(...); theta_grid = theta_grid(1:end-1);
+  - Creates Nres uniformly spaced angles in [-pi/2, pi/2).
+  - The linspace generates Nres+1 points from -pi/2 to pi/2, then we remove the
+  last point to avoid duplicating the endpoint (since -pi/2 and pi/2 are
+  equivalent for sin).
+  - For N=64 and Nres=128: the angular spacing is pi/128 ≈ 1.4 degrees — fine
+  enough for most mmWave channels.
+
+  Lines 5-7: The loop
+  - For each quantized angle, compute the steering vector and store it as a
+  column of A_dict.
+  - After the loop, A_dict is an N x Nres matrix where column k is
+  a_ULA(theta_k).
+
+  Why oversampling matters: When Nres = N, the dictionary columns form a DFT
+  matrix — equally spaced in spatial frequency. But the true channel AoDs may
+  fall between DFT bins, causing a mismatch. Oversampling (Nres = 2N or 4N)
+  provides finer angular resolution, allowing OMP to find atoms closer to the
+  true AoDs. The tradeoff: larger Nres means more computation in OMP's
+  correlation step.
+
+  ---
+  PART D: FILE 3 — generate_mmWave_channel.m (Saleh-Valenzuela Channel)
+
+  This is the most complex building block. It generates a realistic mmWave MIMO
+  channel.
+
+  function [H, At_all, Ar_all] = generate_mmWave_channel(Nt, Nr, Ncl, Nray, 
+  ang_spread)
+
+      Npaths_total = Ncl * Nray;
+
+      % STEP 1: Cluster-level mean angles (uniform in [-pi/2, pi/2])
+      cluster_AoD_mean = (rand(Ncl, 1) - 0.5) * pi;
+      cluster_AoA_mean = (rand(Ncl, 1) - 0.5) * pi;
+
+      % STEP 2: Ray-level angles (Laplacian around cluster means)
+      sigma_rad = ang_spread * pi / 180;
+      b = sigma_rad / sqrt(2);
+
+      AoD_mean_rep = repelem(cluster_AoD_mean, Nray, 1);
+      AoA_mean_rep = repelem(cluster_AoA_mean, Nray, 1);
+
+      U_AoD = rand(Npaths_total, 1) - 0.5;
+      U_AoA = rand(Npaths_total, 1) - 0.5;
+
+      laplacian_offset_AoD = -b * sign(U_AoD) .* log(1 - 2 * abs(U_AoD));
+      laplacian_offset_AoA = -b * sign(U_AoA) .* log(1 - 2 * abs(U_AoA));
+
+      AoD = AoD_mean_rep + laplacian_offset_AoD;
+      AoA = AoA_mean_rep + laplacian_offset_AoA;
+
+      AoD = wrapToPi(AoD);
+      AoA = wrapToPi(AoA);
+      AoD = max(min(AoD, pi/2), -pi/2);
+      AoA = max(min(AoA, pi/2), -pi/2);
+
+      % STEP 3: Complex path gains ~ CN(0, 1)
+      alpha = (1/sqrt(2)) * (randn(Npaths_total, 1) + 1j * randn(Npaths_total,
+  1));
+
+      % STEP 4: Build array response matrices
+      At_all = zeros(Nt, Npaths_total);
+      Ar_all = zeros(Nr, Npaths_total);
+
+      for p = 1:Npaths_total
+          At_all(:, p) = array_response_ULA(Nt, AoD(p));
+          Ar_all(:, p) = array_response_ULA(Nr, AoA(p));
+      end
+
+      % STEP 5: Construct channel matrix
+      gamma = sqrt(Nt * Nr / Npaths_total);
+      H = gamma * Ar_all * diag(alpha) * At_all';
+
+  end
+
+  function angle = wrapToPi(angle)
+      angle = mod(angle + pi, 2*pi) - pi;
+  end
+
+  Line-by-line explanation:
+
+  Npaths_total = Ncl * Nray;
+  - Total number of propagation paths. Example: 5 clusters x 10 rays = 50 paths.
+
+  STEP 1 — Cluster mean angles:
+
+  cluster_AoD_mean = (rand(Ncl, 1) - 0.5) * pi;   % Uniform in [-pi/2, pi/2]
+  cluster_AoA_mean = (rand(Ncl, 1) - 0.5) * pi;
+
+  - rand(Ncl, 1) generates Ncl random values in [0,1].
+  - Subtracting 0.5 shifts to [-0.5, 0.5].
+  - Multiplying by pi gives [-pi/2, pi/2] — the visible angular range of a ULA.
+  - Each cluster has a random mean AoD and a random mean AoA.
+  - Physical meaning: Each cluster represents a group of scatterers (e.g., a
+  building wall). Its mean angle is where the bulk of reflected energy comes
+  from.
+
+  STEP 2 — Ray-level Laplacian offsets:
+
+  sigma_rad = ang_spread * pi / 180;    % Convert degrees to radians
+  b = sigma_rad / sqrt(2);              % Laplacian scale parameter
+
+  - The angular spread (typically 7.5–10 degrees for mmWave) controls how
+  tightly rays are clustered around the mean.
+  - The Laplacian PDF is: p(x) = (1/(2b)) * exp(-|x|/b), where b =
+  sigma/sqrt(2).
+
+  AoD_mean_rep = repelem(cluster_AoD_mean, Nray, 1);
+
+  - Replicates each cluster mean angle Nray times. If cluster 1 has mean 30 deg,
+   this creates [30; 30; ...; 30] (Nray times), then cluster 2's mean, etc.
+  - Result is Npaths_total x 1 — one mean for each ray.
+
+  U_AoD = rand(Npaths_total, 1) - 0.5;
+  laplacian_offset_AoD = -b * sign(U_AoD) .* log(1 - 2 * abs(U_AoD));
+
+  - Inverse CDF method for Laplacian generation. This is the standard technique:
+    - Generate U ~ Uniform(-0.5, 0.5)
+    - Apply the Laplacian inverse CDF: X = -b * sign(U) * ln(1 - 2|U|)
+    - This produces X ~ Laplacian(0, b)
+  - sign(U_AoD) gives +1 or -1 (determines which side of the mean)
+  - log(1 - 2*abs(U_AoD)) gives a negative value (since the argument is in
+  (0,1))
+  - The negative sign in -b * ... makes the product positive when sign and log
+  have opposite signs
+
+  AoD = AoD_mean_rep + laplacian_offset_AoD;
+
+  - Final ray angle = cluster mean + Laplacian offset.
+  - Rays spread around their cluster mean with the specified angular spread.
+
+  AoD = wrapToPi(AoD);
+  AoD = max(min(AoD, pi/2), -pi/2);
+
+  - Wraps angles to [-pi, pi], then clamps to [-pi/2, pi/2] (the ULA visible
+  region).
+  - Rays that scatter beyond endfire are clipped to endfire.
+
+  STEP 3 — Complex path gains:
+
+  alpha = (1/sqrt(2)) * (randn(Npaths_total, 1) + 1j * randn(Npaths_total, 1));
+
+  - Generates circularly symmetric complex Gaussian: alpha ~ CN(0, 1).
+  - The 1/sqrt(2) factor ensures E[|alpha|^2] = 1 (since each of the real and
+  imaginary parts has variance 1/2).
+  - Each path has an independent random gain with Rayleigh-distributed magnitude
+   and uniform phase.
+
+  STEP 4 — Array response matrices:
+
+  for p = 1:Npaths_total
+      At_all(:, p) = array_response_ULA(Nt, AoD(p));
+      Ar_all(:, p) = array_response_ULA(Nr, AoA(p));
+  end
+
+  - For each of the Npaths_total paths, compute the TX and RX steering vectors.
+  - At_all is Nt x Npaths_total: column p is the TX steering vector for path p.
+  - Ar_all is Nr x Npaths_total: column p is the RX steering vector for path p.
+
+  STEP 5 — Channel matrix construction:
+
+  gamma = sqrt(Nt * Nr / Npaths_total);
+  H = gamma * Ar_all * diag(alpha) * At_all';
+
+  - gamma = sqrt(Nt * Nr / Npaths_total) is the normalization factor ensuring
+  E[||H||_F^2] = Nt * Nr. This is essential for fair SNR comparisons.
+  - diag(alpha) creates an Npaths_total x Npaths_total diagonal matrix with path
+   gains on the diagonal.
+  - Ar_all * diag(alpha) * At_all' computes:
+
+  SUM(p=1..Npaths) alpha_p * ar_p * at_p^H
+
+  This is the Saleh-Valenzuela channel model in compact matrix form. Each path
+  contributes a rank-1 outer product weighted by its complex gain.
+
+  - Result: H is Nr x Nt.
+
+  ---
+  PART E: FILE 4 — OMP_hybrid_precoding.m (THE CORE ALGORITHM)
+
+  This is the most important file. It implements Algorithm 1 from El Ayach et
+  al. (2014).
+
+  function [FRF, FBB] = OMP_hybrid_precoding(Fopt, At, NRF, Ns)
+
+      [Nt, ~] = size(At);
+      assert(size(Fopt, 1) == Nt, 'Fopt and At must have same Nt');
+      assert(NRF >= Ns, 'NRF must be >= Ns');
+
+      FRF = [];
+      Fres = Fopt;
+
+      for i = 1:NRF
+
+          % STEP 2a: CORRELATION
+          Psi = At' * Fres;                            % Ndict x Ns
+
+          % STEP 2b: ATOM SELECTION
+          [~, k] = max(diag(Psi * Psi'));              % Best atom index
+
+          % STEP 2c: APPEND
+          FRF = [FRF, At(:, k)];                       % Nt x i
+
+          % STEP 2d: LEAST SQUARES
+          FBB = (FRF' * FRF) \ (FRF' * Fopt);          % i x Ns
+
+          % STEP 2e: RESIDUAL UPDATE
+          Fres_unnorm = Fopt - FRF * FBB;
+          Fres = Fres_unnorm / norm(Fres_unnorm, 'fro');
+
+      end
+
+      % STEP 3: POWER NORMALIZATION
+      FBB = sqrt(Ns) * FBB / norm(FRF * FBB, 'fro');
+
+  end
+
+  Deep line-by-line explanation:
+
+  Initialization:
+
+  FRF = [];        % Empty matrix — will grow column by column
+  Fres = Fopt;     % Residual starts as the full target precoder
+
+  - FRF starts empty and grows by one column per iteration (one column per RF
+  chain).
+  - Fres is the "what's left to approximate." Initially it's the entire Fopt.
+
+  The main loop runs NRF times (once per RF chain):
+
+  ---
+  STEP 2a: Psi = At' * Fres;
+
+  - At' is Ndict x Nt (conjugate transpose of the dictionary).
+  - Fres is Nt x Ns (the current residual matrix).
+  - Psi is Ndict x Ns.
+  - Each row j of Psi contains the inner products between dictionary atom j and
+  each of the Ns residual columns:
+
+  Psi(j, s) = a_t(theta_j)^H * f_res,s
+
+  This measures how well atom j "matches" the s-th column of the residual.
+
+  ---
+  STEP 2b: [~, k] = max(diag(Psi * Psi'));
+
+  This is the simultaneous OMP selection criterion. Let me break it down:
+
+  - Psi * Psi' is Ndict x Ndict. But we only need its diagonal.
+  - diag(Psi * Psi') extracts the diagonal, giving an Ndict x 1 vector where
+  element j is:
+
+  [Psi * Psi^H]_{j,j} = SUM(s=1..Ns) |Psi(j,s)|^2 = ||Psi(j,:)||_2^2
+
+  This is the total projection energy of atom j across ALL Ns data streams.
+
+  - [~, k] = max(...) finds the index k with the maximum value.
+  - We select the steering vector that has the largest total correlation with 
+  the residual across all streams simultaneously. This enforces joint/shared
+  sparsity.
+
+  Memory-efficient alternative (commented in the code):
+
+  [~, k] = max(sum(abs(Psi).^2, 2));
+
+  This computes the same thing without forming the full Ndict x Ndict product.
+  For large dictionaries (Ndict > 1000), this is much faster and uses less
+  memory.
+
+  ---
+  STEP 2c: FRF = [FRF, At(:, k)];
+
+  - Appends the selected steering vector as a new column of FRF.
+  - After iteration i, FRF has i columns (i selected beams).
+  - Each column is a steering vector from the dictionary — automatically
+  satisfying the constant modulus constraint.
+
+  ---
+  STEP 2d: FBB = (FRF' * FRF) \ (FRF' * Fopt);
+
+  This solves the least squares problem:
+
+  minimize  ||Fopt - FRF * FBB||_F^2   over FBB
+
+  The solution is the normal equation: FBB = (FRF^H * FRF)^(-1) * FRF^H * Fopt.
+
+  In MATLAB, A \ b solves A*x = b using efficient LU decomposition. So
+  (FRF'*FRF) \ (FRF'*Fopt) computes the pseudo-inverse solution without
+  explicitly inverting the matrix.
+
+  - FRF'*FRF is i x i (small, since i <= NRF <= 8 typically).
+  - FRF'*Fopt is i x Ns.
+  - FBB is i x Ns.
+
+  This is the "orthogonal" part of OMP. By re-solving the full least squares at
+  every iteration, we guarantee:
+  1. The residual is orthogonal to all selected atoms: FRF^H * (Fopt - FRF*FBB)
+  = 0
+  2. No atom will be re-selected (zero correlation with residual)
+  3. The coefficients are globally optimal for the current set of selected atoms
+
+  ---
+  STEP 2e: Residual update
+
+  Fres_unnorm = Fopt - FRF * FBB;
+  Fres = Fres_unnorm / norm(Fres_unnorm, 'fro');
+
+  - Computes what's left to approximate: the difference between the target and
+  the current approximation.
+  - Normalizes the residual to unit Frobenius norm. This normalization is done
+  for numerical stability — it prevents the correlation values from shrinking
+  over iterations, which could cause numerical precision issues.
+
+  ---
+  STEP 3: Power normalization
+
+  FBB = sqrt(Ns) * FBB / norm(FRF * FBB, 'fro');
+
+  - After the OMP loop, scale FBB so that ||FRF * FBB||_F^2 = Ns.
+  - This satisfies the total transmit power constraint.
+  - norm(FRF * FBB, 'fro') computes the Frobenius norm of the effective
+  precoder.
+
+  ---
+  PART F: FILE 5 — OMP_hybrid_combining.m (Combiner-Side OMP)
+
+  The combiner follows the same OMP structure but with weighted projections
+  using the received covariance matrix.
+
+  function [WRF, WBB] = OMP_hybrid_combining(Wopt, Ar, NRF, Ns, SNR_lin, H, FRF,
+   FBB)
+
+      Nr = size(Ar, 1);
+
+      % Received signal covariance
+      F_total = FRF * FBB;
+      CovRx = (SNR_lin / Ns) * (H * F_total) * (H * F_total)' + eye(Nr);
+
+      WRF = [];
+      Wres = Wopt;
+
+      for i = 1:NRF
+
+          % WEIGHTED correlation (using CovRx as metric)
+          Psi = Ar' * CovRx * Wres;
+
+          % Atom selection
+          [~, k] = max(diag(Psi * Psi'));
+
+          WRF = [WRF, Ar(:, k)];
+
+          % WEIGHTED least squares
+          WBB = (WRF' * CovRx * WRF) \ (WRF' * CovRx * Wopt);
+
+          % Residual update
+          Wres_unnorm = Wopt - WRF * WBB;
+          Wres = Wres_unnorm / norm(Wres_unnorm, 'fro');
+      end
+  end
+
+  Key differences from the precoder OMP:
+
+  Covariance computation:
+
+  CovRx = (SNR_lin / Ns) * (H * F_total) * (H * F_total)' + eye(Nr);
+
+  - This is R_x = (rho/Ns) * H * F * F^H * H^H + I_{Nr}
+  - It represents the received signal-plus-noise covariance.
+  - The identity matrix I_{Nr} accounts for the unit-variance noise.
+  - This matrix captures the signal statistics: where the signal energy is
+  concentrated in the receive array space.
+
+  Weighted correlation: Psi = Ar' * CovRx * Wres
+
+  - Instead of just Ar' * Wres, we insert CovRx as a metric/weight matrix.
+  - This makes the atom selection aware of the signal statistics, not just the
+  combiner shape.
+  - Atoms aligned with high-signal-energy directions get boosted in the
+  correlation.
+
+  Weighted least squares: WBB = (WRF' * CovRx * WRF) \ (WRF' * CovRx * Wopt)
+
+  - This solves the weighted LS problem: minimize (Wopt - WRFWBB)^H * CovRx * 
+  (Wopt - WRFWBB).
+  - The weighting by CovRx means directions with more signal energy are
+  prioritized over noise-only directions.
+
+  ---
+  PART G: FILE 6 — compute_spectral_efficiency.m
+
+  function R = compute_spectral_efficiency(H, F, W, Ns, SNR_lin)
+
+      Rn = W' * W;                    % Noise covariance after combining
+
+      HF = H * F;                     % Nr x Ns
+      WHF = W' * HF;                  % Ns x Ns
+
+      R = real(log2(det(eye(Ns) + (SNR_lin / Ns) * (Rn \ (WHF * WHF')))));
+      R = abs(R);
+
+  end
+
+  Explanation:
+
+  This computes:
+
+  R = log2 det( I_Ns + (rho/Ns) * Rn^(-1) * W^H * H * F * F^H * H^H * W )
+
+  Rn = W' * W — The noise covariance after combining.
+  - For fully digital combining where W is unitary: Rn = I (no noise coloring).
+  - For hybrid combining where W = WRF*WBB: WRF is NOT unitary (constant modulus
+   entries, not orthogonal in general), so Rn != I. This correction is essential
+   for accurate spectral efficiency.
+
+  WHF = W' * HF — The Ns x Ns effective channel matrix after both precoding and
+  combining.
+
+  Rn \ (WHF * WHF') — This computes Rn^(-1) * S where S = WHF*WHF' is the signal
+   covariance. Using \ (backslash) instead of explicit inverse is numerically
+  more stable.
+
+  real(...) and abs(...) — The determinant should be real and positive, but
+  numerical errors can introduce tiny imaginary parts or negative values. These
+  safeguards clean up the result.
+
+  ---
+  PART H: FILE 7 — compute_optimal_precoders.m
+
+  function [Fopt, Wopt] = compute_optimal_precoders(H, Ns, SNR_lin)
+
+      [U, S, V] = svd(H);
+
+      Fopt = V(:, 1:Ns);       % Ns dominant right singular vectors
+
+      % MMSE combiner
+      HFopt = H * Fopt;
+      Wopt = (1/sqrt(SNR_lin)) * ...
+          ((1/SNR_lin) * (Fopt' * H' * H * Fopt) + ...
+           (Ns / SNR_lin) * eye(Ns)) \ ...
+          (Fopt' * H');
+      Wopt = Wopt.';            % Transpose to Nr x Ns
+
+  end
+
+  Explanation:
+
+  SVD and optimal precoder:
+  - [U, S, V] = svd(H) decomposes the Nr x Nt channel into U (Nr x Nr), S (Nr x
+  Nt diagonal), V (Nt x Nt).
+  - Fopt = V(:, 1:Ns) takes the first Ns columns of V — these correspond to the
+  Ns strongest singular values (channel modes). This maximizes channel capacity
+  with equal power allocation.
+
+  MMSE combiner:
+  The MMSE combiner minimizes E[||s - W^H * y||^2]. The closed-form solution
+  involves:
+
+  W_MMSE = (1/sqrt(rho)) * ((1/rho)*F^H*H^H*H*F + (Ns/rho)*I)^(-1) * F^H * H^H
+
+  then transposed to get Nr x Ns.
+
+  The \ operator solves the linear system efficiently. The term (Ns/rho)*I is
+  the noise regularization — at low SNR, it prevents noise amplification.
+
+  ---
+  PART I: FILE 8 — OMP_hybrid_precoding_MU.m (Multi-User Extension)
+
+  function [FRF, FBB, Heff] = OMP_hybrid_precoding_MU(H_all, At_dict, Nt, NtRF, 
+  Ns_per_user, K)
+
+      Ns_total = K * Ns_per_user;
+
+      % STAGE 1: OMP on aggregate channel for shared FRF
+      if iscell(H_all)
+          H_stack = cell2mat(H_all(:));
+      else
+          H_stack = H_all;
+      end
+
+      [~, ~, V_stack] = svd(H_stack);
+      Fopt_agg = V_stack(:, 1:NtRF);
+
+      FRF = [];
+      Fres = Fopt_agg;
+
+      for i = 1:NtRF
+          Psi = At_dict' * Fres;
+          [~, k_best] = max(sum(abs(Psi).^2, 2));
+          FRF = [FRF, At_dict(:, k_best)];
+          FBB_temp = (FRF' * FRF) \ (FRF' * Fopt_agg);
+          Fres_unnorm = Fopt_agg - FRF * FBB_temp;
+          nrm = norm(Fres_unnorm, 'fro');
+          if nrm > 1e-10
+              Fres = Fres_unnorm / nrm;
+          end
+      end
+
+      % STAGE 2: ZF digital precoder on effective channel
+      if iscell(H_all)
+          Heff = zeros(0, NtRF);
+          for kk = 1:K
+              Heff = [Heff; H_all{kk} * FRF];
+          end
+      else
+          Nr_per_user = size(H_stack, 1) / K;
+          Heff = zeros(K * Nr_per_user, NtRF);
+          for kk = 1:K
+              row_idx = (kk-1)*Nr_per_user + (1:Nr_per_user);
+              Heff(row_idx, :) = H_stack(row_idx, :) * FRF;
+          end
+      end
+
+      % ... (handle multi-antenna users via SVD reduction) ...
+
+      % Zero-Forcing
+      FBB = Heff_for_ZF' * inv(Heff_for_ZF * Heff_for_ZF');
+      FBB = sqrt(Ns_total) * FBB / norm(FRF * FBB, 'fro');
+  end
+
+  Key concepts explained:
+
+  STAGE 1 — Joint OMP for the shared analog precoder:
+
+  H_stack = cell2mat(H_all(:));         % Stack all K users: (K*Nr) x Nt
+  [~, ~, V_stack] = svd(H_stack);
+  Fopt_agg = V_stack(:, 1:NtRF);       % Aggregate target: Nt x NtRF
+
+  - Stacks all users' channels into one big matrix.
+  - SVD of the stacked channel finds the NtRF most important spatial directions
+  across ALL users.
+  - Fopt_agg is the "joint optimal precoder" — the directions that collectively
+  maximize the aggregate channel energy.
+  - The OMP loop then approximates Fopt_agg using dictionary atoms, finding NtRF
+   beams that serve all users well.
+
+  STAGE 2 — Effective channel and ZF:
+
+  Heff = H_all{kk} * FRF;    % Per-user effective channel: Nr_k x NtRF
+
+  - H_k is Nr_k x Nt (large). FRF is Nt x NtRF (tall-skinny). Their product
+  Heff_k is Nr_k x NtRF — a much smaller channel.
+  - This is the dimensionality reduction: from Nt-dimensional to
+  NtRF-dimensional.
+
+  FBB = Heff_for_ZF' * inv(Heff_for_ZF * Heff_for_ZF');
+
+  - This is the Zero-Forcing right pseudo-inverse of the effective channel.
+  - For K single-antenna users: Heff is K x NtRF, so FBB is NtRF x K.
+  - After ZF: Heff * FBB = I_K — each user sees only its own signal, all MUI
+  cancelled.
+
+  ---
+  PART J: FILE 9 — compute_MU_sum_rate.m (Multi-User Performance)
+
+  The SINR computation for single-stream users:
+
+  h_eff = H_k * F_total;    % 1 x K for single-antenna user
+
+  signal_power  = (SNR_lin / Ns_total) * abs(h_eff(k))^2;
+  interf_power  = (SNR_lin / Ns_total) * sum(abs(h_eff(setdiff(1:K,k))).^2);
+  SINR_per_user(k) = signal_power / (interf_power + 1);
+
+  R_per_user(k) = log2(1 + SINR_per_user(k));
+
+  - F_total = FRF * FBB is the Nt x K effective total precoder.
+  - h_eff = H_k * F_total gives a 1 x K vector. Entry j is user k's effective
+  channel gain through precoder column j.
+  - abs(h_eff(k))^2 is the desired signal power (user k's column).
+  - sum(abs(h_eff(interf_idx)).^2) sums the interference power from all other
+  users' columns.
+  - The +1 in the denominator is the normalized noise power (sigma_n^2 = 1 after
+   SNR normalization).
+
+  For multi-stream users, the code uses the matrix-valued SINR formula with
+  determinants.
+
+  ---
+  PART K: FILE 10 — main_SU_OMP_simulation.m (Single-User Simulation)
+
+  This is the master simulation script. Let me explain its flow:
+
+  FOR each SNR point (-40 dB to 0 dB):
+      FOR each Monte Carlo iteration (100 iterations):
+          1. Generate a random mmWave channel H
+          FOR each Ns value (1 and 2 streams):
+              2. Compute Fopt and Wopt via SVD/MMSE
+              3. Compute spectral efficiency of OPTIMAL system
+              4. Run OMP to get FRF, FBB
+              5. Run OMP to get WRF, WBB
+              6. Compute spectral efficiency of HYBRID system
+              7. Compute spectral efficiency of BEAM STEERING baseline
+      Average over iterations
+      Print progress
+  Plot spectral efficiency vs SNR for all three methods
+
+  Key parameters:
+
+  Nt = 64;  Nr = 16;  NtRF = 4;  NrRF = 4;
+  Ncl = 8;  Nray = 10;  ang_spread = 7.5;
+  Niter = 100;  SNR_dB = -40:5:0;
+
+  These match the standard parameters from El Ayach et al. (2014).
+
+  The Monte Carlo averaging is critical: A single channel realization is random
+  — it might be exceptionally good or bad. Averaging over 100+ realizations
+  gives statistically meaningful results. More iterations (500–1000) give
+  smoother curves but take longer.
+
+  ---
+  PART L: FILE 11 — main_MU_OMP_simulation.m (Multi-User Simulation)
+
+  The multi-user simulation compares three schemes:
+
+  FOR each SNR point:
+      FOR each Monte Carlo iteration:
+          Generate K independent channels (one per user)
+
+          1. FULLY DIGITAL ZF:
+             - Stack channels H = [H_1; H_2; ...; H_K]
+             - F_ZF = H' * inv(H * H')
+             - Compute sum rate
+
+          2. HYBRID OMP + ZF:
+             - Stage 1: Joint OMP on stacked channel -> FRF
+             - Stage 2: ZF on effective channel -> FBB
+             - Compute sum rate
+
+          3. ANALOG-ONLY:
+             - Each RF chain steers to strongest path of each user
+             - FBB = I (no digital processing)
+             - Compute sum rate (with residual MUI)
+
+      Average and plot
+
+  The key observation from the results: Hybrid OMP + ZF achieves much closer to
+  fully digital than analog-only, because the ZF stage eliminates MUI that
+  analog-only cannot manage.
+
+  ---
+  PART M: HOW TO RUN
+
+  1. Open MATLAB
+  2. Navigate to:  F:\Codes\Awesome-Wireless-Communications-Basic\HBF\OMP\
+  3. For single-user:  >> main_SU_OMP_simulation
+  4. For multi-user:   >> main_MU_OMP_simulation
+
+  Expected runtime:
+  - SU simulation (100 iterations, 9 SNR points): ~2–5 minutes
+  - MU simulation (200 iterations, 9 SNR points): ~5–15 minutes
+
+  Expected output:
+  - Console prints spectral efficiency at each SNR point
+  - A plot of Spectral Efficiency vs SNR comparing all methods
+
+  Expected results (approximate):
+
+  For single-user (Nt=64, Nr=16, NtRF=NrRF=4, Ns=1) at SNR = 0 dB:
+  - Optimal: ~20 bits/s/Hz
+  - Hybrid OMP: ~18 bits/s/Hz (within 2 dB)
+  - Beam steering: ~12 bits/s/Hz
+
+  For multi-user (Nt=64, K=4, NtRF=4, Nr=1) at SNR = 0 dB:
+  - Fully Digital ZF: ~8 bits/s/Hz
+  - Hybrid OMP + ZF: ~5–6 bits/s/Hz
+  - Analog only: ~2–3 bits/s/Hz
+
+  ---
+  PART N: KEY REFERENCES FOR THE CODE
+
+  1. El Ayach, O., et al. (2014). "Spatially Sparse Precoding in Millimeter Wave
+   MIMO Systems," IEEE TWC, vol. 13, no. 3, pp. 1499–1513. — The foundational 
+  algorithm implemented here.
+  2. GitHub: metegenez/spatially-sparse-precoding — OOP-based MATLAB 
+  implementation with UPA.
+  3. GitHub: ge99210/Hybrid-Precoding-Combining- — Clean functional OMP by G. K.
+   Papageorgiou.
+  4. GitHub: Naren920421/Narrowband-mmWave-hybrid-precoding-algorithm — Figures 
+  3 & 4 reproduction.
+  5. GitHub: le-liang/HybridPrecodingMassiveMIMO — Multi-user hybrid precoding 
+  with BD/ZF.
+  6. MathWorks: omphybweights — Built-in OMP hybrid beamforming function 
+  (requires Phased Array Toolbox).
+  7. MathWorks: Introduction to Hybrid Beamforming — Official tutorial with 
+  Monte Carlo simulation.
+
+  ---
+  End of Chunk 3. All three chunks are complete. You now have:
+  - Chunk 1: OMP for single-user hybrid beamforming (theory, math, numerical
+  examples)
+  - Chunk 2: Extended OMP for multi-user hybrid beamforming (MUI management,
+  ZF/MMSE/BD, beam conflicts)
+  - Chunk 3: Complete MATLAB implementation with line-by-line explanation of
+  every function
+
+✻ Baked for 15m 31s

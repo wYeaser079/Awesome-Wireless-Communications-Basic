@@ -1,0 +1,530 @@
+
+╭─── Claude Code v2.1.56 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│   F:\Codes\Awesome-Wireless-Communications-Basic   │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Read HBF\OMP\main_MU_OMP_simulation.m (198 lines)
+  ⎿  Read HBF\OMP\compute_MU_sum_rate.m (136 lines)
+  ⎿  Read HBF\OMP\OMP_hybrid_precoding_MU.m (154 lines)
+  ⎿  Read HBF\OMP\beam_steering.m (79 lines)
+  ⎿  Read HBF\OMP\main_SU_OMP_simulation.m (195 lines)
+
+● Continuing with the merge plan. Let me first check the current state of both
+  directories, then execute the merge.
+
+● Read 2 files (ctrl+o to expand)
+
+● Good, both directories are intact. Now let me read the files I need for the
+  merge — the ones unique to root that need to be copied, and the code/ files
+  that need enhancement.
+
+● Read 7 files (ctrl+o to expand)
+
+● Now let me also check the root for non-.m files and read the root files that
+  have assert checks to merge.
+
+● Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+● Now I have a complete picture of all files. Let me execute the merge plan.
+
+  Merge Summary:
+  1. Copy 3 unique root files to code/ as-is (self-contained, no dependency
+  issues)
+  2. Copy + rename Joint OMP MU file to code/ (different algorithm from Per-user
+   OMP already in code/)
+  3. Enhance code/ files with root's assert checks and documentation
+  4. Delete root .m files (superseded by code/ equivalents)
+
+  Let me start with the copies and the enhanced Joint OMP file.
+
+● Bash(cp
+      "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/beam_steering.m"
+      "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/code/beam_steering
+      .m")
+  ⎿  Done
+
+● Bash(cp "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/compute_optima
+      l_precoders.m"
+      "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/code/compute_opt…)
+  ⎿  Done
+
+● Bash(cp "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/compute_MU_sum
+      _rate.m" "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/code/comp
+      ute_MU_sum_ra…)
+  ⎿  Done
+
+● Now create the Joint OMP file (renamed from root's OMP_hybrid_precoding_MU.m)
+  with updated function name:
+
+● Write(HBF\OMP\code\OMP_hybrid_precoder_MU_joint.m)
+  ⎿  Wrote 155 lines to HBF\OMP\code\OMP_hybrid_precoder_MU_joint.m
+     function [FRF, FBB, Heff] = OMP_hybrid_precoder_MU_joint(H_all,
+     At_dict, Nt, NtRF, Ns_per_user, K)
+     % OMP_HYBRID_PRECODER_MU_JOINT  Multi-user hybrid precoding using 
+     JOINT OMP
+     %   for the analog RF stage and Zero-Forcing (ZF) for the digital 
+     baseband.
+     %
+     %   [FRF, FBB, Heff] = OMP_hybrid_precoder_MU_joint(H_all, At_dict, 
+     Nt, NtRF, Ns_per_user, K)
+     %
+     %   This implements APPROACH B (Joint OMP): Run OMP on the aggregate
+     %   stacked channel to find a shared FRF across all users.
+     %
+     %   For APPROACH A (Per-user OMP), see OMP_hybrid_precoder_MU.m
+     … +145 lines (ctrl+o to expand)
+
+● Now enhance the code/ files with the root's best features. Adding assert
+  checks to OMP_hybrid_precoder.m and noise coloring explanation to
+  compute_spectral_efficiency.m:
+
+● Update(HBF\OMP\code\OMP_hybrid_precoder.m)
+  ⎿  Added 5 lines
+      38  %                                                              
+      39  % ============================================================ 
+          =============                                                  
+      40                                                                 
+      41 +% Validate inputs                                              
+      42 +[Nt, ~] = size(At);                                            
+      43 +assert(size(F_opt, 1) == Nt, 'F_opt and At must have the same  
+         +number of rows (Nt)');                                         
+      44 +assert(N_RF >= Ns, 'Number of RF chains must be >= number of   
+         +data streams');                                                
+      45 +                                                               
+      46  F_RF  = [];                                                    
+      47  F_res = F_opt;                                                 
+      48                                                                 
+
+● Update(HBF\OMP\code\compute_spectral_efficiency.m)
+  ⎿  Added 7 lines, removed 1 line
+      31  %                                                              
+      32  % ============================================================ 
+          =============                                                  
+      33                                                                 
+      34 -% Noise covariance after combining                             
+      34 +% Noise covariance after combining (noise coloring correction) 
+      35 +% For hybrid combining where W = W_RF * W_BB, the noise after  
+         +combining                                                      
+      36 +% is n_eff = W' * n, so its covariance is E[n_eff * n_eff'] =  
+         +sigma^2 * W' * W.                                              
+      37 +% The term Rn = W' * W accounts for the fact that the analog   
+         +combiner W_RF                                                  
+      38 +% is not unitary (its columns are unit-norm steering vectors   
+         +but NOT orthogonal),                                           
+      39 +% so the noise is "colored" after combining. For the optimal   
+         +unconstrained case                                             
+      40 +% where W = U(:,1:Ns), W'*W = I and this reduces to the        
+         +standard formula.                                              
+      41  Rn = W' * W;                                                   
+      42                                                                 
+      43  % Signal term after combining                                  
+
+● Now verify the enhanced files look correct:
+
+● Read 2 files (ctrl+o to expand)
+
+● Both enhanced files look correct. Now delete the root .m files (keeping the
+  chat .txt files and code/ directory):
+
+● Bash(rm "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/array_response
+      _ULA.m" "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/array_resp
+      onse_UPA.m" "…)
+  ⎿  Done
+
+● Bash(rm "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/generate_mmWav
+      e_channel.m" "F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/main_
+      MU_OMP_simula…)
+  ⎿  Done
+
+● Now let me verify the final state of both directories:
+
+● Read 1 file (ctrl+o to expand)
+
+● Merge complete. Let me do a final verification by counting the files:
+
+● Read 1 file (ctrl+o to expand)
+
+● The merge is complete. Here's the final summary:
+
+  Root HBF/OMP/ directory - cleaned up, only contains:
+  - chat001_understanding_omp_pt1.txt (chat notes)
+  - chat001_understanding_omp_pt2.txt (chat notes)
+  - code/ folder (all MATLAB code)
+
+  HBF/OMP/code/ directory - 20 .m files, the complete codebase:
+
+  ┌──────────────────────────────────────┬────────────┬─────────────────────┐
+  │                 File                 │   Source   │        Notes        │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ steering_vec_ULA.m                   │ code/      │ ULA steering vector │
+  │                                      │ original   │  (configurable d)   │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ steering_vec_UPA.m                   │ code/      │ UPA steering vector │
+  │                                      │ original   │                     │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ steering_vec_UPA_3D.m                │ code/      │ 3D UPA steering     │
+  │                                      │ original   │ vector              │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ build_dictionary_ULA.m               │ code/      │ ULA dictionary      │
+  │                                      │ original   │ builder             │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ build_dictionary_UPA.m               │ code/      │ UPA dictionary      │
+  │                                      │ original   │ builder             │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ generate_mmWave_channel_ULA.m        │ code/      │ ULA S-V channel     │
+  │                                      │ original   │                     │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ generate_mmWave_channel_UPA.m        │ code/      │ UPA S-V channel     │
+  │                                      │ original   │                     │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ OMP_hybrid_precoder.m                │ code/ +    │ Added assert checks │
+  │                                      │ enhanced   │  from root          │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ OMP_hybrid_combiner.m                │ code/      │ Self-contained MMSE │
+  │                                      │ original   │  + OMP combiner     │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ OMP_hybrid_precoder_MU.m             │ code/      │ Per-user OMP        │
+  │                                      │ original   │ (Approach A)        │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ OMP_hybrid_precoder_MU_joint.m       │ root,      │ Joint OMP (Approach │
+  │                                      │ renamed    │  B)                 │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │                                      │ code/ +    │ Added noise         │
+  │ compute_spectral_efficiency.m        │ enhanced   │ coloring            │
+  │                                      │            │ explanation         │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ compute_spectral_efficiency_MU.m     │ code/      │ MU spectral         │
+  │                                      │ original   │ efficiency          │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ compute_optimal_precoders.m          │ root,      │ SVD precoder + MMSE │
+  │                                      │ copied     │  combiner           │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ compute_MU_sum_rate.m                │ root,      │ MU sum rate with    │
+  │                                      │ copied     │ per-user SINR       │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ beam_steering.m                      │ root,      │ Analog-only         │
+  │                                      │ copied     │ baseline            │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ main_SU_OMP_hybrid_beamforming.m     │ code/      │ SU simulation       │
+  │                                      │ original   │ (general)           │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ main_SU_OMP_hybrid_beamforming_ULA.m │ code/      │ SU simulation       │
+  │                                      │ original   │ (ULA-specific)      │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ main_MU_OMP_hybrid_beamforming.m     │ code/      │ MU simulation       │
+  │                                      │ original   │                     │
+  ├──────────────────────────────────────┼────────────┼─────────────────────┤
+  │ main_comparison_all_methods.m        │ code/      │ All methods         │
+  │                                      │ original   │ comparison          │
+  └──────────────────────────────────────┴────────────┴─────────────────────┘
+
+  Key merge decisions:
+  - 3 unique root files (beam_steering.m, compute_optimal_precoders.m,
+  compute_MU_sum_rate.m) copied as-is — they're self-contained with no external
+  dependencies
+  - Joint OMP renamed to OMP_hybrid_precoder_MU_joint.m to coexist with the
+  Per-user OMP (OMP_hybrid_precoder_MU.m) — both algorithms are valuable
+  - 8 superseded root files NOT copied — the code/ equivalents are more flexible
+   (e.g., configurable antenna spacing, ULA/UPA support, self-contained
+  combiner)
+  - 2 root main scripts NOT copied — code/ main scripts already call code/
+  function names
+
+✻ Churned for 10m 14s
+
+❯ How to run these code?                                                    
+  Give me chronological order. Give me a proper guidelines.                 
+
+● Let me first check what the main scripts actually call so I can give you
+  accurate dependency chains.
+
+● Read 4 files (ctrl+o to expand)
+
+● Let me also quickly check the dependency files to map the complete call chain.
+
+● Read 5 files (ctrl+o to expand)
+
+● Now I have the complete picture. Here's your comprehensive guide:
+
+  ---
+  How to Run the OMP Hybrid Beamforming Code
+
+  Prerequisites
+
+  - MATLAB (R2018b or later recommended)
+  - No special toolboxes required (all code uses basic MATLAB functions)
+
+  Setup
+
+  1. Open MATLAB
+  2. Set the Current Folder to:
+  HBF/OMP/code/
+  2. Or run in the MATLAB Command Window:
+  cd 'F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/code'
+  2. This is critical because MATLAB needs all .m files on its path.
+
+  ---
+  Recommended Running Order (Chronological, Simple to Complex)
+
+  ---
+  SCRIPT 1: main_SU_OMP_hybrid_beamforming_ULA.m
+
+  Run this first. It's the simplest and fastest.
+
+  >> main_SU_OMP_hybrid_beamforming_ULA
+
+  What it does: Single-user hybrid beamforming with ULA antennas and an
+  oversampled dictionary matrix.
+
+  What it compares:
+  - Full-Digital SVD (upper bound)
+  - Optimal precoder + MMSE combiner
+  - OMP Hybrid precoder + combiner (using dictionary)
+
+  System setup:
+
+  ┌────────────────────────┬─────────────┐
+  │       Parameter        │    Value    │
+  ├────────────────────────┼─────────────┤
+  │ Tx antennas (Nt)       │ 64 (ULA)    │
+  ├────────────────────────┼─────────────┤
+  │ Rx antennas (Nr)       │ 16 (ULA)    │
+  ├────────────────────────┼─────────────┤
+  │ RF chains              │ 4 TX, 4 RX  │
+  ├────────────────────────┼─────────────┤
+  │ Data streams (Ns)      │ 2           │
+  ├────────────────────────┼─────────────┤
+  │ Clusters               │ 6           │
+  ├────────────────────────┼─────────────┤
+  │ Rays/cluster           │ 3           │
+  ├────────────────────────┼─────────────┤
+  │ Monte Carlo iterations │ 50          │
+  ├────────────────────────┼─────────────┤
+  │ SNR range              │ -30 to 0 dB │
+  └────────────────────────┴─────────────┘
+
+  Files it calls:
+  main_SU_OMP_hybrid_beamforming_ULA.m
+    |-- build_dictionary_ULA.m          (builds Tx and Rx dictionaries)
+    |-- generate_mmWave_channel_ULA.m   (generates S-V channel)
+    |-- OMP_hybrid_precoder.m           (Algorithm 1 - TX side OMP)
+    |-- OMP_hybrid_combiner.m           (Algorithm 2 - RX side OMP)
+    |-- compute_spectral_efficiency.m   (computes SE with noise coloring)
+
+  Expected runtime: ~1-3 minutes (50 iterations, 7 SNR points)
+
+  Expected output: One figure showing 3 curves (Full-Digital, Optimal+MMSE, OMP
+  Hybrid). The OMP hybrid curve should be close to the optimal.
+
+  ---
+  SCRIPT 2: main_SU_OMP_hybrid_beamforming.m
+
+  Run this second. It uses UPA (2D planar array) instead of ULA.
+
+  >> main_SU_OMP_hybrid_beamforming
+
+  What it does: Single-user hybrid beamforming with UPA antennas. Uses the
+  channel's own steering vectors as the dictionary (not a pre-built dictionary).
+
+  What it compares:
+  - Optimal unconstrained precoding
+  - OMP hybrid precoding/combining
+  - Beam steering (analog-only, Ns=1 only)
+
+  System setup:
+
+  ┌────────────────────────┬──────────────┐
+  │       Parameter        │    Value     │
+  ├────────────────────────┼──────────────┤
+  │ Tx antennas (Nt)       │ 64 (8x8 UPA) │
+  ├────────────────────────┼──────────────┤
+  │ Rx antennas (Nr)       │ 16 (4x4 UPA) │
+  ├────────────────────────┼──────────────┤
+  │ RF chains              │ 4 TX, 4 RX   │
+  ├────────────────────────┼──────────────┤
+  │ Data streams (Ns)      │ 1, then 2    │
+  ├────────────────────────┼──────────────┤
+  │ Clusters               │ 8            │
+  ├────────────────────────┼──────────────┤
+  │ Rays/cluster           │ 10           │
+  ├────────────────────────┼──────────────┤
+  │ Monte Carlo iterations │ 100          │
+  ├────────────────────────┼──────────────┤
+  │ SNR range              │ -40 to 0 dB  │
+  └────────────────────────┴──────────────┘
+
+  Files it calls:
+  main_SU_OMP_hybrid_beamforming.m
+    |-- generate_mmWave_channel_UPA.m   (generates S-V channel with UPA)
+    |-- OMP_hybrid_precoder.m           (Algorithm 1)
+    |-- OMP_hybrid_combiner.m           (Algorithm 2)
+    |-- [local] find_beam_steering_vectors()  (beam steering baseline)
+
+  Expected runtime: ~5-15 minutes (100 iterations x 9 SNR points x 2 Ns values)
+
+  Expected output: Two figures (one per Ns value). Each shows Optimal vs Hybrid
+  vs Beam Steering. This reproduces Fig. 3 from El Ayach et al. 2014.
+
+  ---
+  SCRIPT 3: main_MU_OMP_hybrid_beamforming.m
+
+  Run this third. It moves to multi-user scenario.
+
+  >> main_MU_OMP_hybrid_beamforming
+
+  What it does: Multi-user downlink with K=4 single-antenna users. BS uses
+  hybrid precoding (OMP for analog, ZF for digital).
+
+  What it compares:
+  - Fully-Digital ZF (upper bound)
+  - OMP Hybrid + ZF
+  - Phase-Reversal Hybrid + ZF (Le Liang's low-complexity method)
+  - Beam-Space MIMO + ZF (DFT beam selection)
+
+  System setup:
+
+  ┌────────────────────────┬──────────────────┐
+  │       Parameter        │      Value       │
+  ├────────────────────────┼──────────────────┤
+  │ BS antennas (Nt)       │ 128 (ULA)        │
+  ├────────────────────────┼──────────────────┤
+  │ Users (K)              │ 4 single-antenna │
+  ├────────────────────────┼──────────────────┤
+  │ RF chains              │ 4 (= K)          │
+  ├────────────────────────┼──────────────────┤
+  │ Streams per user       │ 1                │
+  ├────────────────────────┼──────────────────┤
+  │ Clusters per user      │ 10               │
+  ├────────────────────────┼──────────────────┤
+  │ Monte Carlo iterations │ 500              │
+  ├────────────────────────┼──────────────────┤
+  │ SNR range              │ -30 to 0 dB      │
+  └────────────────────────┴──────────────────┘
+
+  Files it calls:
+  main_MU_OMP_hybrid_beamforming.m
+    |-- build_dictionary_ULA.m             (builds oversampled dictionary)
+    |-- [local] generate_MU_channel_ULA()  (generates per-user channels)
+    |-- [local] compute_MU_sum_rate()      (computes sum rate with SINR)
+    |-- [inline OMP per user]              (per-user RF beam selection)
+
+  Expected runtime: ~10-30 minutes (500 iterations x 7 SNR points). You can
+  reduce N_iter to 100 for a quicker test run.
+
+  To do a quick test first:
+  % Open the file, change line 41 from:
+  N_iter   = 500;
+  % to:
+  N_iter   = 50;
+
+  Expected output: One figure with 4 curves. Fully-Digital ZF is the upper
+  bound. OMP Hybrid + ZF should be close to it. Phase-Reversal and Beam-Space
+  are lower.
+
+  ---
+  SCRIPT 4: main_comparison_all_methods.m
+
+  Run this last. It's the most comprehensive — runs both SU and MU simulations.
+
+  >> main_comparison_all_methods
+
+  What it does: Comprehensive comparison across all methods, both single-user
+  and multi-user.
+
+  PART 1 (Single-User): Compares OMP with channel steering vectors vs OMP with
+  oversampled UPA dictionary vs Optimal.
+
+  PART 2 (Multi-User): Compares Fully-Digital ZF vs OMP+ZF vs Phase-Reversal+ZF.
+
+  Files it calls:
+  main_comparison_all_methods.m
+    |-- build_dictionary_UPA.m            (UPA dictionary for SU)
+    |-- generate_mmWave_channel_UPA.m     (UPA channel for SU)
+    |-- OMP_hybrid_precoder.m             (Algorithm 1)
+    |-- OMP_hybrid_combiner.m             (Algorithm 2)
+    |-- compute_spectral_efficiency.m     (SU spectral efficiency)
+    |-- build_dictionary_ULA.m            (ULA dictionary for MU)
+
+  Expected runtime: ~15-40 minutes (SU: 100 iter x 9 SNR + MU: 200 iter x 7 SNR)
+
+  Expected output: Two figures — one for SU comparison, one for MU comparison.
+
+  ---
+  Complete File Map (What Each File Does)
+
+  HBF/OMP/code/
+  |
+  |-- STEERING VECTORS (lowest level)
+  |   |-- steering_vec_ULA.m            ULA steering vector a(phi, N, d)
+  |   |-- steering_vec_UPA.m            UPA steering vector
+  |   |-- steering_vec_UPA_3D.m         3D UPA steering vector
+  |
+  |-- DICTIONARY BUILDERS
+  |   |-- build_dictionary_ULA.m        Oversampled ULA dictionary
+  |   |-- build_dictionary_UPA.m        Oversampled UPA dictionary
+  |
+  |-- CHANNEL GENERATORS
+  |   |-- generate_mmWave_channel_ULA.m  Saleh-Valenzuela channel (ULA)
+  |   |-- generate_mmWave_channel_UPA.m  Saleh-Valenzuela channel (UPA)
+  |
+  |-- CORE OMP ALGORITHMS
+  |   |-- OMP_hybrid_precoder.m          SU precoder (Algorithm 1)
+  |   |-- OMP_hybrid_combiner.m          SU combiner (Algorithm 2)
+  |   |-- OMP_hybrid_precoder_MU.m       MU precoder (Per-User OMP + ZF)
+  |   |-- OMP_hybrid_precoder_MU_joint.m MU precoder (Joint OMP + ZF)
+  |
+  |-- PERFORMANCE METRICS
+  |   |-- compute_spectral_efficiency.m     SU spectral efficiency
+  |   |-- compute_spectral_efficiency_MU.m  MU spectral efficiency
+  |   |-- compute_MU_sum_rate.m             MU sum rate + per-user SINR
+  |
+  |-- BASELINES
+  |   |-- compute_optimal_precoders.m    SVD precoder + MMSE combiner
+  |   |-- beam_steering.m                Analog-only beam steering
+  |
+  |-- MAIN SIMULATION SCRIPTS (run these)
+  |   |-- main_SU_OMP_hybrid_beamforming_ULA.m   [RUN 1st]
+  |   |-- main_SU_OMP_hybrid_beamforming.m        [RUN 2nd]
+  |   |-- main_MU_OMP_hybrid_beamforming.m        [RUN 3rd]
+  |   |-- main_comparison_all_methods.m            [RUN 4th]
+
+  ---
+  Quick Start (Copy-Paste into MATLAB)
+
+  %% Step 1: Navigate to the code folder
+  cd 'F:/Codes/Awesome-Wireless-Communications-Basic/HBF/OMP/code'
+
+  %% Step 2: Run the simplest simulation first
+  main_SU_OMP_hybrid_beamforming_ULA
+
+  %% Step 3: After it finishes, run the UPA version
+  main_SU_OMP_hybrid_beamforming
+
+  %% Step 4: Multi-user simulation
+  main_MU_OMP_hybrid_beamforming
+
+  %% Step 5: Comprehensive comparison
+  main_comparison_all_methods
+
+  Tips
+
+  - If a script takes too long: Reduce N_iter (Monte Carlo iterations) to 20-50
+  for a quick test. Results will be noisier but the trends will be visible.
+  - If you get "Undefined function" errors: Make sure your MATLAB current folder
+   is HBF/OMP/code/. Type pwd to check.
+  - Standalone utility files like OMP_hybrid_precoder_MU.m,
+  OMP_hybrid_precoder_MU_joint.m, compute_MU_sum_rate.m, beam_steering.m, and
+  compute_optimal_precoders.m are not called by the main scripts directly —
+  they're available for you to use when building your own custom simulations.
+
+✻ Worked for 1m 37s
