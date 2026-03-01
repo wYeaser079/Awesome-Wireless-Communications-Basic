@@ -1,0 +1,2903 @@
+
+╭─── Claude Code v2.1.63 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│   F:\Codes\Awesome-Wireless-Communications-Basic   │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ read this file:                                                           
+  @"paper analysis/Cell-Free Massive MIMO Versus Small                      
+  Cells/understanding_paper_sec2.txt" ,                                     
+  Now help me to understand section 3 in the same way.                      
+  ⎿  Read paper analysis\Cell-Free Massive MIMO Versus Small 
+     Cells\understanding_paper_sec2.txt (1083 lines)
+
+● I've read the file — it contains your previous deep dive into Section II
+  (system model, uplink training, downlink/uplink data transmission). Now let me
+   prepare the same level of deep dive for Section III (Performance Analysis).
+
+  Let me first re-read the paper's Section III and do thorough research.
+
+● Agent(Extract Section III from paper)
+  ⎿  Done (7 tool uses · 36.8k tokens · 2m 18s)
+  (ctrl+o to expand)
+
+● Agent(Research Massive MIMO rate analysis)
+  ⎿  Done (48 tool uses · 55.9k tokens · 28m 0s)
+  (ctrl+o to expand)
+
+● Now I have thorough research on both the paper content and background theory.
+  Let me write the complete deep dive.
+
+  ---
+  SECTION III: PERFORMANCE ANALYSIS — Complete Deep Dive
+
+  ---
+  CHUNK 1: The High-Level Picture & Asymptotic Analysis (Section III-A)
+
+  1.1 What This Section Is About (Simple Terms)
+
+  Section II told us how the system works — pilots, beamforming, matched
+  filtering. Section III answers: how well does it work? It derives exact
+  formulas for the data rate each user can achieve.
+
+  The section has two parts:
+  - III-A: What happens when M → ∞ (infinite APs)? This reveals the fundamental
+  limits.
+  - III-B: What is the exact rate for any finite M and K? This gives the
+  formulas we'll actually implement.
+
+  Think of III-A as the "dream scenario" that shows you the theoretical ceiling,
+   and III-B as the "real-world formula" that tells you exactly where you stand.
+
+  ---
+  1.2 Why Do We Need Rate Expressions?
+
+  In wireless, we measure performance by achievable rate (bits/sec/Hz). A rate
+  expression tells us:
+  - How much data each user can receive/send
+  - How the system scales with M and K
+  - Where the bottlenecks are
+  - What to optimize (power control, pilot assignment)
+
+  Without closed-form rate expressions, we'd need Monte Carlo simulations for
+  every parameter setting — impractical for optimization.
+
+  ---
+  1.3 The Asymptotic Regime: M → ∞ (Section III-A)
+
+  Let's start from the downlink received signal at user k (from Section II, Eq.
+  9):
+
+                  M     K
+  r_{d,k} = √ρ_d · Σ    Σ  √η_{mk'} · g_{mk} · ĝ*_{mk'} · q_{k'}  +  w_{d,k}
+                 m=1  k'=1
+
+  Splitting into desired signal (DS) and multi-user interference (MUI):
+
+               ┌──────── DS_k ─────────┐     ┌──────────── MUI_k ─────────────┐
+                  M                           M     K
+  r_{d,k} = √ρ_d·Σ √η_{mk}·g_{mk}·ĝ*_{mk}·q_k + √ρ_d·Σ    Σ
+  √η_{mk'}·g_{mk}·ĝ*_{mk'}·q_{k'} + w_{d,k}
+                 m=1                         m=1  k'≠k
+
+  The key question: What happens to DS_k and MUI_k as M → ∞?
+
+  ---
+  1.4 Tchebyshev's Theorem — The Mathematical Engine
+
+  The tool that drives the asymptotic analysis is Tchebyshev's theorem (a form
+  of the weak law of large numbers):
+
+  If X₁, X₂, ..., Xₙ are independent random variables with E{Xᵢ} = μᵢ and 
+  Var{Xᵢ} ≤ c < ∞ for all i, then:
+
+  (1/n)·(X₁ + X₂ + ··· + Xₙ) − (1/n)·(μ₁ + μ₂ + ··· + μₙ) → 0 in probability
+
+  In words: the average of independent, bounded-variance random variables
+  converges to the average of their means. The random fluctuations cancel out.
+
+  Why this matters for Massive MIMO: Each AP contributes one independent term to
+   the sum. With M APs (M large), the sum of M independent terms concentrates
+  around its mean.
+
+  ---
+  1.5 Applying Tchebyshev to the Inner Products
+
+  The critical inner product is (using the channel estimate from Eq. 4):
+
+    M
+    Σ  √η_{mk'} · g_{mk} · ĝ*_{mk'}
+   m=1
+
+  Substituting ĝ_{mk'} = c_{mk'} · ŷ_{p,mk'} and expanding ŷ_{p,mk'}:
+
+    M                              M                               K
+    Σ √η_{mk'}·g_{mk}·ĝ*_{mk'} = Σ √η_{mk'}·c_{mk'}·g_{mk}·[√(τ_p·ρ_p)· Σ
+  g*_{mi}·φ*_{k'}·φᵢ + w̃*_{p,mk'}]
+   m=1                            m=1                             i=1
+
+  Each term in the sum over m is independent (different APs have independent
+  channels). By Tchebyshev's theorem, as M → ∞: Eq. (14)
+
+    1   M                                           1   M
+   ─── · Σ √η_{mk'}·g_{mk}·ĝ*_{mk'} − √(τ_p·ρ_p)·─── · Σ
+  √η_{mk'}·c_{mk'}·β_{mk}·φ*_k·φ_{k'} → 0
+    M  m=1                                          M  m=1
+
+  Let me explain what happened here:
+  - The noise term w̃_{p,mk'} is independent of g_{mk}, so E{g_{mk}·w̃*_{p,mk'}} =
+   0 → this term vanishes
+  - Cross terms g_{mk}·g*_{mi} for i ≠ k have E{g_{mk}·g*_{mi}} = 0 → these
+  vanish too
+  - Only the i = k term survives: E{g_{mk}·g*_{mk}} = E{|g_{mk}|²} = β_{mk}
+
+  ---
+  1.6 What Survives as M → ∞
+
+  Applying this to DS_k and MUI_k separately:
+
+  Desired signal (Eq. 15): Setting k' = k:
+    1                              1   M
+   ─── · DS_k → √(τ_p·ρ_p·ρ_d) · ─── · Σ √η_{mk}·c_{mk}·β_{mk} · q_k
+  (deterministic!)
+    M                              M  m=1
+
+  Multi-user interference (Eq. 16): For k' ≠ k:
+    1                              1   M
+   ─── · MUI_k → √(τ_p·ρ_p·ρ_d) · Σ  [─── · Σ √η_{mk'}·c_{mk'}·β_{mk}] ·
+  φ*_k·φ_{k'} · q_{k'}
+    M                             k'≠k  M  m=1
+
+  The crucial observation: The interference term has a factor φ*k · φ{k'}.
+
+  - If φ*k · φ{k'} = 0 (orthogonal pilots): Interference vanishes completely! →
+  Eq. (18)
+  - If φ*k · φ{k'} ≠ 0 (shared pilots): Interference persists even as M → ∞ →
+  Eq. (17)
+
+  This is pilot contamination — the only impairment that survives infinite M.
+
+  ---
+  1.7 Favorable Propagation — Why Interference Disappears
+
+  The disappearance of non-coherent interference is called favorable 
+  propagation. Physically:
+
+    M
+    Σ  g*_{mk} · g_{mk'}    (inner product of channel vectors of users k and k')
+   m=1
+
+  When k ≠ k' and they use different pilots, ĝ_{mk} is independent of g_{mk'}.
+  The M terms in the sum are independent with zero mean → by LLN, the sum
+  divided by M → 0.
+
+    Users with orthogonal pilots:
+
+         g_k = [g_{1k}, g_{2k}, ..., g_{Mk}]ᵀ
+         g_{k'} = [g_{1k'}, g_{2k'}, ..., g_{Mk'}]ᵀ
+
+         (1/M) · g*_k · g_{k'} → 0    as M → ∞
+
+         The channel vectors become orthogonal!
+
+  But when users share a pilot, ĝ_{mk} contains a coherent component of g_{mk'}
+  (from the contamination). This coherent component adds up constructively
+  across all M APs:
+
+    Users sharing pilots:
+
+         ĝ_{mk} ∝ c_{mk} · (√(τ_p·ρ_p) · g_{mk} + √(τ_p·ρ_p) · g_{mk'} + noise)
+                                                       ↑ contamination
+
+         Σ_m g_{mk} · ĝ*_{mk}  contains  Σ_m |g_{mk}|² (desired, ~ M)
+         Σ_m g_{mk'} · ĝ*_{mk} contains  Σ_m β_{mk} · c_{mk} (contamination,
+  also ~ M)
+
+         Both scale linearly with M → ratio saturates → pilot contamination is
+  permanent!
+
+  ---
+  1.8 Numerical Example — Asymptotic Behavior
+
+  Setup: K = 4 users, τ_p = 2 pilots → Users {1,3} share pilot 1, Users {2,4}
+  share pilot 2.
+
+  As M → ∞, the downlink signal at User 1 becomes:
+
+  r_{d,1}/√M → √(τ_p·ρ_p·ρ_d·M) · [
+     Σ_m √η_{m1}·c_{m1}·β_{m1} · q₁           ← desired signal (always present)
+   + Σ_m √η_{m3}·c_{m3}·β_{m1} · q₃           ← pilot contamination from User 3
+   + 0 · q₂                                     ← User 2 (orthogonal pilot):
+  GONE
+   + 0 · q₄                                     ← User 4 (orthogonal pilot):
+  GONE
+  ]
+
+  Noise: GONE. Interference from Users 2,4: GONE. Only User 3's interference
+  survives (same pilot).
+
+  ---
+  CHUNK 2: Achievable Downlink Rate — Theorem 1 (Section III-B1)
+
+  2.1 The High-Level Picture
+
+  The asymptotic analysis (M → ∞) tells us what vanishes. But we need a rate
+  formula for finite M (e.g., M = 100). This is Theorem 1 — the central result
+  of the paper.
+
+  The challenge: for finite M, noise, beamforming uncertainty, and all
+  interference are present. We need to quantify every source of impairment
+  precisely.
+
+  ---
+  2.2 The Use-and-Then-Forget (UatF) Bounding Technique
+
+  The key problem: user k does not know the instantaneous effective channel
+  gain. In a standard system, the user would estimate the downlink channel.
+  Here, thanks to channel hardening, the user relies only on statistics (the
+  mean of the effective channel).
+
+  The technique, called the "Use-and-Then-Forget" (UatF) bound:
+
+  1. Use: The AP uses its channel estimate ĝ_{mk} for beamforming
+  2. Forget: The user decodes as if it only knows E{effective channel}, treating
+   all deviations as noise
+
+  The name captures the philosophy: channel estimates are used to design
+  beamformers, then forgotten at the decoder.
+
+  ---
+  2.3 Signal Decomposition — Equations (19)–(22)
+
+  The received signal at user k is rewritten as:
+
+  r_{d,k} = DS_k · q_k + BU_k · q_k + Σ_{k'≠k} UI_{kk'} · q_{k'} + w_{d,k}
+  ... (19)
+
+  where three key quantities are defined:
+
+  DS_k (Desired Signal strength) — Eq. (20):
+                          M
+  DS_k = √ρ_d · E{ Σ  √η_{mk} · g_{mk} · ĝ*_{mk} }
+                         m=1
+  This is the mean of the effective channel gain — deterministic, known to the
+  user.
+
+  BU_k (Beamforming Uncertainty) — Eq. (21):
+                   M                           M
+  BU_k = √ρ_d · [ Σ  √η_{mk}·g_{mk}·ĝ*_{mk} − E{ Σ  √η_{mk}·g_{mk}·ĝ*_{mk} } ]
+                  m=1                         m=1
+  This is the random fluctuation of the effective channel around its mean. The
+  user cannot track this — it acts as self-interference.
+
+  UI_{kk'} (Inter-User Interference) — Eq. (22):
+                      M
+  UI_{kk'} = √ρ_d · Σ  √η_{mk'} · g_{mk} · ĝ*_{mk'}
+                     m=1
+  This is the leakage from user k' into user k's signal.
+
+  Visually:
+
+  r_{d,k} =  [ DS_k ]  · q_k  +  [ BU_k ]  · q_k  +   Σ   [ UI_{kk'} ] · q_{k'}
+   +  w_{d,k}
+              ↑ known              ↑ unknown              k'≠k  ↑ unknown
+           ↑ noise
+              (signal)             (self-interference)          (multi-user
+  interference)
+
+  ---
+  2.4 Why This Decomposition Works — The Worst-Case Noise Argument
+
+  Critical property: DS_k and BU_k are uncorrelated:
+
+  E{DS_k · BU*_k} = E{DS_k · [a_k − E{a_k}]*} = DS_k · [E{a*_k} − E{a*_k}] = 0
+
+  where a_k = Σ_m √η_{mk} · g_{mk} · ĝ*_{mk} is the effective channel.
+
+  Similarly, UI_{kk'} is uncorrelated with DS_k · q_k.
+
+  Now the key information-theoretic argument:
+
+  Among all additive noise distributions with a given variance, Gaussian noise 
+  minimizes the mutual information (capacity). Therefore, replacing the actual 
+  non-Gaussian effective noise (BU + UI + thermal) with Gaussian noise of the 
+  same power gives a valid lower bound on the achievable rate.
+
+  This yields: Eq. (23)
+
+                           |DS_k|²
+  R_{d,k} = log₂(1 + ─────────────────────────────────────── )
+                       E{|BU_k|²} + Σ_{k'≠k} E{|UI_{kk'}|²} + 1
+
+  The structure is:
+
+           (signal power from the KNOWN part of the channel)
+  SINR = ─────────────────────────────────────────────────────────
+         (variance of channel uncertainty) + (interference power) + (noise)
+
+  ---
+  2.5 Computing Each Term — The Proof of Theorem 1
+
+  Now we compute DS_k, E{|BU_k|²}, and E{|UI_{kk'}|²} in closed form. This is
+  Appendix A of the paper. Let me walk through each.
+
+  Step 1: Compute DS_k (Eq. 59)
+
+  Using the decomposition g_{mk} = ĝ_{mk} + ε_{mk} (estimate + error), where
+  ĝ_{mk} and ε_{mk} are independent (MMSE property):
+
+                      M
+  DS_k = √ρ_d · E{ Σ  √η_{mk} · (ĝ_{mk} + ε_{mk}) · ĝ*_{mk} }
+                     m=1
+
+                M
+       = √ρ_d · Σ  √η_{mk} · ( E{|ĝ_{mk}|²} + E{ε_{mk}} · E{ĝ*_{mk}} )
+                m=1                  ↑                    ↑
+                                  = γ_{mk}             = 0 (zero mean,
+  independent)
+
+                M
+       = √ρ_d · Σ  √η_{mk} · γ_{mk}                                        ...
+  (59)
+                m=1
+
+  Step 2: Compute E{|BU_k|²} (Eq. 60)
+
+  BU_k is the sum of M independent zero-mean terms (centered by subtracting
+  DS_k). The variance of a sum of independent RVs equals the sum of variances:
+
+  E{|BU_k|²} = ρ_d · Σ_{m=1}^{M} η_{mk} · Var{g_{mk} · ĝ*_{mk}}
+
+  For each term:
+  Var{g_{mk} · ĝ*_{mk}} = E{|g_{mk} · ĝ*_{mk}|²} − |E{g_{mk} · ĝ*_{mk}}|²
+                          = E{|g_{mk}|² · |ĝ_{mk}|²} − γ²_{mk}
+
+  Using g_{mk} = ĝ_{mk} + ε_{mk}:
+  E{|g_{mk}|² · |ĝ_{mk}|²} = E{|ĝ_{mk} + ε_{mk}|² · |ĝ_{mk}|²}
+                              = E{|ĝ_{mk}|⁴} + E{|ε_{mk}|²} · E{|ĝ_{mk}|²}
+                                    ↑                ↑              ↑
+                                 = 2γ²_{mk}    = β_{mk}−γ_{mk}   = γ_{mk}
+
+  (For a CN(0,σ²) variable X: E{|X|⁴} = 2σ⁴. This is the fourth moment of a
+  complex Gaussian.)
+
+  So:
+  Var{g_{mk}·ĝ*_{mk}} = 2γ²_{mk} + (β_{mk} − γ_{mk})·γ_{mk} − γ²_{mk}
+                        = γ²_{mk} + β_{mk}·γ_{mk} − γ²_{mk}
+                        = γ_{mk} · β_{mk}
+
+  Therefore: Eq. (60)
+  E{|BU_k|²} = ρ_d · Σ_{m=1}^{M} η_{mk} · γ_{mk} · β_{mk}
+
+  Step 3: Compute E{|UI_{kk'}|²} (Eqs. 61–68)
+
+  This is the most involved step. The interference from user k' has two
+  components:
+  - A coherent part (from pilot contamination, when φ*k · φ{k'} ≠ 0)
+  - An incoherent part (always present)
+
+  After careful derivation (expanding the estimate, using independence of
+  channels across APs, and the fourth moment formula): Eq. (68)
+
+                                                             M
+                          M
+  E{|UI_{kk'}|²} = ρ_d · |φ*_k · φ_{k'}|² · ( Σ  √η_{mk'} · γ_{mk'} ·
+  β_{mk}/γ_{mk'} )²  +  ρ_d · Σ  η_{mk'} · γ_{mk'} · β_{mk}
+                                                            m=1
+                         m=1
+
+  The first term is the coherent interference (pilot contamination) — note it's
+  a squared sum, scaling as M². The second term is incoherent interference — a
+  simple sum, scaling as M.
+
+  ---
+  2.6 Putting It All Together — Theorem 1, Eq. (24)
+
+  Substituting DS_k, E{|BU_k|²}, and E{|UI_{kk'}|²} into Eq. (23): THE CENTRAL 
+  EQUATION
+
+                                          ρ_d · ( Σ_{m=1}^{M} √η_{mk} · γ_{mk}
+  )²
+  R_{d,k} = log₂( 1 + ──────────────────────────────────────────────────────────
+  ─────────────────────────── )
+                        ρ_d · Σ_{k'=1}^{K} Σ_{m=1}^{M} η_{mk'} · γ_{mk'} ·
+  β_{mk}
+                        + ρ_d · Σ_{k'≠k} |φ*_k·φ_{k'}|² · ( Σ_{m=1}^{M}
+  √η_{mk'}·c_{mk'}·β_{mk} )²
+                        + 1
+
+  Let me label each part of the denominator:
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  NUMERATOR:  ρ_d · ( Σ_m √η_{mk} · γ_{mk} )²                      │
+  │              ↑ Squared sum of coherent gains from all M APs          │
+  │              This is |DS_k|² — the signal power                      │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │  DENOMINATOR TERM 1:  ρ_d · Σ_{k'} Σ_m η_{mk'} · γ_{mk'} · β_{mk} │
+  │              ↑ Non-coherent interference + beamforming uncertainty    │
+  │              This = E{|BU_k|²} + incoherent part of Σ E{|UI_{kk'}|²}│
+  │              Scales as O(M) — grows linearly                         │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │  DENOMINATOR TERM 2:  ρ_d · Σ_{k'≠k} |φ*_k·φ_{k'}|² · (...)²      │
+  │              ↑ Coherent pilot contamination interference              │
+  │              Only from co-pilot users (|φ*_k·φ_{k'}|² = 1)           │
+  │              This is a SQUARED SUM — scales as O(M²)                 │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │  DENOMINATOR TERM 3:  1  =  noise                                    │
+  │              ↑ Thermal noise (constant, doesn't scale with M)         │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  Scaling behavior as M → ∞:
+
+  ┌────────────────────────────────┬─────────┬──────────────────────────────┐
+  │           Component            │ Scaling │            Effect            │
+  ├────────────────────────────────┼─────────┼──────────────────────────────┤
+  │ Numerator (signal)             │ O(M²)   │ Grows quadratically          │
+  ├────────────────────────────────┼─────────┼──────────────────────────────┤
+  │ Denom Term 1 (non-coherent)    │ O(M)    │ Drowned out by numerator     │
+  ├────────────────────────────────┼─────────┼──────────────────────────────┤
+  │ Denom Term 2 (pilot            │ O(M²)   │ Stays competitive with       │
+  │ contamination)                 │         │ numerator                    │
+  ├────────────────────────────────┼─────────┼──────────────────────────────┤
+  │ Denom Term 3 (noise)           │ O(1)    │ Completely negligible        │
+  └────────────────────────────────┴─────────┴──────────────────────────────┘
+
+  As M → ∞:   SINR → (Σ_m √η_{mk}·γ_{mk})² / Σ_{k'≠k,co-pilot} (Σ_m
+  √η_{mk'}·c_{mk'}·β_{mk})²
+
+  The rate saturates — it doesn't grow forever. Pilot contamination creates a 
+  ceiling.
+
+  ---
+  2.7 Numerical Example — Downlink Rate Computation
+
+  Setup: M = 4 APs, K = 2 users, τ_p = 1 (both users share the same pilot!), ρ_d
+   = 10 dB = 10.
+
+  Large-scale fading:
+
+  ┌──────┬────────┬────────┐
+  │      │ β_{m1} │ β_{m2} │
+  ├──────┼────────┼────────┤
+  │ AP 1 │ 0.5    │ 0.1    │
+  ├──────┼────────┼────────┤
+  │ AP 2 │ 0.3    │ 0.4    │
+  ├──────┼────────┼────────┤
+  │ AP 3 │ 0.1    │ 0.6    │
+  ├──────┼────────┼────────┤
+  │ AP 4 │ 0.2    │ 0.2    │
+  └──────┴────────┴────────┘
+
+  With τ_p = 1 and both users sharing the pilot (|φ*₁·φ₂|² = 1):
+
+  MMSE coefficient: c_{mk} = √(τ_p·ρ_p) · β_{mk} / (τ_p·ρ_p · (β_{m1} + β_{m2})
+  + 1)
+
+  Let ρ_p = 10 (training SNR = 10 dB), so τ_p·ρ_p = 10.
+
+  ┌─────┬───────────────┬────────────┬────────────┬───────────────┬────────┐
+  │  m  │ β_{m1}+β_{m2} │   c_{m1}   │   c_{m2}   │    γ_{m1}     │ γ_{m2} │
+  ├─────┼───────────────┼────────────┼────────────┼───────────────┼────────┤
+  │ 1   │ 0.6           │ √10·0.5/7  │ √10·0.1/7  │ 10·0.5·0.226  │ 0.045  │
+  │     │               │ = 0.226    │ = 0.045    │ = 1.13        │        │
+  ├─────┼───────────────┼────────────┼────────────┼───────────────┼────────┤
+  │ 2   │ 0.7           │ √10·0.3/8  │ √10·0.4/8  │ 0.356         │ 0.632  │
+  │     │               │ = 0.119    │ = 0.158    │               │        │
+  ├─────┼───────────────┼────────────┼────────────┼───────────────┼────────┤
+  │ 3   │ 0.7           │ √10·0.1/8  │ √10·0.6/8  │ 0.040         │ 1.424  │
+  │     │               │ = 0.040    │ = 0.237    │               │        │
+  ├─────┼───────────────┼────────────┼────────────┼───────────────┼────────┤
+  │ 4   │ 0.4           │ √10·0.2/5  │ √10·0.2/5  │ 0.253         │ 0.253  │
+  │     │               │ = 0.126    │ = 0.126    │               │        │
+  └─────┴───────────────┴────────────┴────────────┴───────────────┴────────┘
+
+  (Approximate values for illustration.)
+
+  With equal power control η_{mk} = 1/(K·max_m γ_{mk}):
+
+  Numerator for user 1: ρ_d · (Σ_m √η_{m1}·γ_{m1})² — the coherent sum of all
+  APs' contributions.
+
+  The point: every quantity in Eq. (24) is computable from the large-scale 
+  fading coefficients β_{mk} alone. No instantaneous channel knowledge needed.
+
+  ---
+  2.8 Remark 3 — Connection to Collocated Massive MIMO (Eq. 25)
+
+  If all APs are collocated (same location): β_{mk} = β_k for all m, γ_{mk} =
+  γ_k for all m. With a total (not per-AP) power constraint and orthogonal
+  pilots:
+
+                             M · ρ_d · η_k · γ_k
+  R_{d,k} = log₂( 1 + ──────────────────────────── )                    ... (25)
+                        ρ_d · Σ_{k'} η_{k'} + 1
+
+  This is the classical collocated Massive MIMO rate from [3] (Ngo, Larsson,
+  Marzetta, 2013). So Cell-Free is a strict generalization — collocated is a
+  special case.
+
+  ---
+  2.9 Remark 4 — Channel Hardening Validation (Fig. 2, Eq. 26)
+
+  To verify that the user can safely decode using only statistics (not
+  instantaneous channel), the paper compares:
+
+  - Eq. (24): Rate assuming user knows only E{effective channel} (the UatF
+  bound)
+  - Eq. (26): Rate assuming a "genie" tells the user the exact instantaneous
+  effective channel
+
+                                      ρ_d · | Σ_m √η_{mk}·g_{mk}·ĝ*_{mk} |²
+  R̃_{d,k} = E{ log₂( 1 + ──────────────────────────────────────────────────── )
+  }     ... (26)
+                            Σ_{k'≠k} | Σ_m √η_{mk'}·g_{mk}·ĝ*_{mk'} |² + 1
+
+  Figure 2 shows the gap is small (a few percent), confirming channel hardening
+  works. The intuition: with M = 100 APs, the effective channel Σ_m
+  √η_{mk}·g_{mk}·ĝ*_{mk} is a sum of ~100 independent terms. By the law of large
+   numbers, this sum concentrates around its mean. The "randomness" is small
+  relative to the mean.
+
+  Important nuance: Channel hardening is weaker in Cell-Free than in collocated
+  systems. In collocated, all M terms have the same variance (same β_k), giving
+  variance/mean² = 1/M. In Cell-Free, the β_{mk} values vary widely — nearby APs
+   dominate. The "effective number" of APs is ~10-20, not 100. But this is still
+   enough for hardening to work reasonably well.
+
+  ---
+  CHUNK 3: Achievable Uplink Rate — Theorem 2 (Section III-B2)
+
+  3.1 The High-Level Picture
+
+  The uplink rate derivation follows the same philosophy as the downlink:
+  decompose the signal, treat deviations from the mean as noise, apply the
+  worst-case Gaussian argument. But the uplink has a different signal structure
+  (combining happens at the CPU, not over the air).
+
+  ---
+  3.2 The Uplink SINR — Theorem 2, Eq. (27)
+
+  The CPU detects user k from the combined signal r_{u,k} = Σ_{m=1}^{M} ĝ*{mk} ·
+   y{u,m} (from Eq. 11). Using the same UatF technique:
+
+                                          ρ_u · p_k · ( Σ_{m=1}^{M} γ_{mk} )²
+  R_{u,k} = log₂( 1 + ──────────────────────────────────────────────────────────
+  ────────────────────────── )
+                        ρ_u · Σ_{k'≠k} p_{k'} · |φ*_k·φ_{k'}|² · ( Σ_{m=1}^{M}
+  γ_{mk}·β_{mk'}/γ_{mk'} )²
+                        + ρ_u · Σ_{k'=1}^{K} p_{k'} · Σ_{m=1}^{M} γ_{mk} ·
+  β_{mk'}
+                        + Σ_{m=1}^{M} γ_{mk}
+  ... (27)
+
+  where p_k ∈ [0, 1] is the uplink power control coefficient for user k.
+
+  ---
+  3.3 Comparing Downlink vs. Uplink SINR Structure
+
+  ┌──────────────────┬──────────────────────────────┬───────────────────────────
+  ───┐
+  │    Component     │        Downlink (Eq. 24)      │       Uplink (Eq. 27)
+      │
+  ├──────────────────┼──────────────────────────────┼───────────────────────────
+  ───┤
+  │ Numerator        │ ρ_d·(Σ_m √η_{mk}·γ_{mk})²   │ ρ_u·p_k·(Σ_m γ_{mk})²
+   │
+  │                  │ ↑ power control per AP-user   │ ↑ no per-AP power control
+       │
+  ├──────────────────┼──────────────────────────────┼───────────────────────────
+  ───┤
+  │ Pilot contam.    │ |φ*_k·φ_{k'}|²·              │ |φ*_k·φ_{k'}|²·
+     │
+  │ (coherent)       │ (Σ_m √η_{mk'}·c_{mk'}·β_{mk})²│ (Σ_m
+  γ_{mk}·β_{mk'}/γ_{mk'})²│
+  ├──────────────────┼──────────────────────────────┼───────────────────────────
+  ───┤
+  │ Non-coherent     │ Σ_{k'} Σ_m η_{mk'}·γ_{mk'}  │ Σ_{k'} p_{k'}·
+   │
+  │ interference     │         ·β_{mk}               │   Σ_m γ_{mk}·β_{mk'}
+     │
+  ├──────────────────┼──────────────────────────────┼───────────────────────────
+  ───┤
+  │ Noise            │ 1                              │ Σ_m γ_{mk}
+       │
+  │                  │                                │ (noise amplified by MF)
+        │
+  ├──────────────────┼──────────────────────────────┼───────────────────────────
+  ───┤
+  │ Power control    │ η_{mk} (M × K variables)      │ p_k (K variables)
+       │
+  │ complexity       │                                │
+        │
+  └──────────────────┴──────────────────────────────┴───────────────────────────
+  ───┘
+
+  Key differences:
+
+  1. Power control granularity: Downlink has M×K power coefficients η_{mk} (one
+  per AP-user pair). Uplink has only K coefficients p_k (one per user). Uplink
+  optimization is much simpler.
+  2. Numerator structure: In downlink, √η_{mk} appears inside the sum — each AP
+  can weight its contribution to each user differently. In uplink, p_k is
+  outside the sum — the user broadcasts with a single power level.
+  3. Noise term: In downlink, noise at the user is just 1. In uplink, noise at
+  the CPU after matched filtering is Σ_m γ_{mk} — each AP's matched filter
+  amplifies noise by γ_{mk}, and these add up.
+
+  ---
+  3.4 Why the Uplink Numerator Has (Σ_m γ_{mk})² Instead of (Σ_m 
+  √η_{mk}·γ_{mk})²
+
+  In the uplink, the matched filter weight at AP m is ĝ*_{mk} (fixed by the
+  channel estimate, not by power control). The CPU simply adds up all APs'
+  contributions. So the mean effective channel is:
+
+                  M                           M
+  E{r_{u,k}} = Σ  E{ĝ*_{mk} · g_{mk}} = Σ  γ_{mk}
+                 m=1                         m=1
+
+  No power control coefficient appears here — p_k only scales the overall
+  signal. That's why the uplink numerator is p_k · (Σ_m γ_{mk})².
+
+  In contrast, for the downlink, AP m can independently control how much power
+  it allocates to user k via η_{mk}, so √η_{mk} appears inside the sum.
+
+  ---
+  3.5 Remark 5 — Collocated Special Case (Eq. 28)
+
+  With collocated APs and orthogonal pilots (same simplification as Remark 3):
+
+                            ρ_u · M · p_k · γ_k
+  R_{u,k} = log₂( 1 + ──────────────────────────── )                    ... (28)
+                        ρ_u · Σ_{k'} p_{k'} · β_{k'} + 1
+
+  This matches the classical collocated Massive MIMO uplink rate from Ngo et al.
+   [21] and Hoydis et al. [36].
+
+  ---
+  CHUNK 4: Key Insights, Physical Interpretation & Summary
+
+  4.1 The Big Picture — What Section III Tells Us
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                   PERFORMANCE HIERARCHY                          │
+  │                                                                  │
+  │   M → ∞, orthogonal pilots:  SINR → ∞  (unlimited rate)        │
+  │          ↑ noise + all interference vanish                       │
+  │                                                                  │
+  │   M → ∞, reused pilots:     SINR → finite  (rate ceiling)       │
+  │          ↑ only pilot contamination remains                      │
+  │                                                                  │
+  │   Finite M, optimized:      SINR = Theorem 1 or 2               │
+  │          ↑ all impairments present, but quantified               │
+  │                                                                  │
+  │   Finite M, no optimization: worst performance                   │
+  │          ↑ power control and pilot assignment matter hugely       │
+  └─────────────────────────────────────────────────────────────────┘
+
+  ---
+  4.2 Why γ_{mk} Is the Most Important Quantity
+
+  The quantity γ_{mk} = E{|ĝ_{mk}|²} = τ_p·ρ_p·β²_{mk} / (τ_p·ρ_p·Σ_{k'∈𝒫k} 
+  β{mk'} + 1) appears everywhere:
+
+  - In the numerator of both DL and UL SINR
+  - In the power constraint
+  - In the interference terms
+  - In the definition of c_{mk}
+
+  γ_{mk} captures the quality of channel estimation between AP m and user k. It
+  depends on:
+  - β_{mk}: how strong the channel is (distance-dependent)
+  - Σ_{k'∈𝒫k} β{mk'}: how much pilot contamination there is (other users on the
+  same pilot)
+  - τ_p·ρ_p: training resources (pilot length × pilot power)
+
+  Good estimation (large γ_{mk}) when:
+  - User k is close to AP m (large β_{mk})
+  - Few co-pilot users are near AP m (small contamination)
+  - Plenty of training resources
+
+  ---
+  4.3 The Three Impairments — A Summary Table
+
+  ┌──────────────────────┬────────────────────┬────────────────┬────────────────
+  ──────┐
+  │     Impairment       │   Physical cause   │ Scales with M  │     Can be
+  fixed?    │
+  ├──────────────────────┼────────────────────┼────────────────┼────────────────
+  ──────┤
+  │ Beamforming          │ Imperfect channel  │ O(M) — drowned │ Improves with
+  better │
+  │ uncertainty (BU)     │ estimation         │ out by signal  │ estimation
+  (more τ_p)│
+  ├──────────────────────┼────────────────────┼────────────────┼────────────────
+  ──────┤
+  │ Non-coherent         │ Multi-user         │ O(M) — drowned │ Vanishes as M →
+   ∞   │
+  │ interference         │ interference       │ out by signal  │ (favorable
+  propagation│
+  ├──────────────────────┼────────────────────┼────────────────┼────────────────
+  ──────┤
+  │ Coherent (pilot      │ Pilot reuse        │ O(M²) — same   │ Can be reduced
+  by    │
+  │ contamination)       │                    │ rate as signal │ pilot
+  assignment, NOT │
+  │                      │                    │                │ eliminated with
+   MF/CB │
+  ├──────────────────────┼────────────────────┼────────────────┼────────────────
+  ──────┤
+  │ Thermal noise        │ Physics            │ O(1) — negligible│ Overwhelmed
+  by array │
+  │                      │                    │ for large M    │ gain
+         │
+  └──────────────────────┴────────────────────┴────────────────┴────────────────
+  ──────┘
+
+  ---
+  4.4 Figure 2 — Channel Hardening Confirmation
+
+      Rate
+      (b/s/Hz)
+       │
+     8 ┤                                     ___________  ← K=10, genie-aided
+  (Eq.26)
+       │                                 ___/
+     7 ┤                              __/ ____________    ← K=10, statistics
+  only (Eq.24)
+       │                           __/ __/
+     6 ┤                         _/ __/
+       │                       _/ _/       small gap → hardening works!
+     5 ┤                     _/ _/
+       │                   _/ _/      ___________  ← K=20, genie-aided
+     4 ┤                 _/ _/    ___/
+       │               _/ _/  ___/ ___________    ← K=20, statistics only
+     3 ┤             _/ _/ __/ __/
+       │           _/ _/__/ __/
+     2 ┤         _/ _/_/ __/
+       │       _/_/_/ __/
+     1 ┤    __/__/ __/
+       │ __/__/ __/
+     0 ┤─┬──┬──┬──┬──┬──┬──┬──┬──→ M (number of APs)
+       0  50 100 150 200 250 300 350 400
+
+  The two curves (genie-aided vs. statistics-only) are very close, confirming
+  that:
+  1. Channel hardening makes the effective channel nearly deterministic
+  2. Downlink pilots are unnecessary
+  3. The UatF bound (Eq. 24) is tight in practice
+
+  ---
+  4.5 What We'll Implement from Section III
+
+  ┌────────────────────────────────────┬──────────────────────────────────────┐
+  │          Function                  │          What it computes            │
+  ├────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_gamma(beta, pilot_idx,     │ γ_{mk} for all m,k from Eq. (8)     │
+  │   tau_p, rho_p)                    │                                      │
+  ├────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_dl_rate(gamma, beta, eta,  │ R_{d,k} from Theorem 1, Eq. (24)    │
+  │   pilot_idx, rho_d)               │                                      │
+  ├────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_ul_rate(gamma, beta, p,    │ R_{u,k} from Theorem 2, Eq. (27)    │
+  │   pilot_idx, rho_u)               │                                      │
+  ├────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_genie_rate(g, g_hat, eta,  │ R̃_{d,k} from Eq. (26) via Monte     │
+  │   rho_d)                          │ Carlo                                 │
+  ├────────────────────────────────────┼──────────────────────────────────────┤
+  │ plot_hardening_validation(M_range, │ Reproduce Figure 2                   │
+  │   K_values)                       │                                       │
+  └────────────────────────────────────┴──────────────────────────────────────┘
+
+  ---
+  4.6 Summary: The Flow from Section II to Section III
+
+  Section II (System Model)              Section III (Performance Analysis)
+  ─────────────────────────              ──────────────────────────────────
+
+  Channel: g_{mk} = √β_{mk}·h_{mk}  →  Asymptotic: as M→∞, only pilot
+                                         contamination survives (III-A)
+
+  Estimation: ĝ_{mk} = c_{mk}·ŷ_{mk} → γ_{mk} = E{|ĝ_{mk}|²} feeds into
+                                         every rate expression
+
+  DL beamforming: x_m = Σ √η_{mk}·  →  Theorem 1 (Eq. 24): closed-form
+    ĝ*_{mk}·q_k                         DL rate for any M,K
+
+  UL matched filter: r̂_{mk} =        →  Theorem 2 (Eq. 27): closed-form
+    ĝ*_{mk}·y_{u,m}                     UL rate for any M,K
+
+                                         Both use UatF bound + worst-case
+                                         Gaussian noise argument
+
+  ---
+  This completes the deep dive into Section III. The rate expressions (Eqs. 24
+  and 27) are the formulas we'll code in MATLAB — they depend only on the
+  large-scale fading coefficients β_{mk}, power control coefficients, and pilot
+  assignments. Section IV (next) will show how to optimize the power control and
+   pilot assignment to maximize these rates. Ready to proceed?
+
+✻ Crunched for 17m 34s
+
+❯ /export paper analysis\Cell-Free Massive MIMO Versus Small 
+Cells\understanding_paper_sec2.txt 
+  ⎿  Conversation exported to: paper analysis\Cell-Free Massive MIMO Versus
+     Small Cells\understanding_paper_sec2.txt
+
+❯ /export paper analysis\Cell-Free Massive MIMO Versus Small 
+Cells\understanding_paper_sec3.txt 
+  ⎿  Conversation exported to: paper analysis\Cell-Free Massive MIMO Versus
+     Small Cells\understanding_paper_sec3.txt
+
+❯ Yes, proceed to section IV. 
+
+● Let me extract Section IV from the paper and do thorough research before
+  writing the deep dive.
+
+● 2 Agent agents finished (ctrl+o to expand)
+   ├─ Extract Section IV from paper · 22 tool uses · 42.2k tokens
+   │  ⎿  Done
+   └─ Research power control and pilots · 53 tool uses · 70.5k tokens
+      ⎿  Done
+
+● Now I have all the paper content and deep research. Here's the complete deep
+  dive.
+
+  ---
+  SECTION IV: PILOT ASSIGNMENT AND POWER CONTROL — Complete Deep Dive
+
+  ---
+  CHUNK 1: The High-Level Picture & Why We Need Resource Management
+
+  1.1 What This Section Is About (Simple Terms)
+
+  Sections II and III built the system and derived rate formulas. But those
+  formulas have free parameters — which pilot does each user get? and how much 
+  power does each AP/user spend? Section IV answers both:
+
+  - IV-A: A greedy algorithm that intelligently assigns pilots to minimize
+  contamination
+  - IV-B: Max-min power control that ensures every user — no matter where they
+  are — gets a fair share
+
+  Think of it like a classroom. The "channel" is like each student's ability to
+  hear the teacher. Some students sit close (strong channel), some sit far (weak
+   channel). Section IV is the teacher adjusting volume (power control) and
+  making sure students with similar names don't sit together (pilot assignment),
+   so everyone can follow the lesson.
+
+  Key insight from the paper: Pilot assignment and power control can be
+  performed independently, because the pilots are not power controlled (pilot
+  power is fixed). This decouples two otherwise entangled problems.
+
+  ---
+  1.2 Why Max-Min Fairness?
+
+  The paper's objective is not to maximize total throughput. Instead, it
+  maximizes the minimum user rate — the rate of the worst-off user. Why?
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                                                                      │
+  │   Sum-Rate Maximization:     Max-Min Fairness:                       │
+  │                                                                      │
+  │   User 1: ████████████ 50    User 1: █████████ 14                    │
+  │   User 2: ████████ 40        User 2: █████████ 14                    │
+  │   User 3: █ 2                User 3: █████████ 14                    │
+  │   User 4: █ 1                User 4: █████████ 14                    │
+  │   ─────────────               ─────────────                          │
+  │   Total: 93 Mbps             Total: 56 Mbps                         │
+  │   95%-likely: 1 Mbps         95%-likely: 14 Mbps                     │
+  │                                                                      │
+  │   Higher total, but User 4   Lower total, but EVERY user             │
+  │   is basically offline       gets guaranteed service                  │
+  │                                                                      │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  Cell-Free Massive MIMO's promise is no cell edges — uniformly good service
+  everywhere. Max-min fairness is the mathematical embodiment of this promise.
+  At the optimum, all users achieve the same rate.
+
+  ---
+  1.3 Two-Timescale Architecture — When Do These Algorithms Run?
+
+  A crucial practical point: both pilot assignment and power control depend only
+   on large-scale fading coefficients β_{mk} — not on instantaneous channels.
+
+  SLOW TIMESCALE (every ~0.5–5 seconds):
+  ┌─────────────────────────────────────────────────────────┐
+  │  • Estimate β_{mk} (from long-term signal averaging)    │
+  │  • Run greedy pilot assignment (Algorithm 1)            │
+  │  • Run max-min power control (Algorithm 2 / LP)         │
+  │  • Distribute η_{mk}, p_k, pilot indices to APs/users  │
+  └─────────────────────────────────────────────────────────┘
+           ↓ ~100–1000× less frequent than:
+  FAST TIMESCALE (every coherence block, ~1–10 ms):
+  ┌─────────────────────────────────────────────────────────┐
+  │  • Uplink pilot transmission                            │
+  │  • MMSE channel estimation at each AP                   │
+  │  • Beamforming/matched filtering (using pre-computed η) │
+  │  • Data transmission                                    │
+  └─────────────────────────────────────────────────────────┘
+
+  This makes Cell-Free Massive MIMO practically feasible. The expensive
+  optimization runs infrequently; the fast real-time processing is simple (just
+  multiply by conjugate).
+
+  ---
+  CHUNK 2: Greedy Pilot Assignment (Section IV-A)
+
+  2.1 The Problem
+
+  We have τ_p orthogonal pilot sequences and K > τ_p users. Each user must be
+  assigned one of the τ_p pilots. Users sharing a pilot contaminate each other's
+   channel estimates.
+
+  The optimal assignment is a combinatorial problem with τ_p^K possible
+  solutions. For τ_p = 10, K = 40: that's 10⁴⁰ combinations — utterly infeasible
+   to search.
+
+  ---
+  2.2 Quantifying Pilot Contamination — Equation (29)
+
+  Recall from Section II that the projected pilot signal at AP m for user k is:
+
+  ŷ_{p,mk} = √(τ_p·ρ_p) · g_{mk} + √(τ_p·ρ_p) · Σ_{k'≠k} g_{mk'} · φ*_{k'}·φ_k +
+   w̃_{p,mk}
+
+  The contamination is the second term. Its variance (averaged over small-scale
+  fading) at AP m is:
+
+                    K
+  E{|contamination|²} = τ_p · ρ_p · Σ  β_{mk'} · |φ*_{k'} · φ_k|²
+    ... (29)
+                   k'≠k
+
+  The factor |φ*_{k'} · φ_k|² is either 1 (same pilot) or 0 (different pilot).
+  So the contamination power at AP m from co-pilot users is:
+
+  τ_p · ρ_p · Σ_{k' ∈ 𝒫_k, k'≠k} β_{mk'}
+
+  where 𝒫_k = set of users sharing the same pilot as user k.
+
+  Physical meaning: The contamination at AP m is worse when co-pilot users have
+  large β_{mk'} at that AP — i.e., when they are close to AP m. Two users near
+  the same AP sharing a pilot is the worst case.
+
+  ---
+  2.3 The Pilot Reassignment Criterion — Equation (30)
+
+  When reassigning user k*'s pilot, the algorithm picks the pilot that minimizes
+   the total contamination summed over all APs:
+
+                       M     K
+  φ_{k*} = arg min    Σ    Σ   β_{mk'} · |φ*_{k'} · φ_{k*}|²
+     ... (30)
+            φ_{k*}∈S  m=1  k'≠k*
+
+  Why sum over all APs? Because contamination affects the channel estimate at
+  every AP. Even if user k* is far from AP 1, a co-pilot user k' near AP 1 would
+   hurt AP 1's estimate of user k*, which feeds into the rate expression.
+
+  ---
+  2.4 Algorithm 1 — Step by Step
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM 1: Greedy Pilot Assignment                               │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │                                                                     │
+  │  INPUT: β_{mk} for all m,k; τ_p orthogonal pilots; N iterations    │
+  │                                                                     │
+  │  Step 1: INITIALIZE                                                 │
+  │    Randomly assign each user one of τ_p pilots                      │
+  │    Set iteration counter n = 1                                      │
+  │                                                                     │
+  │  Step 2: FIND THE BOTTLENECK USER                                   │
+  │    Compute R_{d,k} for all k using Theorem 1 (Eq. 24)              │
+  │    k* = arg min_k R_{d,k}    (worst user)            ... (31)      │
+  │                                                                     │
+  │  Step 3: REASSIGN k*'s PILOT                                       │
+  │    For each candidate pilot φ ∈ S (τ_p choices):                   │
+  │      Temporarily set φ_{k*} = φ                                    │
+  │      Compute contamination metric (Eq. 30)                          │
+  │    Pick the φ that gives lowest contamination                       │
+  │                                                                     │
+  │  Step 4: ITERATE                                                    │
+  │    n = n + 1                                                        │
+  │    If n > N: STOP. Else: go to Step 2.                             │
+  │                                                                     │
+  │  OUTPUT: Pilot assignment {φ_1, ..., φ_K}                          │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ---
+  2.5 Numerical Example — Greedy Pilot Assignment
+
+  Setup: M = 6 APs, K = 4 users, τ_p = 2 (only 2 orthogonal pilots).
+
+     AP₁ ●            ● AP₂              ● AP₃
+
+
+          UE₁ ◆              UE₂ ◆
+
+
+     AP₄ ●          ● AP₅              ● AP₆
+
+          UE₃ ◆              UE₄ ◆
+
+  Large-scale fading (simplified, higher = closer):
+
+  ┌─────┬──────┬──────┬──────┬──────┐
+  │     │ UE₁  │ UE₂  │ UE₃  │ UE₄  │
+  ├─────┼──────┼──────┼──────┼──────┤
+  │ AP₁ │ 0.8  │ 0.1  │ 0.3  │ 0.05 │
+  ├─────┼──────┼──────┼──────┼──────┤
+  │ AP₂ │ 0.2  │ 0.7  │ 0.1  │ 0.2  │
+  ├─────┼──────┼──────┼──────┼──────┤
+  │ AP₃ │ 0.05 │ 0.3  │ 0.05 │ 0.6  │
+  ├─────┼──────┼──────┼──────┼──────┤
+  │ AP₄ │ 0.4  │ 0.05 │ 0.9  │ 0.1  │
+  ├─────┼──────┼──────┼──────┼──────┤
+  │ AP₅ │ 0.1  │ 0.3  │ 0.2  │ 0.4  │
+  ├─────┼──────┼──────┼──────┼──────┤
+  │ AP₆ │ 0.05 │ 0.1  │ 0.1  │ 0.5  │
+  └─────┴──────┴──────┴──────┴──────┘
+
+  Iteration 0 (Random): Assign UE₁→pilot 1, UE₂→pilot 1, UE₃→pilot 2, UE₄→pilot
+  2.
+
+  Contamination for UE₁ (shares pilot 1 with UE₂):
+  Σ_m β_{m,2} = 0.1 + 0.7 + 0.3 + 0.05 + 0.3 + 0.1 = 1.55
+
+  Contamination for UE₃ (shares pilot 2 with UE₄):
+  Σ_m β_{m,4} = 0.05 + 0.2 + 0.6 + 0.1 + 0.4 + 0.5 = 1.85
+
+  UE₃ and UE₄ share a pilot and are both strong at AP₃, AP₅, AP₆ — heavy
+  contamination! This is bad.
+
+  Iteration 1: Suppose UE₃ has the lowest rate → k* = 3.
+
+  Try pilot 1 for UE₃: co-pilot users = {UE₁, UE₂}. Contamination = Σ_m (β_{m,1}
+   + β_{m,2})
+  = (0.8+0.1) + (0.2+0.7) + (0.05+0.3) + (0.4+0.05) + (0.1+0.3) + (0.05+0.1) =
+  3.15
+
+  Try pilot 2 for UE₃: co-pilot user = {UE₄}. Contamination = Σ_m β_{m,4}
+  = 0.05 + 0.2 + 0.6 + 0.1 + 0.4 + 0.5 = 1.85
+
+  Pilot 2 gives lower contamination (1.85 < 3.15), so UE₃ stays on pilot 2.
+
+  But wait — the algorithm might next reassign UE₄ to pilot 1 instead, giving:
+  - UE₁→1, UE₂→1, UE₃→2, UE₄→1
+
+  Now UE₃ has no co-pilot users! UE₃'s contamination = 0. UE₄ shares with UE₁
+  and UE₂, but UE₁ and UE₂ are spatially far from UE₄. The key: users that are 
+  far apart can safely share pilots.
+
+  ---
+  2.6 Remark 6 — Practical Aspects
+
+  From the paper:
+  - The algorithm runs at the CPU (centralized)
+  - Runs on the large-scale fading timescale (every few seconds, not
+  milliseconds)
+  - At 100 km/h mobility, large-scale fading changes ~40× slower than
+  small-scale fading → a few updates per second suffice
+  - Only an index (log₂(τ_p) bits) needs to be sent to each user to inform their
+   pilot assignment
+
+  ---
+  CHUNK 3: Downlink Max-Min Power Control (Section IV-B1)
+
+  3.1 The High-Level Picture
+
+  We want to find M×K power coefficients η_{mk} (how much power AP m allocates
+  to user k) such that the worst user's rate is maximized, subject to each AP
+  not exceeding its power budget.
+
+  Imagine 100 flashlights (APs) shining at 40 targets (users).
+
+  Each flashlight can adjust its brightness toward each target independently.
+
+  Goal: Make the DIMMEST target as bright as possible.
+
+  Constraint: Each flashlight has a total brightness budget.
+
+  ---
+  3.2 The Optimization Problem — Equation (32)
+
+  Formally:
+
+  max         min    R_{d,k}
+  {η_{mk}}   k=1,...,K
+
+  subject to:
+     K
+     Σ  η_{mk} · γ_{mk} ≤ 1     for all m = 1, ..., M     (per-AP power)
+    k=1
+
+     η_{mk} ≥ 0                   for all m, k
+
+  where R_{d,k} is the closed-form rate from Theorem 1 (Eq. 24).
+
+  This is a max-min optimization over M×K variables with M+M×K constraints. The
+  objective (min of K rates) is not concave in η_{mk} due to the fractional SINR
+   structure. Standard convex optimization doesn't apply directly.
+
+  ---
+  3.3 Variable Substitution — Equation (33)
+
+  The paper introduces μ_{mk} = √η_{mk} (square root substitution). This is
+  critical because the numerator of Eq. (24) has √η_{mk} inside the sum:
+
+  Numerator = ρ_d · ( Σ_m √η_{mk} · γ_{mk} )² = ρ_d · ( Σ_m μ_{mk} · γ_{mk} )²
+
+  With this substitution, the problem becomes (33):
+
+                               ( Σ_m μ_{mk} · γ_{mk} )²
+  max   min   ──────────────────────────────────────────────────────────────────
+  {μ_{mk}} k   Σ_{k'≠k} |φ*_k·φ_{k'}|² · (Σ_m μ_{mk'}·c_{mk'}·β_{mk})²
+                + Σ_m Σ_{k'} μ²_{mk'} · γ_{mk'} · β_{mk}  +  1/ρ_d
+
+  subject to:  Σ_k μ²_{mk} · γ_{mk} ≤ 1,  ∀m;    μ_{mk} ≥ 0
+
+  ---
+  3.4 Slack Variable Reformulation — Equation (34)
+
+  To expose the structure, the paper introduces slack variables:
+  - ν_{kk'}: upper bound on the coherent interference from user k' to user k
+  - σ_m: upper bound on the total power at AP m
+
+  This yields (34) — a problem whose objective is shown to be quasi-concave.
+
+  ---
+  3.5 What is Quasi-Concavity and Why It Matters
+
+  A function f(x) is quasi-concave if all its superlevel sets are convex:
+
+  {x : f(x) ≥ t}  is convex for every t
+
+  Every concave function is quasi-concave, but quasi-concavity is weaker. A
+  ratio of concave/convex functions is often quasi-concave even when not
+  concave.
+
+  Why it matters: If f is quasi-concave, then for any target value t, checking
+  whether f(x) ≥ t is achievable is a convex feasibility problem. This enables
+  bisection.
+
+  ---
+  3.6 Proposition 1 — The Key Structural Result
+
+  Proposition 1: The objective function of (34) is quasi-concave.
+
+  Proof sketch (Appendix B):
+
+  The objective is f(S) = min_k SINR_k(S). For a fixed target t, the superlevel
+  set is:
+
+  U(f, t) = {S : SINR_k(S) ≥ t, ∀k}
+
+  Each constraint SINR_k ≥ t can be rewritten as:
+
+  Σ_m μ_{mk} · γ_{mk}  ≥  √t · ‖v_k‖₂
+
+  where v_k is a vector containing the interference and noise terms. This is a
+  second-order cone (SOC) constraint — the norm of a vector is bounded by a
+  linear function. SOC constraints define convex sets. The intersection of
+  convex sets is convex. Therefore U(f, t) is convex → f is quasi-concave. ∎
+
+  ---
+  3.7 Algorithm 2 — Bisection + SOCP
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  ALGORITHM 2: Bisection for Downlink Max-Min Power Control          │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │                                                                     │
+  │  INPUT: β_{mk}, γ_{mk}, pilot assignment, tolerance ε              │
+  │                                                                     │
+  │  Step 1: INITIALIZE                                                 │
+  │    t_min = 0  (certainly achievable — zero rate)                    │
+  │    t_max = log₂(1 + ρ_d·M·max_k γ_{mk})  (generous upper bound)   │
+  │                                                                     │
+  │  Step 2: BISECT                                                     │
+  │    t = (t_min + t_max) / 2                                         │
+  │                                                                     │
+  │    Solve the SOCP feasibility problem (Eq. 35):                     │
+  │    "Do there exist μ_{mk} ≥ 0, ν_{kk'}, σ_m such that:            │
+  │      ‖v_k‖ ≤ (1/√t) · Σ_m μ_{mk}·γ_{mk}     ∀k                  │
+  │      Σ_k μ²_{mk}·γ_{mk} ≤ σ²_m               ∀m                  │
+  │      Σ_m μ_{mk'}·c_{mk'}·β_{mk}/√γ_{mk'} ≤ ν_{kk'}   ∀k'≠k     │
+  │      0 ≤ σ_m ≤ 1                               ∀m                  │
+  │      μ_{mk} ≥ 0                                 ∀m,k"              │
+  │                                                                     │
+  │  Step 3: UPDATE BOUNDS                                              │
+  │    If FEASIBLE:  t_min = t  (we can achieve this rate)              │
+  │    If INFEASIBLE: t_max = t  (this rate is too high)                │
+  │                                                                     │
+  │  Step 4: CHECK CONVERGENCE                                          │
+  │    If t_max − t_min < ε: STOP, return t and the μ_{mk} values      │
+  │    Else: go to Step 2                                               │
+  │                                                                     │
+  │  OUTPUT: Optimal η_{mk} = μ²_{mk}, optimal min-rate t*             │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  Convergence: The bisection requires ⌈log₂((t_max − t_min)/ε)⌉ iterations. For
+  a rate range of [0, 10] b/s/Hz and ε = 0.001, that's ~14 iterations. Each
+  iteration solves one SOCP — a polynomial-time convex optimization.
+
+  ---
+  3.8 The SOCP Feasibility Problem — Equation (35) Decoded
+
+  The core constraint is a second-order cone:
+
+  ‖v_k‖₂ ≤ (1/√t) · Σ_m μ_{mk} · γ_{mk}
+
+  where v_k stacks all interference and noise terms:
+
+  v_k = [ φ*₁·φ_k · ν_{1k}, ..., φ*_K·φ_k · ν_{Kk}  (without k-th),
+          σ₁·√γ_{1k}, ..., σ_M·√γ_{Mk},
+          1/√ρ_d ]ᵀ
+
+  Expanding ‖v_k‖²:
+
+  ‖v_k‖² = Σ_{k'≠k} |φ*_{k'}·φ_k|² · ν²_{k'k}  +  Σ_m σ²_m · γ_{mk}  +  1/ρ_d
+
+  This is exactly the denominator of SINR_k! So the constraint ‖v_k‖ ≤ RHS
+  means:
+
+  √(denominator of SINR_k)  ≤  (1/√t) · (numerator of √SINR_k)
+
+  Squaring both sides: SINR_k ≥ t. ✓
+
+  ---
+  3.9 Numerical Intuition — Why SOCP and Not LP?
+
+  The downlink has M×K power variables η_{mk}. The SINR numerator is:
+
+  ( Σ_m √η_{mk} · γ_{mk} )²
+
+  The square root of η_{mk} inside the sum creates a nonlinear coupling. After
+  the substitution μ_{mk} = √η_{mk}, the per-AP power constraint becomes:
+
+  Σ_k μ²_{mk} · γ_{mk} ≤ 1     ← quadratic in μ_{mk}
+
+  This quadratic constraint is a SOC constraint: ‖[√γ_{1k}·μ_{m1}, ...,
+  √γ_{Mk}·μ_{mK}]‖ ≤ 1.
+
+  In contrast, the uplink has only K variables p_k with linear constraints — no
+  square roots, no norms.
+
+  ┌──────────────────────────────────────────────────┐
+  │  LP ⊂ SOCP ⊂ SDP                                │
+  │                                                   │
+  │  Uplink: linear constraints → LP                  │
+  │  Downlink: norm constraints → SOCP                │
+  │  (Both solved in polynomial time by interior      │
+  │   point methods)                                  │
+  └──────────────────────────────────────────────────┘
+
+  ---
+  CHUNK 4: Uplink Max-Min Power Control (Section IV-B2) & Summary
+
+  4.1 The Uplink Problem — Equation (36)
+
+  The uplink power control is simpler. Each user k has one power coefficient p_k
+   ∈ [0, 1]:
+
+  max     min    R_{u,k}
+  {p_k}   k=1,...,K
+
+  subject to:  0 ≤ p_k ≤ 1,    k = 1, ..., K                             ...
+  (36)
+
+  where R_{u,k} is from Theorem 2 (Eq. 27).
+
+  ---
+  4.2 Why the Uplink Is a Linear Problem
+
+  The uplink SINR from Eq. (27) has the structure:
+
+                       ρ_u · p_k · a_k
+  SINR_k = ──────────────────────────────────────────────
+            ρ_u · Σ_{k'≠k} p_{k'} · b_{kk'} + c_k
+
+  where:
+  - a_k = (Σ_m γ_{mk})² — depends only on β_{mk} (constant for given pilot
+  assignment)
+  - b_{kk'} = |φ*k·φ{k'}|² · (Σ_m γ_{mk}·β_{mk'}/γ_{mk'})² + Σ_m γ_{mk}·β_{mk'}
+  — constant
+  - c_k = Σ_m γ_{mk} — constant
+
+  Everything except p_k and p_{k'} is a constant! The SINR is a ratio of linear 
+  functions in the power variables.
+
+  After bisection fixes a target SINR_target = 2^t − 1, the constraint SINR_k ≥
+  SINR_target becomes:
+
+  ρ_u · p_k · a_k  ≥  SINR_target · (ρ_u · Σ_{k'≠k} p_{k'} · b_{kk'} + c_k)
+
+  Rearranging:
+
+  p_k · a_k  −  SINR_target · Σ_{k'≠k} p_{k'} · b_{kk'}/a_k  ≥  SINR_target ·
+  c_k/(ρ_u·a_k)
+
+  This is a linear inequality in {p_1, ..., p_K}. Combined with 0 ≤ p_k ≤ 1, the
+   entire feasibility check is a linear program (LP).
+
+  ---
+  4.3 Proposition 2 — Quasi-Linearity
+
+  Proposition 2: The optimization problem (37) is quasi-linear.
+
+  A function is quasi-linear if it is both quasi-concave and quasi-convex. For
+  the uplink SINR, this means both the superlevel sets {p : SINR_k ≥ t, ∀k} and
+  sublevel sets {p : SINR_k ≤ t, ∀k} are convex (in fact, polyhedral — defined
+  by linear inequalities). This is because the SINR is a ratio of linear
+  functions in p.
+
+  ---
+  4.4 The Bisection Algorithm for Uplink
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  UPLINK MAX-MIN POWER CONTROL (Bisection + LP)                      │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │                                                                     │
+  │  Step 1: Set t_min = 0, t_max = generous upper bound               │
+  │                                                                     │
+  │  Step 2: t = (t_min + t_max) / 2                                   │
+  │    Solve the LP feasibility:                                        │
+  │    "Do there exist p_1,...,p_K such that:                           │
+  │      p_k · a_k − (2^t−1) · Σ_{k'≠k} p_{k'} · b_{kk'} ≥ (2^t−1)·c_k/ρ_u   ∀k│
+  │      0 ≤ p_k ≤ 1                                         ∀k"      │
+  │                                                                     │
+  │  Step 3: If FEASIBLE: t_min = t. If INFEASIBLE: t_max = t.        │
+  │                                                                     │
+  │  Step 4: If t_max − t_min < ε: STOP. Else: go to Step 2.         │
+  │                                                                     │
+  │  OUTPUT: Optimal p_k for all k, optimal min-rate t*                │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  LP is much faster than SOCP. For K = 40 users, the LP has 40 variables and ~80
+   constraints — solved in microseconds.
+
+  ---
+  4.5 Complete Comparison: Downlink vs. Uplink Power Control
+
+  ┌───────────────────────┬──────────────────────────┬─────────────────────────┐
+  │       Aspect          │      Downlink (IV-B1)    │     Uplink (IV-B2)      │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Variables             │ η_{mk} (M×K)             │ p_k (K)                 │
+  │                       │ = 100×40 = 4000          │ = 40                    │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Constraints           │ Per-AP: Σ_k η_{mk}γ_{mk}│ Per-user: 0 ≤ p_k ≤ 1  │
+  │                       │ ≤ 1  (M constraints)     │ (K constraints)         │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ SINR structure        │ Ratio with √η_{mk}      │ Ratio linear in p_k     │
+  │                       │ inside sum (nonlinear)   │ (linear/linear)         │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Structural property   │ Quasi-concave            │ Quasi-linear            │
+  │                       │ (Proposition 1)          │ (Proposition 2)         │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Outer search          │ Bisection on rate t      │ Bisection on rate t     │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Inner feasibility     │ SOCP (norm constraints)  │ LP (linear constraints) │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Solver                │ CVX + SeDuMi/MOSEK       │ CVX + linprog           │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Iterations            │ ~10–15                   │ ~10–15                  │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Per-iteration cost    │ O(√(M+K) · (MK)³)       │ O(K³)                   │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Practical time        │ Seconds to minutes       │ Milliseconds            │
+  │ (M=100, K=40)        │                          │                         │
+  ├───────────────────────┼──────────────────────────┼─────────────────────────┤
+  │ Optimality            │ Global (quasi-concave    │ Global (quasi-linear    │
+  │                       │ + bisection)             │ + bisection)            │
+  └───────────────────────┴──────────────────────────┴─────────────────────────┘
+
+  ---
+  4.6 Why This Achieves Uniformly Good Service
+
+  At the optimum of the max-min problem, all users achieve the same rate. Here's
+   why:
+
+  Suppose at the optimum, user 1 has rate R₁ = 5 and user 2 has rate R₂ = 7
+  (with R₁ being the minimum). Then we could reduce the power spent on user 2
+  and redistribute it to user 1, improving R₁ beyond 5 — contradicting the
+  assumption that R₁ = 5 is optimal. Therefore, at the true optimum, R₁ = R₂ =
+  ... = R_K.
+
+  Before max-min power control:           After max-min power control:
+
+  Rate                                    Rate
+  │                                       │
+  │ ███                                   │ ████████████████
+  │ ███                                   │ ████████████████
+  │ ███ ████                              │ ████████████████
+  │ ███ ████ ███████                      │ ████████████████
+  │ ███ ████ ███████ ██████████           │ ████████████████
+  │ ███ ████ ███████ ██████████           │ ████████████████
+  └──┬───┬────┬──────┬─────────           └──┬───┬────┬──────┬──
+    UE₁ UE₂  UE₃   UE₄                    UE₁ UE₂  UE₃   UE₄
+
+  95%-likely ≈ 3 Mbps                     95%-likely ≈ 14 Mbps
+
+  ---
+  4.7 Remark 7 — Weighted Max-Min Fairness
+
+  The framework generalizes to weighted max-min:
+
+  max   min  {w_k · R_k}
+
+  where w_k > 0 is a priority weight. A user with higher priority gets a smaller
+   w_k, so the algorithm works harder to give them a higher rate. This allows
+  the operator to differentiate service classes while maintaining fairness.
+
+  ---
+  4.8 The Complete Resource Management Flow
+
+                      ┌─────────────────────┐
+                      │  Large-scale fading  │
+                      │  β_{mk} (measured)   │
+                      └──────────┬──────────┘
+                                 │
+                ┌────────────────┼────────────────┐
+                ▼                │                ▼
+     ┌──────────────────┐       │    ┌───────────────────────┐
+     │  ALGORITHM 1:     │       │    │  Need pilot assignment │
+     │  Greedy Pilot     │       │    │  FIRST, because γ_{mk} │
+     │  Assignment       │       │    │  depends on it         │
+     │                   │       │    └───────────────────────┘
+     │  Output:          │       │
+     │  pilot_idx(k)     │       │
+     └────────┬─────────┘       │
+              │                  │
+              ▼                  │
+     ┌──────────────────┐        │
+     │  Compute γ_{mk}  │◄───────┘
+     │  from β_{mk} and │
+     │  pilot_idx        │
+     └────────┬─────────┘
+              │
+       ┌──────┴──────┐
+       ▼              ▼
+  ┌──────────┐  ┌──────────┐
+  │ ALGO 2:  │  │ UPLINK:  │
+  │ DL Power │  │ Bisection│
+  │ Control  │  │ + LP     │
+  │ (SOCP)   │  │          │
+  │          │  │ Output:  │
+  │ Output:  │  │ p_k      │
+  │ η_{mk}   │  │          │
+  └──────────┘  └──────────┘
+       │              │
+       ▼              ▼
+  ┌─────────────────────────────────┐
+  │  Distribute to APs and users:   │
+  │  - Pilot indices                │
+  │  - DL power coefficients η_{mk} │
+  │  - UL power coefficients p_k    │
+  │                                 │
+  │  (All via backhaul, infrequently)│
+  └─────────────────────────────────┘
+
+  ---
+  4.9 Key Results from Numerical Experiments (Preview of Section VI)
+
+  The paper's simulations show the impact of pilot assignment and power control:
+
+  ┌───────────────────────────────────────┬─────────────────────┐
+  │         Configuration                 │  95%-likely DL rate  │
+  ├───────────────────────────────────────┼─────────────────────┤
+  │ Random pilots + no power control      │   ~2 Mbps            │
+  │ Random pilots + max-min power control │   ~12 Mbps           │
+  │ Greedy pilots + max-min power control │   ~14 Mbps           │
+  │ Small cells + max-min power control   │   ~2–3 Mbps          │
+  └───────────────────────────────────────┴─────────────────────┘
+
+  Power control provides a ~6× improvement (2 → 12 Mbps).
+  Greedy pilot assignment adds another ~20% gain (12 → 14 Mbps).
+  Cell-Free vs. small cells: ~5–7× improvement.
+
+  The takeaway: Power control is far more important than pilot assignment for
+  Cell-Free Massive MIMO. But both together give the best performance.
+
+  ---
+  4.10 What We'll Implement from Section IV
+
+  ┌──────────────────────────────────┬──────────────────────────────────────────
+  ─┐
+  │           Function               │            What it implements
+   │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ─┤
+  │ greedy_pilot_assignment(         │ Algorithm 1: iterative pilot reassignment
+   │
+  │   beta, tau_p, N_iter)           │ minimizing contamination metric (Eq.30)
+  │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ─┤
+  │ dl_maxmin_power_control(         │ Algorithm 2: bisection + SOCP (Eq.35)
+  │
+  │   gamma, beta, c, pilot_idx,    │ using CVX in MATLAB                      │
+  │   rho_d, epsilon)               │ Returns η_{mk}                           │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ─┤
+  │ ul_maxmin_power_control(         │ Bisection + LP (Prop. 2)
+  │
+  │   gamma, beta, pilot_idx,       │ using CVX or linprog                     │
+  │   rho_u, epsilon)               │ Returns p_k                              │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ─┤
+  │ compute_contamination_metric(    │ Eq. (30): total contamination for a
+  │
+  │   beta, gamma, pilot_idx, k)    │ given pilot assignment of user k         │
+  └──────────────────────────────────┴──────────────────────────────────────────
+  ─┘
+
+  ---
+  This completes the deep dive into Section IV. We now have the full pipeline:
+  system model (II), rate analysis (III), and resource optimization (IV).
+  Section V defines the small-cell baseline for comparison, and Section VI puts
+  it all together with simulations. Ready to proceed to Section V?
+
+✻ Cooked for 9m 22s
+
+❯ /export paper analysis\Cell-Free Massive MIMO Versus Small 
+Cells\understanding_paper_sec4.txt 
+  ⎿  Conversation exported to: paper analysis\Cell-Free Massive MIMO Versus
+     Small Cells\understanding_paper_sec4.txt
+
+❯ Now, proceed to section 5. 
+
+● Let me extract Section V from the paper and do thorough research.
+
+● 2 Agent agents finished (ctrl+o to expand)
+   ├─ Extract Section V from paper · 10 tool uses · 21.2k tokens
+   │  ⎿  Done
+   └─ Research small-cell baseline systems · 78 tool uses · 73.3k tokens
+      ⎿  Done
+
+● Now I have all the paper content and deep research. Here's the complete deep
+  dive.
+
+  ---
+  SECTION V: SMALL-CELL SYSTEM (Baseline) — Complete Deep Dive
+
+  ---
+  CHUNK 1: The High-Level Picture & System Architecture
+
+  1.1 What This Section Is About (Simple Terms)
+
+  Sections II–IV built the Cell-Free Massive MIMO system. But how do we know
+  it's actually good? We need a baseline to compare against. Section V defines
+  that baseline: a small-cell system — the simplest possible way to use the same
+   M APs and K users.
+
+  In small cells, each user picks one AP (the best one) and talks only to that
+  AP. No cooperation, no coordination between APs. It's like having 100 lamp
+  posts in a park, but each person only uses the nearest one — the rest are
+  wasted (for that person).
+
+    CELL-FREE (Sections II–IV):               SMALL CELLS (Section V):
+
+    ┌─────┐                                   ┌─────┐
+    │ CPU │ ← coordinates everything           │ CPU │ ← minimal role
+    └──┬──┘                                   └──┬──┘
+       │                                          │
+    ┌──┼──┬──┬──┐                             ┌──┼──┬──┬──┐
+    AP₁ AP₂ AP₃ AP₄                          AP₁ AP₂ AP₃ AP₄
+    ╲│╱ ╲│╱ ╲│╱ ╲│╱  ← ALL APs serve          │       │
+    UE₁ UE₂ UE₃ UE₄    ALL users             UE₁     UE₃    ← each user gets
+                                                               ONE AP only
+                                               AP₂     AP₄
+                                                │       │
+                                               UE₂     UE₄
+
+  ---
+  1.2 Why Small Cells Are the Right Comparison
+
+  The paper uses the same physical infrastructure (M APs, K users, same
+  locations, same channels) for both systems. The only difference is the
+  operating mode:
+
+  ┌─────────────────────┬─────────────────────────┬─────────────────────────┐
+  │                     │        Cell-Free        │       Small Cells       │
+  ├─────────────────────┼─────────────────────────┼─────────────────────────┤
+  │ APs serving each    │ All M                   │ 1                       │
+  │ user                │                         │                         │
+  ├─────────────────────┼─────────────────────────┼─────────────────────────┤
+  │ Cooperation         │ Full (via CPU)          │ None                    │
+  ├─────────────────────┼─────────────────────────┼─────────────────────────┤
+  │ Beamforming         │ Conjugate BF            │ Direct transmission     │
+  │                     │ (distributed)           │                         │
+  ├─────────────────────┼─────────────────────────┼─────────────────────────┤
+  │ Channel hardening   │ Yes (sum of M terms)    │ No (single Rayleigh     │
+  │                     │                         │ scalar)                 │
+  ├─────────────────────┼─────────────────────────┼─────────────────────────┤
+  │ Downlink pilots     │ No                      │ Yes                     │
+  │ needed              │                         │                         │
+  └─────────────────────┴─────────────────────────┴─────────────────────────┘
+
+  This isolates the benefit of cooperation — the gains come purely from having
+  all APs serve all users, not from better hardware.
+
+  ---
+  1.3 AP Selection Rule — Equation (38)
+
+  Each user picks the AP with the strongest large-scale fading (i.e., typically
+  the closest AP):
+
+  m_k = arg max      β_{mk}                                                ...
+  (38)
+        m ∈ {available APs}
+
+  Critical detail: Once an AP is selected by one user, it becomes unavailable
+  for others. The selection is done user-by-user in random order. This means:
+  - Each AP serves at most one user
+  - Some APs may serve no users (if M > K, there are M − K idle APs)
+  - A user arriving later in the selection order might not get its best AP
+
+  This is a greedy one-to-one assignment — not globally optimal, but simple and
+  realistic.
+
+  Numerical example: M = 6 APs, K = 4 users.
+
+  β values:        AP₁   AP₂   AP₃   AP₄   AP₅   AP₆
+    UE₁            0.8   0.2   0.05  0.4   0.1   0.05
+    UE₂            0.1   0.7   0.3   0.05  0.3   0.1
+    UE₃            0.3   0.1   0.05  0.9   0.2   0.1
+    UE₄            0.05  0.2   0.6   0.1   0.4   0.5
+
+  Selection order: UE₂ first, then UE₃, UE₁, UE₄
+
+    UE₂ picks AP₂ (β = 0.7, best)        → AP₂ removed
+    UE₃ picks AP₄ (β = 0.9, best)        → AP₄ removed
+    UE₁ picks AP₁ (β = 0.8, best still available) → AP₁ removed
+    UE₄ picks AP₃ (β = 0.6, best remaining)       → AP₃ removed
+    AP₅, AP₆ are idle (serve nobody)
+
+  In Cell-Free, ALL 6 APs serve ALL 4 users. In small cells, each user gets one
+  AP and two APs sit idle.
+
+  ---
+  1.4 The Fundamental Difference: No Channel Hardening
+
+  This is the single most important conceptual distinction between Cell-Free and
+   small cells.
+
+  Cell-Free: The effective channel gain is a sum of M terms:
+  a_k = Σ_{m=1}^{M} √η_{mk} · g_{mk} · ĝ*_{mk}
+  By the law of large numbers (M large), a_k ≈ E{a_k} = deterministic constant.
+  The channel "hardens."
+
+  Small cells: The effective channel is a single complex Gaussian scalar:
+  g_{m_k,k} = √β_{m_k,k} · h_{m_k,k}     where h_{m_k,k} ~ CN(0,1)
+
+  There is no sum, no averaging, no law of large numbers. The channel gain
+  |h_{m_k,k}|² ~ Exp(1) fluctuates wildly:
+
+  Channel hardening comparison:
+
+    Cell-Free (M=100 APs):              Small Cell (1 AP):
+
+    Effective |channel|²                Effective |channel|²
+    │                                   │
+    │     ┌─────────────┐              │    ╱╲
+    │     │             │              │   ╱  ╲    ╱╲
+    │─────┤   ~mean     ├─────         │  ╱    ╲╱╱  ╲    ╱╲
+    │     │             │              │╱╱           ╲╱╱  ╲╱╲
+    │     └─────────────┘              │
+    └────────────────── time           └────────────────── time
+
+    Variance/mean² ≈ 1/M_eff ≈ 5%     Variance/mean² = 100% (!!)
+    → nearly deterministic              → random, deep fades possible
+
+  Consequence: In small cells, the user must estimate the downlink channel to
+  decode. This requires downlink pilots — extra overhead that Cell-Free avoids.
+
+  ---
+  CHUNK 2: Small-Cell Downlink (Section V-A)
+
+  2.1 Downlink Channel Estimation — Equations (39)–(40)
+
+  Since the user cannot rely on statistics alone, the AP must send pilot symbols
+   so the user can estimate the channel.
+
+  The MMSE estimate of g_{m_k,k} (channel from user k's serving AP):
+
+  g_{m_k,k} = ĝ_{m_k,k} + ε_{m_k,k}        (true = estimate + error)   ... (39)
+
+  where ĝ_{m_k,k} ~ CN(0, γ̂_{m_k,k}) and ε_{m_k,k} ~ CN(0, β_{m_k,k} −
+  γ̂_{m_k,k}).
+
+  The estimation quality is: Eq. (40)
+
+                           τ_d^sc · ρ_{d,p}^sc · β²_{m_k,k}
+  γ̂_{m_k,k} = ──────────────────────────────────────────────────────────
+                τ_d^sc · ρ_{d,p}^sc · Σ_{k'=1}^{K} β_{m_k,k'} · |φ*_{k'}·φ_k|² +
+   1
+
+  This looks similar to the Cell-Free γ_{mk} from Eq. (8), but with two key
+  differences:
+
+  1. It uses downlink pilot parameters (τ_d^sc, ρ_{d,p}^sc) — the user estimates
+   the channel from the AP's pilot, not the other way around
+  2. The pilot contamination comes from other APs' pilots interfering at the
+  user, not other users' pilots at the AP
+
+  ---
+  2.2 Received Signal — Equation (41)
+
+  The user k receives signals from all K active APs (not just its own), because
+  they all transmit on the same frequency:
+
+  y_k = √ρ_d^sc · Σ_{k'=1}^{K} g_{m_{k'},k} · √η_{d,k'} · q_{k'} + w_k       ...
+   (41)
+
+  Decomposing into four terms:
+
+  y_k = √ρ_d^sc · ĝ_{m_k,k} · √η_{d,k} · q_k          ← desired signal (known
+  channel est.)
+      + √ρ_d^sc · ε_{m_k,k} · √η_{d,k} · q_k            ← estimation error
+  self-interference
+      + √ρ_d^sc · Σ_{k'≠k} g_{m_{k'},k} · √η_{d,k'} · q_{k'}  ← inter-cell
+  interference
+      + w_k                                                 ← noise
+
+  ┌───────────────┬──────────────────────────────────────────────────┐
+  │     Term      │                    Meaning                        │
+  ├───────────────┼──────────────────────────────────────────────────┤
+  │ Term 1        │ Signal through the ESTIMATED channel (useful)     │
+  │ Term 2        │ Signal through the ESTIMATION ERROR (harmful)     │
+  │ Term 3        │ Interference from OTHER APs serving other users   │
+  │ Term 4        │ Thermal noise                                     │
+  └───────────────┴──────────────────────────────────────────────────┘
+
+  Remark 8 (from the paper): In small cells, since only one single-antenna AP
+  serves each user, "conjugate beamforming" becomes void. The AP just transmits
+  √η_{d,k} · q_k directly — no spatial processing at all.
+
+  ---
+  2.3 Why the Rate Requires an Expectation — Equation (42)
+
+  In Cell-Free, the SINR is nearly deterministic (channel hardening), so:
+  R_{d,k}^{cf} = log₂(1 + SINR_k)     (deterministic SINR, no expectation
+  needed)
+
+  In small cells, the SINR is random (depends on |ĝ_{m_k,k}|² which fluctuates).
+   The ergodic rate requires averaging over the fading:
+
+  R_d^{sc,k} = E{ log₂(1 + SINR_k^{random}) }                            ...
+  (42)
+
+  where the instantaneous SINR is:
+
+                        ρ_d^sc · η_{d,k} · |ĝ_{m_k,k}|²
+  SINR_k =
+  ──────────────────────────────────────────────────────────────────────
+            ρ_d^sc · η_{d,k} · (β_{m_k,k} − γ̂_{m_k,k}) + ρ_d^sc · Σ_{k'≠k}
+  η_{d,k'} · β_{m_{k'},k} + 1
+
+  Notice: the numerator contains the random variable |ĝ_{m_k,k}|², while the
+  denominator is deterministic (it contains only large-scale fading
+  coefficients). This is because the interference from other APs averages out
+  across many coherence intervals — only the desired channel to the serving AP
+  matters.
+
+  ---
+  2.4 The Exponential Integral — Equations (43)–(44)
+
+  Now comes the mathematical highlight of Section V. Since ĝ_{m_k,k} ~ CN(0,
+  γ̂_{m_k,k}), we have:
+
+  |ĝ_{m_k,k}|² ~ Exponential(1/γ̂_{m_k,k})     i.e., E{|ĝ_{m_k,k}|²} = γ̂_{m_k,k}
+
+  The effective SINR parameter (deterministic part) is: Eq. (44)
+
+                        ρ_d^sc · η_{d,k} · γ̂_{m_k,k}
+  γ̃_{m_k,k} = ──────────────────────────────────────────────────────────────────
+                ρ_d^sc · η_{d,k} · (β_{m_k,k} − γ̂_{m_k,k}) + ρ_d^sc · Σ_{k'≠k}
+  η_{d,k'} · β_{m_{k'},k} + 1
+
+  So the rate becomes:
+
+  R_d^{sc,k} = E{ log₂(1 + γ̃_{m_k,k} · X) }     where X = |ĝ_{m_k,k}|²/γ̂_{m_k,k}
+   ~ Exp(1)
+
+  This expectation has a beautiful closed form. Let me derive it step by step.
+
+  Derivation of E{log₂(1 + γ·X)} where X ~ Exp(1):
+
+  R = (1/ln 2) · ∫₀^∞ ln(1 + γx) · e^{−x} dx
+
+  Integration by parts with u = ln(1 + γx), dv = e^{−x}dx:
+
+  R = (1/ln 2) · [ −ln(1+γx)·e^{−x} |₀^∞  +  ∫₀^∞ (γ/(1+γx)) · e^{−x} dx ]
+
+    = (1/ln 2) · ∫₀^∞ γ·e^{−x}/(1+γx) dx
+
+  Substituting t = 1 + γx  (so x = (t−1)/γ, dx = dt/γ):
+
+    = (1/ln 2) · e^{1/γ} · ∫₁^∞ e^{−t/γ}/t dt
+
+  Substituting u = t/γ:
+
+    = (1/ln 2) · e^{1/γ} · ∫_{1/γ}^∞ e^{−u}/u du
+
+  The integral ∫_z^∞ e^{−u}/u du is the exponential integral E₁(z). The
+  relationship to Ei is: E₁(z) = −Ei(−z). Therefore:
+
+  R = (1/ln 2) · e^{1/γ} · E₁(1/γ) = −(log₂ e) · e^{1/γ} · Ei(−1/γ)
+
+  This gives us Eq. (43):
+
+  R_d^{sc,k} = −(log₂ e) · e^{1/γ̃_{m_k,k}} · Ei(−1/γ̃_{m_k,k})           ... (43)
+
+  Numerical example:
+
+  Let γ̃ = 5 (≈ 7 dB SINR parameter).
+
+  R = −log₂(e) · e^{1/5} · Ei(−1/5)
+
+    = −1.4427 · e^{0.2} · Ei(−0.2)
+
+    = −1.4427 · 1.2214 · (−1.2227)
+
+    ≈ 2.155 b/s/Hz
+
+  Compare with the "no fading" rate: log₂(1 + 5) = 2.585 b/s/Hz.
+
+  The fading penalty is 2.585 − 2.155 = 0.43 b/s/Hz (~17%). Fading always hurts
+  — the random fluctuations waste capacity compared to a deterministic channel.
+
+  The Ei-based rate vs. no-fading rate:
+
+    Rate (b/s/Hz)
+     │
+   6 ┤                                    ╱  ← log₂(1+γ) (no fading / Cell-Free)
+     │                                  ╱
+   5 ┤                               ╱╱
+     │                            ╱╱    ╱  ← −log₂(e)·e^{1/γ}·Ei(−1/γ) (Rayleigh
+   / small cell)
+   4 ┤                         ╱╱   ╱╱
+     │                      ╱╱  ╱╱
+   3 ┤                   ╱╱╱╱
+     │               ╱╱╱╱
+   2 ┤           ╱╱╱╱
+     │       ╱╱╱╱          gap = fading penalty
+   1 ┤   ╱╱╱╱             (always positive, grows with γ)
+     │╱╱╱
+   0 ┼──┬──┬──┬──┬──┬──→ γ (SINR parameter, linear)
+     0  2  4  6  8  10
+
+
+  ---
+  2.5 In MATLAB, This Is Trivially Computed
+
+  % MATLAB: Compute small-cell rate
+  R_sc = -(log2(exp(1))) * exp(1./gamma_tilde) .* expint(1./gamma_tilde);
+
+  where expint() is MATLAB's built-in E₁(z) function.
+
+  ---
+  CHUNK 3: Small-Cell Uplink (Section V-B) & Power Control (Section V-C)
+
+  3.1 Uplink Rate — Equations (47)–(49)
+
+  The uplink follows the exact same structure. The AP m_k estimates the uplink
+  channel from user k's pilot, then detects user k's symbol. The achievable rate
+   has the identical Ei form:
+
+  R_u^{sc,k} = −(log₂ e) · e^{1/γ̄_{m_k,k}} · Ei(−1/γ̄_{m_k,k})           ... (47)
+
+  where the uplink effective SINR parameter is: Eq. (48)
+
+                        ρ_u^sc · η_{u,k} · γ_{m_k,k}
+  γ̄_{m_k,k} = ──────────────────────────────────────────────────────────────────
+                ρ_u^sc · η_{u,k} · (β_{m_k,k} − γ_{m_k,k}) + ρ_u^sc · Σ_{k'≠k}
+  η_{u,k'} · β_{m_k,k'} + 1
+
+  and the uplink channel estimation quality is: Eq. (49)
+
+                           τ_u^sc · ρ_{u,p}^sc · β²_{m_k,k}
+  γ_{m_k,k} = ──────────────────────────────────────────────────────────
+                τ_u^sc · ρ_{u,p}^sc · Σ_{k'=1}^{K} β_{m_k,k'} · |φ*_{k'}·φ_k|² +
+   1
+
+  Structural parallel: Both DL and UL rates have the same mathematical form:
+
+  R = −(log₂ e) · e^{1/γ_eff} · Ei(−1/γ_eff)
+
+          ρ · η · (estimation quality)
+  γ_eff = ──────────────────────────────────────────────────
+          ρ · η · (estimation error) + ρ · (interference) + 1
+
+  The only differences:
+  - DL uses downlink pilot parameters (τ_d^sc, ρ_{d,p}^sc)
+  - UL uses uplink pilot parameters (τ_u^sc, ρ_{u,p}^sc)
+  - DL interference comes from other APs transmitting to their users
+  - UL interference comes from other users transmitting to their APs
+
+  ---
+  3.2 Training Overhead Comparison
+
+  CELL-FREE coherence interval (τ_c = 200):
+
+    ┌────────────┬─────────────────────────┬────────────────────────┐
+    │  UL pilots │   DL data               │   UL data              │
+    │  τ_p = 10  │   ~95 symbols           │   ~95 symbols          │
+    └────────────┴─────────────────────────┴────────────────────────┘
+    Overhead: 10/200 = 5%    (NO downlink pilots needed!)
+
+
+  SMALL-CELL coherence interval (τ_c = 200):
+
+    ┌────────────┬────────────┬─────────────────┬─────────────────┐
+    │  UL pilots │  DL pilots │   DL data       │   UL data       │
+    │  τ_u^sc    │  τ_d^sc    │   ~80 symbols   │   ~80 symbols   │
+    └────────────┴────────────┴─────────────────┴─────────────────┘
+    Overhead: (τ_u + τ_d)/200 ≈ 10–20%    (BOTH directions need pilots!)
+
+  Small cells waste more of the coherence interval on training, leaving fewer
+  symbols for data. This is an additional penalty beyond the lack of
+  cooperation.
+
+  ---
+  3.3 Max-Min Power Control for Small Cells — Equations (45)–(46), (50)
+
+  Downlink (Eq. 45–46):
+
+  max       min     R_d^{sc,k}
+  {η_{d,k}}  k=1,...,K
+
+  subject to:  0 ≤ η_{d,k} ≤ 1,    k = 1, ..., K                          ...
+  (45)
+
+  Since R_d^{sc,k} = −(log₂ e) · e^{1/γ̃} · Ei(−1/γ̃) is a monotonically 
+  increasing function of γ̃_{m_k,k} (higher SINR parameter → higher rate),
+  maximizing min-rate is equivalent to maximizing min-SINR-parameter:
+
+  max       min     γ̃_{m_k,k}                                              ...
+  (46)
+  {η_{d,k}}  k=1,...,K
+
+  subject to:  0 ≤ η_{d,k} ≤ 1
+
+  This is a quasi-linear program (same structure as the Cell-Free uplink) —
+  solvable by bisection + LP.
+
+  Why it's simpler than Cell-Free downlink: In small cells, each AP serves
+  exactly one user, so there's only K power variables η_{d,k} (one per user/AP
+  pair), not M×K. And γ̃_{m_k,k} is a ratio of linear functions in η_{d,k}, so
+  the bisection sub-problem is an LP.
+
+  Uplink (Eq. 50): Identical structure:
+
+  max       min     γ̄_{m_k,k}                                              ...
+  (50)
+  {η_{u,k}}  k=1,...,K
+
+  subject to:  0 ≤ η_{u,k} ≤ 1
+
+  Also quasi-linear, also solvable by bisection + LP.
+
+  ---
+  CHUNK 4: Fair Comparison Framework & Key Insights
+
+  4.1 How the Paper Makes the Comparison Fair
+
+  The paper is very careful to avoid biasing the comparison. Here's the fairness
+   protocol:
+
+  Equal total radiated power:
+
+  In Cell-Free, all M APs transmit with power ρ_d^cf each. Total DL power = M ·
+  ρ_d^cf.
+
+  In small cells, only K APs are active. To equalize total power:
+
+  K · ρ_d^sc = M · ρ_d^cf
+
+  →  ρ_d^sc = (M/K) · ρ_d^cf
+
+  With M = 100, K = 40: ρ_d^sc = 2.5 · ρ_d^cf. Each small-cell AP gets 2.5× more
+   power than each Cell-Free AP. This is generous to small cells.
+
+  Uplink power equalized: ρ_u^sc = ρ_u^cf (users transmit with the same power in
+   both systems).
+
+  Same physical setup: Same M AP locations, same K user locations, same channel
+  realizations β_{mk}. Only the operating mode changes.
+
+  ---
+  4.2 Three Ways the Comparison Favors Small Cells
+
+  ┌─────┬──────────────────────────────────┬────────────────────────────┐
+  │  #  │          Advantage               │         Why it's generous  │
+  ├─────┼──────────────────────────────────┼────────────────────────────┤
+  │  1  │ Small-cell APs get M/K × more    │ Concentrated power at each │
+  │     │ transmit power per AP            │ active AP                  │
+  ├─────┼──────────────────────────────────┼────────────────────────────┤
+  │  2  │ Cell-Free rate uses a lower      │ UatF bound is conservative │
+  │     │ bound (UatF / Eq. 24)            │ (treats channel deviation  │
+  │     │                                  │ as worst-case noise)       │
+  ├─────┼──────────────────────────────────┼────────────────────────────┤
+  │  3  │ Small-cell rate uses the ergodic │ Assumes user perfectly     │
+  │     │ rate with exact DL CSI (Eq. 42)  │ tracks instantaneous SINR  │
+  │     │                                  │ (optimistic for small cell)│
+  └─────┴──────────────────────────────────┴────────────────────────────┘
+
+  Despite all three advantages, Cell-Free Massive MIMO still dominates small
+  cells by 5–10× at the 95%-likely per-user rate. This makes the paper's
+  conclusion very strong.
+
+  ---
+  4.3 Complete Side-by-Side Comparison
+
+  ┌──────────────────────────┬─────────────────────────┬────────────────────────
+  ──┐
+  │        Aspect            │      Cell-Free           │      Small Cells
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ APs per user             │ ALL M (cooperative)      │ 1 (non-cooperative)
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Active APs               │ M (all transmit)         │ K (M−K idle)
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Power per AP             │ ρ_d^cf                   │ (M/K)·ρ_d^cf (higher!)
+     │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Beamforming              │ Conjugate BF (ĝ*_{mk})  │ None (direct TX)
+     │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Channel hardening        │ Yes (sum of M terms)     │ No (single scalar)
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ DL pilots needed         │ No                       │ Yes (extra overhead)
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Rate formula             │ log₂(1 + SINR_det)      │
+  −log₂(e)·e^{1/γ}·Ei(−1/γ)│
+  │                          │ (deterministic SINR)     │ (ergodic, with Ei)
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Power control variables  │ DL: M×K (η_{mk})        │ DL: K (η_{d,k})
+     │
+  │                          │ UL: K (p_k)             │ UL: K (η_{u,k})
+     │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ DL power control type    │ Bisection + SOCP         │ Bisection + LP
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ UL power control type    │ Bisection + LP           │ Bisection + LP
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Macro-diversity gain     │ Yes (many APs nearby)    │ No (single AP)
+      │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Pilot contamination      │ Present but manageable   │ Present and more
+  harmful  │
+  │ impact                   │ (array gain helps)       │ (no array gain to
+  dilute) │
+  ├──────────────────────────┼─────────────────────────┼────────────────────────
+  ──┤
+  │ Backhaul requirement     │ Higher (data to all APs) │ Lower (data to one AP)
+      │
+  └──────────────────────────┴─────────────────────────┴────────────────────────
+  ──┘
+
+  ---
+  4.4 Why Small Cells Lose — The Physics
+
+  There are three fundamental reasons Cell-Free wins:
+
+  Reason 1: Array Gain (Coherent Combining)
+
+  In Cell-Free, M APs send phase-aligned signals that add up constructively at
+  the user. The signal power scales as ~M². In small cells, one AP sends one
+  signal — no coherent combining, no array gain.
+
+  Cell-Free:   signal power ∝ (Σ_m √η_{mk}·γ_{mk})² ~ M²
+  Small cell:  signal power ∝ η_{d,k} · γ̂_{m_k,k}   ~ 1
+
+  Reason 2: Macro-Diversity (Shadow Fading Protection)
+
+  A user in deep shadow from one AP is likely close to another AP with good
+  line-of-sight. Cell-Free exploits ALL APs — even if 80% are blocked, the
+  remaining 20% provide strong service. Small cells give you one AP — if it's
+  blocked, you're out of luck.
+
+  User in deep shadow:
+
+    Cell-Free:  APs 1,3,5 blocked → still served by APs 2,4,6,7,...,M
+                Rate degradation: mild
+
+    Small cell: AP m_k blocked → rate collapses to near zero
+                No fallback
+
+  This is why correlated shadowing (nearby APs tend to be blocked together)
+  hurts small cells devastatingly (~10× worse) but barely affects Cell-Free.
+
+  Reason 3: Interference Management
+
+  In Cell-Free, conjugate beamforming naturally directs energy toward the
+  intended user and away from others (imperfect but helpful). In small cells,
+  each AP transmits omnidirectionally — its signal is full interference to every
+   other user.
+
+  ---
+  4.5 Summary of All Equations in Section V
+
+  ┌───────┬──────────────────────────────────────────────────────────────┐
+  │ Eq.   │ Description                                                  │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (38)  │ AP selection: m_k = arg max β_{mk} over available APs       │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (39)  │ DL channel estimate decomposition: ĝ + ε                    │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (40)  │ DL estimation quality γ̂_{m_k,k}                             │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (41)  │ DL received signal at user k (4 terms)                       │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (42)  │ DL achievable rate (expectation form)                        │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (43)  │ DL rate in closed form: −log₂(e)·e^{1/γ̃}·Ei(−1/γ̃)          │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (44)  │ DL effective SINR parameter γ̃_{m_k,k}                       │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (45)  │ DL max-min power control problem                             │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (46)  │ Equivalent formulation (max min γ̃)                           │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (47)  │ UL rate: −log₂(e)·e^{1/γ̄}·Ei(−1/γ̄)                        │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (48)  │ UL effective SINR parameter γ̄_{m_k,k}                       │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (49)  │ UL estimation quality γ_{m_k,k}                              │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ (50)  │ UL max-min power control (quasi-linear)                      │
+  └───────┴──────────────────────────────────────────────────────────────┘
+
+  ---
+  4.6 What We'll Implement from Section V
+
+  ┌──────────────────────────────────┬──────────────────────────────────────────
+  ──┐
+  │           Function               │            What it implements
+    │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ──┤
+  │ ap_selection(beta)               │ Eq. (38): greedy one-to-one AP assignment
+    │
+  │                                  │ Returns m_k for each user
+   │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ──┤
+  │ sc_dl_rate(gamma_hat, beta,      │ Eqs. (43)–(44): closed-form DL rate
+   │
+  │   eta_d, rho_d, m_index)        │ using expint() in MATLAB
+  │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ──┤
+  │ sc_ul_rate(gamma, beta,          │ Eqs. (47)–(48): closed-form UL rate
+   │
+  │   eta_u, rho_u, m_index)        │ using expint()
+  │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ──┤
+  │ sc_dl_maxmin_pc(gamma_hat, beta, │ Eq. (46): bisection + LP for DL power
+   │
+  │   rho_d, m_index)               │ control
+  │
+  ├──────────────────────────────────┼──────────────────────────────────────────
+  ──┤
+  │ sc_ul_maxmin_pc(gamma, beta,     │ Eq. (50): bisection + LP for UL power
+   │
+  │   rho_u, m_index)               │ control
+  │
+  └──────────────────────────────────┴──────────────────────────────────────────
+  ──┘
+
+  ---
+  4.7 The Flow from Section V into Section VI
+
+  Section V provides the BASELINE:          Section VI compares:
+
+    Small-cell rates                          CDF of Cell-Free rate
+      R_d^{sc} (Eq. 43)                         vs.
+      R_u^{sc} (Eq. 47)                      CDF of small-cell rate
+    Small-cell power control                    → Figures 3–11
+      (Eqs. 46, 50)
+
+    Same M APs, same K users,
+    same β_{mk}, same total power
+    → Only difference: cooperation vs. no cooperation
+
+  ---
+  This completes the deep dive into Section V. We now have both systems fully
+  defined — Cell-Free (Sections II–IV) and Small Cells (Section V). Section VI
+  puts them head-to-head with Monte Carlo simulations and CDF plots. Ready to
+  proceed to Section VI?
+
+✻ Churned for 18m 12s
+
+❯ /export paper analysis\Cell-Free Massive MIMO Versus Small 
+Cells\understanding_paper_sec5_2.txt 
+  ⎿  Conversation exported to: paper analysis\Cell-Free Massive MIMO Versus
+     Small Cells\understanding_paper_sec5_2.txt
+
+❯ Proceed to section VI. 
+
+● Let me extract Section VI from the paper and do thorough research.
+
+● 2 Agent agents finished (ctrl+o to expand)
+   ├─ Extract Section VI from paper · 7 tool uses · 21.7k tokens
+   │  ⎿  Done
+   └─ Research simulation methodology · 34 tool uses · 39.8k tokens
+      ⎿  Done
+
+● Now I have all the paper content and deep research. Here's the complete deep
+  dive.
+
+  ---
+  SECTION VI: NUMERICAL RESULTS AND DISCUSSIONS — Complete Deep Dive
+
+  ---
+  CHUNK 1: Simulation Setup — The Physical Environment
+
+  1.1 What This Section Is About (Simple Terms)
+
+  Sections II–V built two systems on paper (Cell-Free and Small Cells) with
+  exact rate formulas. Section VI runs the experiment — a computer simulation
+  that places 100 APs and 40 users randomly, computes every channel, optimizes
+  power control and pilot assignment, calculates rates, and repeats this 200
+  times to build statistics. The outcome: CDF curves showing how every user in
+  the network performs.
+
+  Think of it as: we've designed two restaurant layouts (one buffet-style, one
+  sit-down). Section VI actually opens both restaurants 200 times, serves 40
+  customers each time, and measures how long each customer waits for food.
+
+  ---
+  1.2 The Simulation Area — 1 km × 1 km Square
+
+           1 km
+      ┌─────────────────┐
+      │  ● AP₁    ● AP₅ │
+      │       ◆ UE₂     │
+      │  ● AP₂          │  1 km
+      │     ◆ UE₁  ● AP₃│
+      │  ◆ UE₃    ● AP₄ │
+      │       ◆ UE₄     │
+      └─────────────────┘
+
+      ●  = Access Point (M = 100, randomly placed)
+      ◆  = User (K = 40, randomly placed)
+
+  Both APs and users are placed uniformly at random within a D × D = 1 × 1 km²
+  area. This means every realization has different geometry — capturing the
+  variability of real deployments.
+
+  ---
+  1.3 Wrap-Around Topology (Toroidal) — Eliminating Boundary Effects
+
+  Users and APs near the edges would see an unrealistically benign interference
+  environment (fewer neighbors on one side). To fix this, the simulation area is
+   wrapped around — the left edge connects to the right, the top connects to the
+   bottom, forming a torus.
+
+  Implementation: 9 copies of the area are placed in a 3×3 grid. The distance
+  between any AP-user pair is the minimum across all 9 copies:
+
+      ┌─────────┬─────────┬─────────┐
+      │  copy 7 │  copy 3 │  copy 6 │
+      │  (-D,+D)│  (0,+D) │  (+D,+D)│
+      ├─────────┼─────────┼─────────┤
+      │  copy 4 │ ORIGINAL│  copy 2 │
+      │  (-D, 0)│  (0, 0) │  (+D, 0)│
+      ├─────────┼─────────┼─────────┤
+      │  copy 8 │  copy 5 │  copy 9 │
+      │  (-D,-D)│  (0,-D) │  (+D,-D)│
+      └─────────┴─────────┴─────────┘
+
+      d_{mk} = min over all 9 copies of ‖AP_m − UE_k‖
+
+  This ensures that an AP at position (0.49 km, 0) and a user at (−0.49 km, 0)
+  are only 0.02 km apart (wrapped), not 0.98 km apart (direct). Every point in
+  the area is statistically equivalent — no edges.
+
+  ---
+  1.4 System Parameters — Table I
+
+  ┌──────────────────────────────────┬──────────────────────┐
+  │          Parameter               │        Value         │
+  ├──────────────────────────────────┼──────────────────────┤
+  │ Number of APs (M)                │ 100                  │
+  │ Number of users (K)              │ 40                   │
+  │ Area side (D)                    │ 1 km                 │
+  │ Carrier frequency (f)           │ 1.9 GHz = 1900 MHz  │
+  │ Bandwidth (B)                    │ 20 MHz               │
+  │ Coherence interval (τ_c)        │ 200 samples          │
+  │ Coherence bandwidth              │ 200 kHz              │
+  │ Coherence time                   │ 1 ms                 │
+  │ Pilot length (τ_{cf})           │ 5 or 20              │
+  │ AP antenna height (h_AP)        │ 15 m                 │
+  │ User antenna height (h_u)       │ 1.65 m               │
+  │ DL transmit power (ρ_d^{cf})    │ 200 mW (23 dBm)     │
+  │ UL transmit power (ρ_u^{cf})    │ 100 mW (20 dBm)     │
+  │ Pilot power (ρ_p^{cf})          │ 100 mW (20 dBm)     │
+  │ Noise figure                     │ 9 dB                 │
+  │ Shadow fading std. dev. (σ_{sh})│ 8 dB                 │
+  │ Noise temperature (T₀)          │ 290 K                │
+  │ Distance breakpoints (d₀, d₁)  │ 10 m, 50 m           │
+  │ Decorrelation distance (d_{decorr})│ 100 m (0.1 km)    │
+  │ Shadow correlation param (δ)    │ 0.5                  │
+  │ Monte Carlo realizations         │ 200                  │
+  └──────────────────────────────────┴──────────────────────┘
+
+  Computing the noise power:
+  Noise power = B · k_B · T₀ · noise_figure
+              = 20×10⁶ · 1.381×10⁻²³ · 290 · 10^{9/10}
+              = 20×10⁶ · 4.004×10⁻²¹ · 7.943
+              ≈ 6.36 × 10⁻¹⁴ W
+              = −132 dBW = −102 dBm
+
+  Normalized transmit SNRs (what appears in the rate formulas):
+  ρ_d^{cf} = 200 mW / 6.36×10⁻¹⁴ W ≈ 3.14 × 10¹² → ~125 dB
+  ρ_u^{cf} = 100 mW / 6.36×10⁻¹⁴ W ≈ 1.57 × 10¹² → ~122 dB
+
+  These are huge numbers, but the path loss (−80 to −140 dB) eats up most of it.
+
+  ---
+  CHUNK 2: The Channel Model — Path Loss & Shadow Fading
+
+  2.1 Large-Scale Fading — Equation (51)
+
+  The large-scale fading coefficient combines path loss and shadow fading:
+
+  β_{mk} = PL_{mk} · 10^{σ_{sh} · z_{mk} / 10}                          ... (51)
+
+  where PL_{mk} is the path loss (deterministic, distance-dependent) and
+  10^{σ_{sh}·z_{mk}/10} is the shadow fading (random, z_{mk} ~ N(0,1)).
+
+  In dB: β_{mk}[dB] = PL_{mk}[dB] + σ_{sh} · z_{mk}
+
+  ---
+  2.2 Three-Slope Path Loss Model — Equations (52)–(53)
+
+  The path loss depends on distance d_{mk} with three regimes: Eq. (52)
+
+                ⎧ −L − 35·log₁₀(d_{mk})                           if d_{mk} > d₁
+   = 50m
+                ⎪
+  PL_{mk}[dB] = ⎨ −L − 15·log₁₀(d₁) − 20·log₁₀(d_{mk})          if d₀ < d_{mk} ≤
+   d₁
+                ⎪
+                ⎩ −L − 15·log₁₀(d₁) − 20·log₁₀(d₀)               if d_{mk} ≤ d₀
+  = 10m
+
+  where the constant L comes from the Hata-COST231 model: Eq. (53)
+
+  L = 46.3 + 33.9·log₁₀(f) − 13.82·log₁₀(h_AP) − (1.1·log₁₀(f)−0.7)·h_u +
+  (1.56·log₁₀(f)−0.8)
+
+  Plugging in f = 1900, h_AP = 15, h_u = 1.65:
+
+  L = 46.3 + 33.9·log₁₀(1900) − 13.82·log₁₀(15) − (1.1·log₁₀(1900)−0.7)·1.65 +
+  (1.56·log₁₀(1900)−0.8)
+
+    = 46.3 + 33.9·3.279 − 13.82·1.176 − (1.1·3.279−0.7)·1.65 + (1.56·3.279−0.8)
+
+    = 46.3 + 111.15 − 16.25 − (3.607−0.7)·1.65 + (5.115−0.8)
+
+    = 46.3 + 111.15 − 16.25 − 4.80 + 4.315
+
+    ≈ 140.7 dB
+
+  Numerical example — path loss at different distances:
+
+  ┌──────────┬─────────┬─────────────────────────────┬──────────────────────┐
+  │ Distance │ Regime  │           PL (dB)           │   Physical meaning   │
+  ├──────────┼─────────┼─────────────────────────────┼──────────────────────┤
+  │          │         │ −140.7 − 15·log₁₀(50) −     │ AP on same lamppost  │
+  │ 5 m      │ d ≤ d₀  │ 20·log₁₀(10) = −140.7 −     │ as user (capped)     │
+  │          │         │ 25.5 − 20 ≈ −186 dB         │                      │
+  ├──────────┼─────────┼─────────────────────────────┼──────────────────────┤
+  │          │ d₀ < d  │ −140.7 − 25.5 −             │ User near AP,        │
+  │ 20 m     │ ≤ d₁    │ 20·log₁₀(20) ≈ −140.7 −     │ free-space-like      │
+  │          │         │ 25.5 − 26.0 = −192 dB       │                      │
+  ├──────────┼─────────┼─────────────────────────────┼──────────────────────┤
+  │ 50 m     │ d = d₁  │ −140.7 − 35·log₁₀(50) ≈     │ Breakpoint           │
+  │          │         │ −140.7 − 59.4 = −200 dB     │                      │
+  ├──────────┼─────────┼─────────────────────────────┼──────────────────────┤
+  │ 200 m    │ d > d₁  │ −140.7 − 35·log₁₀(200) ≈    │ Typical urban        │
+  │          │         │ −140.7 − 80.5 = −221 dB     │ distance             │
+  ├──────────┼─────────┼─────────────────────────────┼──────────────────────┤
+  │ 500 m    │ d > d₁  │ −140.7 − 35·log₁₀(500) ≈    │ Far away             │
+  │          │         │ −140.7 − 94.5 = −235 dB     │                      │
+  └──────────┴─────────┴─────────────────────────────┴──────────────────────┘
+
+  Note: These are normalized path losses (relative to noise power). The actual
+  received power = transmit power × β_{mk}.
+
+  The three slopes visually:
+
+    PL (dB)
+    │
+    │ flat (exponent 0)
+    │────────────┐
+    │            │ slope = 20 dB/decade (exponent 2)
+    │            ╲
+    │             ╲
+    │              ╲
+    │               ╲ slope = 35 dB/decade (exponent 3.5)
+    │                ╲
+    │                 ╲
+    │                  ╲
+    │                   ╲
+    └──┬────────┬────────┬──────────→ log₁₀(d)
+      d₀=10m  d₁=50m
+
+  Why three slopes?
+  - d ≤ 10 m: Near-field / antenna coupling regime. Signal doesn't decay further
+   (capped).
+  - 10 m < d ≤ 50 m: Line-of-sight regime. Free-space propagation (exponent 2).
+  - d > 50 m: Non-line-of-sight regime. Urban scattering and diffraction
+  dominate (exponent 3.5).
+
+  Critical observation: Shadow fading (the random z_{mk} term) is applied only
+  when d > d₁ = 50 m. At shorter distances, the channel is assumed
+  deterministic.
+
+  ---
+  2.3 Correlated Shadow Fading — Equations (54)–(55)
+
+  The shadow fading coefficient z_{mk} is decomposed into two independent
+  components: Eq. (54)
+
+  z_{mk} = √δ · a_m + √(1−δ) · b_k
+
+  where:
+  - a_m ~ N(0,1): AP-side shadow fading (same a_m affects all users from AP m)
+  - b_k ~ N(0,1): user-side shadow fading (same b_k affects all APs to user k)
+  - δ ∈ [0,1]: mixing parameter (δ = 0.5 in simulations)
+
+  δ = 0:   z_{mk} = b_k           (shadowing depends only on user location)
+  δ = 1:   z_{mk} = a_m           (shadowing depends only on AP location)
+  δ = 0.5: z_{mk} = √0.5·a_m + √0.5·b_k   (equal contribution from both)
+
+  The spatial correlations are: Eq. (55)
+
+  E{a_m · a_{m'}} = 2^{−d_a(m,m')/d_{decorr}}         (AP-AP correlation)
+  E{b_k · b_{k'}} = 2^{−d_u(k,k')/d_{decorr}}         (user-user correlation)
+
+  where d_{decorr} = 100 m. The correlation drops to 0.5 at one decorrelation
+  distance.
+
+  Correlation
+  │
+  1.0 ┤●
+      │ ╲
+  0.8 ┤  ╲
+      │   ╲
+  0.6 ┤    ╲
+      │     ╲
+  0.5 ┤------●-------     ← half-power at d = d_{decorr}
+      │       ╲
+  0.3 ┤        ╲
+      │          ╲
+  0.1 ┤            ╲___
+      │                ╲____
+  0.0 ┤─────────┬──────┬─────┬──→ distance between APs (or users)
+      0       100m   200m  300m
+
+  Implementation: Generate correlated Gaussian samples via Cholesky
+  decomposition:
+
+  1. Build M×M correlation matrix: C_AP(m,m') = 2^{−d(m,m')/d_{decorr}}
+  2. Cholesky factor: C_AP = L_AP · L_AP^T
+  3. Generate i.i.d.: x ~ N(0, I_M)
+  4. Correlated samples: a = L_AP · x   → now a has correlation C_AP
+     (Same for the K×K user correlation matrix)
+
+  Why correlated shadowing matters:
+
+  - Uncorrelated: Each β_{mk} is independent. A user in shadow from AP 1 might
+  still have a clear path to AP 2. Small cells can exploit this diversity
+  through AP selection.
+  - Correlated: Nearby APs tend to see similar shadowing. If a building blocks
+  one AP, it likely blocks nearby APs too. Small cells lose their AP selection
+  diversity. Cell-Free is more robust because it uses ALL APs — even spatially
+  distant ones contribute.
+
+  ---
+  CHUNK 3: Net Throughput, CDF Generation & Figures 3–6
+
+  3.1 Net Throughput — Equations (56)–(57)
+
+  The rate formulas from Sections III and V give spectral efficiency
+  (bits/s/Hz). To get actual throughput (Mbits/s), multiply by bandwidth and
+  subtract training overhead:
+
+  Cell-Free net throughput: Eq. (56)
+
+  S_{A,k}^{cf} = B · (1 − τ_{cf}/τ_c) · R_{A,k}^{cf}
+
+  Small-cell net throughput: Eq. (57)
+
+  S_{A,k}^{sc} = B · (1 − (τ_d^{sc} + τ_u^{sc})/τ_c) · R_{A,k}^{sc}
+
+  where A ∈ {d, u} for downlink/uplink.
+
+  Numerical example (τ_{cf} = 20):
+
+  Cell-Free:   S = 20×10⁶ · (1 − 20/200) · R = 20×10⁶ · 0.9 · R = 18×10⁶ · R
+
+  Small-Cell:  S = 20×10⁶ · (1 − (20+20)/200) · R = 20×10⁶ · 0.8 · R = 16×10⁶ ·
+  R
+
+  Cell-Free loses 10% to training overhead, small cells lose 20% (they need both
+   UL and DL pilots). This is an additional 12.5% advantage for Cell-Free just
+  from the overhead reduction.
+
+  ---
+  3.2 CDF Generation — Monte Carlo Procedure
+
+  ┌───────────────────────────────────────────────────────┐
+  │  FOR realization n = 1, 2, ..., 200:                  │
+  │                                                       │
+  │  1. Place M=100 APs, K=40 users uniformly at random   │
+  │  2. Compute β_{mk} for all m,k (path loss + shadow)  │
+  │  3. Run greedy pilot assignment (Algorithm 1)          │
+  │  4. Solve max-min power control:                       │
+  │     - DL: bisection + SOCP → η_{mk}                  │
+  │     - UL: bisection + LP → p_k                       │
+  │  5. Compute rates using Theorems 1 & 2                │
+  │  6. Convert to net throughput (Eqs. 56–57)            │
+  │  7. Store: with max-min, all K users get SAME rate    │
+  │     → store that one rate value for this realization   │
+  │                                                       │
+  │  END FOR                                              │
+  │                                                       │
+  │  Sort the 200 rate values → plot CDF                  │
+  └───────────────────────────────────────────────────────┘
+
+  With max-min power control: All K users achieve the same rate in each
+  realization (that's what max-min ensures). So we get 200 rate values total.
+  The CDF captures the variation across realizations (different geometries,
+  different shadowing).
+
+  Without power control: Users within each realization have different rates. We
+  get 200 × 40 = 8,000 rate values. The CDF captures both geometric variation
+  AND user-location variation.
+
+  ---
+  3.3 Figure 3 — The Headline Result (Downlink, Greedy Pilots + Max-Min PC)
+
+    CDF
+    │
+  1.0┤                    ╱──── small cell, correlated
+     │                   ╱  ╱── small cell, uncorrelated
+  0.8┤                  ╱  ╱
+     │                 ╱  ╱
+  0.6┤                ╱  ╱     ╱── CF, correlated
+     │               ╱  ╱    ╱  ╱── CF, uncorrelated
+  0.4┤              ╱  ╱    ╱  ╱
+     │             ╱  ╱    ╱  ╱
+  0.2┤            ╱  ╱    ╱  ╱
+     │           ╱  ╱    ╱  ╱
+  0.05┤---------╱--╱----╱--╱--------  ← 95%-likely line
+     │         ╱  ╱    ╱  ╱
+  0.0┤────┬───┬┬──┬────┬──┬───┬────→ Throughput (Mbits/s)
+     0    2   4   6   8  10  12  14  16  18
+
+          ↑               ↑
+          SC ≈ 2 Mbps     CF ≈ 14 Mbps    (uncorrelated)
+
+  Key readings from Figure 3:
+
+  ┌───────────┬──────────────┬────────────────────────┬────────────────────┐
+  │  System   │  Shadowing   │     95%-likely DL      │     Median DL      │
+  │           │              │       throughput       │     throughput     │
+  ├───────────┼──────────────┼────────────────────────┼────────────────────┤
+  │ Cell-Free │ Uncorrelated │ ~14 Mbps               │ ~16 Mbps           │
+  ├───────────┼──────────────┼────────────────────────┼────────────────────┤
+  │ Cell-Free │ Correlated   │ ~10 Mbps               │ ~14 Mbps           │
+  ├───────────┼──────────────┼────────────────────────┼────────────────────┤
+  │ Small     │ Uncorrelated │ ~2 Mbps                │ ~4 Mbps            │
+  │ Cell      │              │                        │                    │
+  ├───────────┼──────────────┼────────────────────────┼────────────────────┤
+  │ Small     │ Correlated   │ ~1 Mbps                │ ~2 Mbps            │
+  │ Cell      │              │                        │                    │
+  └───────────┴──────────────┴────────────────────────┴────────────────────┘
+
+  Ratios:
+  - Uncorrelated: CF/SC = 14/2 = 7× improvement at 95%-likely
+  - Correlated: CF/SC = 10/1 = 10× improvement at 95%-likely
+
+  Why the CF CDF is steep (concentrated): Max-min power control forces all users
+   to the same rate. Variation comes only from different random layouts. The CF
+  CDF is much tighter — almost every layout gives roughly the same per-user
+  rate.
+
+  Why correlated shadowing hurts small cells more: In small cells, the AP
+  selection relies on finding one AP with good β. With correlated shadowing,
+  nearby APs are blocked together. Cell-Free uses ALL APs, including spatially
+  distant ones that may be uncorrelated.
+
+  ---
+  3.4 Figure 4 — Uplink Version
+
+  Same story as Figure 3 but for uplink. The uplink performance is slightly
+  lower because:
+  1. Users transmit with 100 mW vs. APs with 200 mW in DL
+  2. Uplink has only K power control variables (less optimization freedom)
+
+  ---
+  3.5 Figures 5 & 6 — Without Power Control (DL & UL)
+
+    CDF (no power control)
+    │
+  1.0┤           ╱─────── small cell
+     │          ╱╱
+  0.8┤         ╱╱
+     │        ╱╱
+  0.6┤       ╱╱
+     │      ╱╱           ╱──── CF
+  0.4┤     ╱╱          ╱╱╱
+     │    ╱╱         ╱╱╱
+  0.2┤   ╱╱        ╱╱╱
+     │  ╱╱       ╱╱╱
+  0.05┤╱╱──────╱╱╱──────────── 95%-likely line
+     │╱     ╱╱╱
+  0.0┤──┬───┬───┬───┬───┬───┬──→ Throughput (Mbits/s)
+     0  2   5   10  15  20  25  30
+
+     ↑SC          ↑CF
+     ~1 Mbps     ~5.5 Mbps
+
+  Without power control the CDFs are spread out — strong users get 20-30 Mbps,
+  weak users get 1-5 Mbps. Cell-Free still wins, but the 95%-likely rate drops
+  dramatically:
+
+  ┌────────────────────┬─────────────────┬───────────────────────────────┐
+  │                    │ With max-min PC │          Without PC           │
+  ├────────────────────┼─────────────────┼───────────────────────────────┤
+  │ CF 95%-likely      │ ~14 Mbps        │ ~5.5 Mbps                     │
+  ├────────────────────┼─────────────────┼───────────────────────────────┤
+  │ Improvement factor │ —               │ 2.5× from power control alone │
+  └────────────────────┴─────────────────┴───────────────────────────────┘
+
+  This proves: power control is far more important than pilot assignment (factor
+   2.5× vs. 20%).
+
+  ---
+  CHUNK 4: Figures 7–11 & Summary
+
+  4.1 Figures 7 & 8 — Random Pilot Assignment + Max-Min Power Control
+
+  These figures show what happens with random pilots (instead of greedy
+  assignment) but still using max-min power control.
+
+    95%-likely DL throughput comparison:
+
+    Greedy pilots + max-min PC:    ~14 Mbps
+    Random pilots + max-min PC:    ~12 Mbps
+                                   ─────────
+    Difference:                    ~20% gain from greedy pilots
+
+  The greedy pilot assignment provides a modest but consistent improvement. The
+  message: power control is the primary enabler; pilot assignment is a secondary
+   refinement.
+
+  ---
+  4.2 Figure 9 — Effective Number of APs per User
+
+  This is one of the most insightful figures. It shows that despite having M =
+  100 APs, only ~10–20 really matter for each user.
+
+  The metric — Equation (58):
+
+                  η_{mk} · γ_{mk}
+  p(m, k) = ─────────────────────────                                     ...
+  (58)
+              Σ_{m'=1}^{M} η_{m'k} · γ_{m'k}
+
+  p(m, k) is the fraction of total power collectively allocated to user k that
+  comes from AP m.
+
+  The effective number of APs is defined as: the minimum number n such that the
+  n largest p(m, k) values sum to ≥ 95%.
+
+    CDF of effective number of APs
+    │
+  1.0┤                          ╱──── τ_{cf} = 5
+     │                       ╱╱╱  ╱── τ_{cf} = 20
+  0.8┤                     ╱╱╱  ╱╱
+     │                   ╱╱╱  ╱╱
+  0.6┤                 ╱╱╱  ╱╱
+     │               ╱╱╱  ╱╱
+  0.4┤             ╱╱╱  ╱╱
+     │           ╱╱╱  ╱╱
+  0.2┤         ╱╱╱  ╱╱
+     │       ╱╱╱  ╱╱
+  0.0┤──┬───┬───┬───┬───┬───┬──→ Number of APs
+     0  5   10  15  20  25  30
+
+    Median: ~10 (τ_cf=5), ~15 (τ_cf=20)
+
+  Why only 10–20 out of 100 APs? Path loss drops as d^{3.5} beyond 50 m. For a
+  user at any given location, most APs are hundreds of meters away with
+  negligible β_{mk}. Only the ~10–20 APs within ~100–200 m contribute meaningful
+   signal power.
+
+  Why more APs with larger τ_{cf}? Longer pilots → less contamination → better
+  channel estimates (higher γ_{mk}) even for moderate-distance APs → those APs
+  can now contribute usefully.
+
+  Practical implication: This natural sparsity motivates user-centric
+  architectures where each user is served by a dynamic cluster of nearby APs,
+  not all M. This reduces backhaul requirements from O(M·K) to O(n_eff·K).
+
+  ---
+  4.3 Figure 10 — Average DL Throughput vs. K (Number of Users)
+
+    Avg DL throughput (Mbps)
+    │
+    │ CF, τ=20  ╲───────────────────
+  30┤             ╲
+    │ CF, τ=5     ╲──────────────
+  25┤               ╲
+    │                ╲
+  20┤                 ╲
+    │                  ╲
+  15┤ SC, τ=20          ╲─────
+    │   ╲────────────────────
+  10┤ SC, τ=5
+    │   ╲─────────────────────
+   5┤
+    │
+   0┤──┬───┬───┬───┬───┬───→ K (number of users)
+     10  20  30  40  50  60
+
+  Key observations:
+  - Cell-Free always outperforms small cells, for all K
+  - As K increases, more interference → rates decrease
+  - Cell-Free degrades more gracefully (favorable propagation suppresses
+  interference)
+  - The gap widens with K — Cell-Free scales better with user count
+  - Larger τ_{cf} helps (less contamination), but costs more training overhead
+
+  ---
+  4.4 Figure 11 — Average DL Throughput vs. M (Number of APs)
+
+    Avg DL throughput (Mbps)
+    │
+    │                           ╱── CF, τ=20
+  40┤                        ╱╱
+    │                     ╱╱╱
+  30┤                  ╱╱╱       ╱── CF, τ=5
+    │               ╱╱╱       ╱╱
+  20┤            ╱╱╱       ╱╱╱
+    │         ╱╱╱       ╱╱╱
+  15┤      ╱╱╱─── SC, τ=20
+    │   ╱╱╱ ╱── SC, τ=5
+  10┤ ╱╱╱ ╱╱
+    │╱╱ ╱╱
+   5┤╱╱╱
+    │╱
+   0┤──┬────┬────┬────┬────→ M (number of APs)
+     50  100  150  200  250
+
+  Key observations:
+  - Both systems improve with more APs — but for different reasons:
+    - Cell-Free benefits from array gain (coherent combining of M signals ∝ M²)
+    - Small cells benefit from selection diversity (more APs → better chance of
+  a close one)
+  - Cell-Free scales faster — the gap widens as M increases
+  - Even at M = 50, Cell-Free already significantly outperforms small cells
+
+  ---
+  4.5 Master Summary of All Results
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                    95%-LIKELY DL NET THROUGHPUT                       │
+  ├───────────────────────┬─────────────┬────────────┬───────────────────┤
+  │ Configuration         │  Cell-Free  │ Small Cell │ CF/SC Ratio       │
+  ├───────────────────────┼─────────────┼────────────┼───────────────────┤
+  │ Greedy pilot + PC     │  ~14 Mbps   │  ~2 Mbps   │ ~7×              │
+  │ (uncorrelated shadow) │             │            │                   │
+  ├───────────────────────┼─────────────┼────────────┼───────────────────┤
+  │ Greedy pilot + PC     │  ~10 Mbps   │  ~1 Mbps   │ ~10×             │
+  │ (correlated shadow)   │             │            │                   │
+  ├───────────────────────┼─────────────┼────────────┼───────────────────┤
+  │ Greedy pilot, no PC   │  ~5.5 Mbps  │  ~1 Mbps   │ ~5.5×            │
+  │ (uncorrelated)        │             │            │                   │
+  ├───────────────────────┼─────────────┼────────────┼───────────────────┤
+  │ Random pilot + PC     │  ~12 Mbps   │  ~1.5 Mbps │ ~8×              │
+  │ (uncorrelated)        │             │            │                   │
+  └───────────────────────┴─────────────┴────────────┴───────────────────┘
+
+  Key insights ranked by importance:
+  1. COOPERATION (Cell-Free vs Small Cell): 5-10× gain
+  2. POWER CONTROL (max-min vs. none):     2-3× gain
+  3. PILOT ASSIGNMENT (greedy vs. random): ~20% gain
+
+  ---
+  4.6 What We'll Implement from Section VI
+
+  ┌─────────────────────────────────────┬──────────────────────────────────────┐
+  │           Function                  │         What it implements           │
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ generate_setup(M, K, D)             │ Random AP/user placement with       │
+  │                                     │ wrap-around (9 copies)              │
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_pathloss(d, f, h_AP, h_u)   │ Three-slope model, Eq. (52)-(53)   │
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ generate_shadow_fading(M, K,        │ Correlated/uncorrelated, Eq. (54)-  │
+  │   AP_pos, UE_pos, sigma, d_dec, δ) │ (55) with Cholesky decomposition   │
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_beta(PL, shadow)            │ Eq. (51): β_{mk} = PL · 10^(σz/10)│
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_net_throughput(R, B,        │ Eqs. (56)-(57): actual Mbps with   │
+  │   tau_p, tau_c, system_type)        │ training overhead                  │
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ compute_effective_APs(eta, gamma)    │ Eq. (58): p(m,k) and 95% threshold │
+  ├─────────────────────────────────────┼──────────────────────────────────────┤
+  │ main_simulation()                   │ Full Monte Carlo loop: 200          │
+  │                                     │ realizations, CDF generation,       │
+  │                                     │ reproduce Figures 3-11              │
+  └─────────────────────────────────────┴──────────────────────────────────────┘
+
+  ---
+  4.7 Summary: The Flow of the Entire Paper
+
+  Section II                Section III              Section IV
+  (System Model)            (Rate Analysis)          (Optimization)
+  g_{mk} = √β·h  ────→    Theorem 1: R_d (Eq.24)──→ Greedy pilot (Alg.1)
+  MMSE estimation ────→    Theorem 2: R_u (Eq.27)──→ Max-min PC (Alg.2/LP)
+  Conjugate BF/MF
+          │                        │                        │
+          │                        │                        │
+          ▼                        ▼                        ▼
+  Section V                Section VI
+  (Small-Cell Baseline)    (Numerical Results)
+  AP selection (Eq.38)     Path loss + shadow (51-55)
+  Ei-based rate (Eq.43)    Net throughput (56-57)
+  SC power control (46,50) Monte Carlo → CDF
+          │                Figures 3-11
+          │                        │
+          └────────────────────────┘
+                           │
+                           ▼
+                Section VII: CONCLUSION
+                Cell-Free >> Small Cells
+                Power control is key
+                Correlated shadowing hurts SC more
+
+  ---
+  This completes the deep dive into Section VI. We've now covered the entire
+  paper end-to-end (Sections I–VI). Section VII is a short conclusion
+  summarizing the findings. Ready to proceed to Section VII (brief) or shall we
+  start the MATLAB implementation?
+
+✻ Churned for 7m 22s

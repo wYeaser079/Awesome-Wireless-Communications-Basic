@@ -1,0 +1,1083 @@
+
+╭─── Claude Code v2.1.63 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│ F:\Codes\Awesome-Wireless-Communications-Paper-Im… │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ I want you to implement this paper:                                       
+   CATEGORY A: Core Cell-Free MIMO — Foundations (6 Papers)                 
+                                                                            
+    ---                                                                     
+    Paper 1 — THE Founding Paper                                            
+                                                                            
+    "Cell-Free Massive MIMO Versus Small Cells"                             
+                                                                            
+    ┌────────────────┬───────────────────────────────────────────────────── 
+  ───┐                                                                      
+    │                │                                                      
+     │                                                                      
+    ├────────────────┼───────────────────────────────────────────────────── 
+  ───┤                                                                      
+    │ Authors        │ H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T.  
+  L. │                                                                      
+    │                │  Marzetta                                            
+     │                                                                      
+    ├────────────────┼───────────────────────────────────────────────────── 
+  ───┤                                                                      
+    │ Journal        │ IEEE Trans. Wireless Commun. (Q1, IF: 10.7)          
+     │                                                                      
+    ├────────────────┼───────────────────────────────────────────────────── 
+  ───┤                                                                      
+    │ Year /         │ 2017 / ~1,500+                                       
+     │                                                                      
+    │ Citations      │                                                      
+     │                                                                      
+    ├────────────────┼───────────────────────────────────────────────────── 
+  ───┤                                                                      
+    │ In your        │ Yes                                                  
+     │                                                                      
+    │ folder?        │                                                      
+     │                                                                      
+    ├────────────────┼───────────────────────────────────────────────────── 
+  ───┤                                                                      
+    │ Code           │ https://arxiv.org/abs/1602.08232                     
+     │                                                                      
+    └────────────────┴───────────────────────────────────────────────────── 
+  ───┘                                                                      
+                                                                            
+    What you'll reproduce: System model with distributed single-antenna     
+  APs, TDD                                                                  
+    protocol, conjugate beamforming (CB) uplink/downlink, max-min power     
+  control,                                                                  
+    CDF of per-user throughput vs. small cells.                             
+                                                                            
+    What you'll learn: The entire CF-mMIMO system model from scratch —      
+  channel                                                                   
+    estimation, pilot contamination, coherent transmission, favorable       
+  propagation,                                                              
+     and why cell-free eliminates cell edges.                               
+                                                                            
+  -----------------------                                                   
+  For this, first, you need to read this paper:                             
+  F:\Codes\Awesome-Wireless-Communications-Paper-Implementation\papers\Cell 
+  -Free\001_All Paper(without review paper)\Cell-Free Massive MIMO Versus   
+  Small Cells.pdf                                                           
+  ---------------------                                                     
+  First, you need to read the pdf.                                          
+  and give me a very high level overview without any code summerizing the   
+  key contribution of the each sections of the paper.                       
+  ------------------                                                        
+  After that , we will deep dive in each section and finally we will        
+  implement these in Matlab code.                                           
+  Make sure you understand the figure very well.                            
+
+● Let me read the paper first.
+
+● Read 1 file (ctrl+o to expand)
+
+● Bash(which pdftoppm 2>/dev/null; which pdftotext 2>/dev/null; pip show PyPDF2
+      2>/dev/null | head -2; pip show pymupdf 2>/dev/null | head -2; python -c
+      "import fitz;…)
+  ⎿  Error: Exit code 1
+     /mingw64/bin/pdftotext
+
+     /mingw64/bin/pdftotext
+
+● Bash(pdftotext "F:/Codes/Awesome-Wireless-Communications-Paper-Implementation/
+      papers/Cell-Free/001_All Paper(without review paper)/Cell-Free Massive
+      MIMO Versus Smal…)
+  ⎿  IEEE TRANSACTIONS ON WIRELESS COMMUNICATIONS, VOL. XX, NO. X, XXX 2017
+
+     1
+     … +426 lines (ctrl+o to expand)
+
+● Read 2 files (ctrl+o to expand)
+
+● Now I have a thorough understanding of the entire paper. Let me provide the
+  high-level overview.
+
+  ---
+  Paper Overview: "Cell-Free Massive MIMO versus Small Cells" (Ngo et al., 2017)
+
+  The Big Idea (Abstract)
+
+  Instead of having a few powerful base stations (each creating "cells"),
+  scatter hundreds of simple single-antenna access points (APs) across a wide
+  area. All APs cooperate phase-coherently through a central processing unit
+  (CPU) to serve a much smaller number of users simultaneously on the same 
+  time-frequency resource. There are no cells, no cell boundaries — hence
+  "Cell-Free."
+
+  The key result: Cell-Free Massive MIMO provides ~5x improvement in 95%-likely
+  per-user throughput over small cells (uncorrelated shadowing), and ~10x 
+  improvement under correlated shadowing.
+
+  ---
+  Section-by-Section Breakdown
+
+  Section I: Introduction
+
+  Key Contribution: Sets up the motivation — why go cell-free?
+
+  - Collocated Massive MIMO (all antennas at one base station) works well, but
+  users at cell edges still suffer.
+  - Distributed Massive MIMO (spread antennas out) can exploit macro-diversity
+  against shadow fading — users are always close to some AP.
+  - Prior works on distributed MIMO / network MIMO assumed perfect CSI
+  (unrealistic). This paper is the first to rigorously analyze Cell-Free Massive
+   MIMO with imperfect CSI, pilot contamination, and optimal power control.
+  - The paper distinguishes itself from CoMP/DAS by operating in the Massive 
+  MIMO regime: M APs >> K users, with simple conjugate beamforming.
+
+  ---
+  Section II: Cell-Free Massive MIMO System Model
+
+  Key Contribution: Defines the complete system architecture.
+
+  - M APs, K users, all single-antenna, randomly distributed in a D x D km area.
+  - All APs connect to a CPU via backhaul.
+  - TDD protocol with 3 phases per coherence interval:
+    a. Uplink training (users send pilots to APs)
+    b. Downlink data (APs beamform to users)
+    c. Uplink data (users transmit, APs detect)
+  - Channel model: g_mk = sqrt(beta_mk) * h_mk where beta_mk = large-scale
+  fading, h_mk ~ CN(0,1) = small-scale fading.
+  - Section II-A (Uplink Training): Users send pilot sequences of length tau_cf.
+   MMSE channel estimation is derived. If tau_cf < K, pilots must be reused →
+  pilot contamination. The key estimate formula is g_hat_mk = c_mk * y_{p,mk}
+  where c_mk depends on all large-scale fading coefficients of users sharing the
+   same pilot.
+  - Section II-B (Downlink Data): APs use conjugate beamforming — each AP simply
+   multiplies the data symbol by the conjugate of its channel estimate. No CSI
+  sharing between APs. Users do not need downlink pilots because of channel 
+  hardening (the effective channel gain concentrates around its mean).
+  - Section II-C (Uplink Data): Each AP applies matched filtering (multiply
+  received signal by conjugate of channel estimate) and forwards the result to
+  the CPU for detection.
+
+  ---
+  Section III: Performance Analysis
+
+  Key Contribution: Derives exact closed-form rate expressions.
+
+  - Section III-A (Large-M Analysis): When M → ∞, by Tchebyshev's theorem, the
+  effects of noise, non-coherent interference, and small-scale fading all 
+  vanish. Only pilot contamination remains (interference from users sharing the
+  same pilot). This is the "favorable propagation" phenomenon.
+  - Section III-B (Finite-M Achievable Rates):
+    - Theorem 1 (Downlink Rate): Closed-form SINR expression for any finite M,
+  K. The numerator has the squared sum of sqrt(eta_mk) * gamma_mk, and the
+  denominator captures beamforming uncertainty + multi-user interference +
+  noise. This is Eq. (24) — the central equation of the paper.
+    - Theorem 2 (Uplink Rate): Similar closed-form for uplink, Eq. (27). The
+  uplink has simpler power control (only K coefficients eta_k vs. M×K for
+  downlink).
+    - Remark 4 / Figure 2: Shows that the gap between "user knows only
+  statistics" vs. "user knows actual channel" is small — confirming channel 
+  hardening makes downlink pilots unnecessary.
+
+  ---
+  Section IV: Pilot Assignment and Power Control
+
+  Key Contribution: Algorithms for resource management.
+
+  - Section IV-A (Greedy Pilot Assignment):
+    - Start with random assignment of tau_cf orthogonal pilots to K users.
+    - Iteratively find the worst-rate user, re-assign its pilot to minimize
+  pilot contamination (measured by summing large-scale fading of co-pilot users
+  across all APs).
+    - Simple, effective, runs on large-scale fading timescale (infrequent
+  updates).
+  - Section IV-B (Max-Min Power Control):
+    - Downlink (Algorithm 2): Find power coefficients eta_mk (M×K variables) to
+  maximize the minimum user rate. The problem is quasi-concave → solved by
+  bisection + SOCP (second-order cone program). Globally optimal.
+    - Uplink: Find eta_k (K variables) to maximize the minimum user rate. The
+  problem is quasi-linear → solved by bisection + linear program. Even simpler.
+    - Max-min fairness ensures uniformly good service — no user is left behind
+  regardless of location.
+
+  ---
+  Section V: Small-Cell System (Baseline)
+
+  Key Contribution: Defines the comparison baseline.
+
+  - Each user is served by only one AP (the one with best large-scale fading).
+  No cooperation between APs.
+  - Unlike Cell-Free, there is no channel hardening (single Rayleigh fading
+  scalar), so both uplink and downlink pilots are needed.
+  - Achievable rate is expressed using the exponential integral function Ei(·),
+  Eq. (43) and (47).
+  - Max-min power control is also quasi-linear → solvable by bisection.
+  - Fair comparison: total radiated power is kept equal (rho_sc = (M/K) * 
+  rho_cf).
+
+  ---
+  Section VI: Numerical Results
+
+  Key Contribution: Quantitative comparison via CDF plots.
+
+  Setup: M=100 APs, K=40 users, 1km × 1km area, 1.9 GHz carrier, 20 MHz
+  bandwidth, coherence interval = 200 samples. The area wraps around (toroidal)
+  to avoid boundary effects.
+
+  Key Figures:
+
+  ┌────────┬────────────────────────────────────────────────────────────────┐
+  │ Figure │                         What it shows                          │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 2 │ Rate vs. M: validates channel hardening (statistics-only vs.   │
+  │        │ genie-aided)                                                   │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │        │ CDF of DL throughput (greedy pilot + max-min power control):   │
+  │ Fig. 3 │ CF-mMIMO 95%-likely ≈ 14 Mbps vs. small-cell ≈ 2 Mbps          │
+  │        │ (uncorrelated); gap widens with correlated shadowing           │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 4 │ Same as Fig. 3 but for uplink                                  │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 5 │ CDF of DL throughput without power control: CF still better,   │
+  │        │ but the CDF is much more spread out                            │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 6 │ Same as Fig. 5 but for uplink                                  │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 7 │ CDF with random pilot assignment + max-min PC: ~20% worse than │
+  │        │  greedy at 95%-likely                                          │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 8 │ Same as Fig. 7 but for uplink                                  │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig. 9 │ Effective number of APs per user: only ~10-20 out of 100 APs   │
+  │        │ contribute 95% of the power                                    │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig.   │ Avg DL throughput vs. K (number of users)                      │
+  │ 10     │                                                                │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ Fig.   │ Avg DL throughput vs. M (number of APs)                        │
+  │ 11     │                                                                │
+  └────────┴────────────────────────────────────────────────────────────────┘
+
+  Key takeaways from figures:
+  1. Power control is far more important than pilot assignment (factor of ~2.5x
+  improvement at 95%-likely).
+  2. Greedy pilot assignment gives ~20% gain over random.
+  3. Cell-Free is robust to correlated shadowing; small-cell is devastated by
+  it.
+  4. Even though 100 APs exist, only ~10-20 effectively serve each user (natural
+   sparsity).
+
+  ---
+  Section VII: Conclusion
+
+  - Cell-Free Massive MIMO massively outperforms small cells.
+  - Shadow fading correlation hurts small cells far more than Cell-Free.
+  - The trade-off: Cell-Free requires more backhaul than small cells.
+
+  Appendix A & B
+
+  - Appendix A: Full proof of Theorem 1 (downlink rate) — derives DS, BU, and UI
+   terms step by step.
+  - Appendix B: Proves that the downlink max-min problem is quasi-concave,
+  enabling the bisection approach.
+
+  ---
+  Summary of What We'll Implement
+
+  ┌─────────────────────┬───────────────────────────────────────────────────┐
+  │      Component      │                    Description                    │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Channel generation  │ Large-scale fading (3-slope path loss +           │
+  │                     │ log-normal shadowing, correlated & uncorrelated)  │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ MMSE channel        │ With pilot contamination                          │
+  │ estimation          │                                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Conjugate           │ Distributed precoding at each AP                  │
+  │ beamforming (DL)    │                                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Matched filtering   │ Distributed detection at each AP                  │
+  │ (UL)                │                                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Closed-form rate    │ Theorems 1 & 2, Eqs. (24) and (27)                │
+  │ computation         │                                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Greedy pilot        │ Algorithm 1                                       │
+  │ assignment          │                                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Max-min power       │ DL: bisection + SOCP; UL: bisection + LP          │
+  │ control             │                                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Small-cell baseline │ AP selection, rate expressions with Ei(·), power  │
+  │                     │ control                                           │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ CDF generation      │ Reproduce Figures 3-11                            │
+  └─────────────────────┴───────────────────────────────────────────────────┘
+
+  ---
+  Whenever you're ready, we can deep-dive into any section and start the MATLAB
+  implementation. Where would you like to begin?
+
+✻ Worked for 1m 55s
+
+❯ Let's deep dive into Section II first.                                    
+  You will explain in as much detailed possible. For mathematical           
+  explanation, use unicode mathematical notation so that it renders         
+  properly on terminal.                                                     
+  Try to follow this structure.                                             
+  First give a high level explanation with easy and understandable terms.   
+  Then, deep dive and explain in details and if possible give mathematical  
+  examples.                                                                 
+  You should provide your response in 4 chunks.                             
+  1st chunk --> explain initial discussion on system model                  
+  2nd chunk --> Uplink training                                             
+  3rd chunk --> Downlink Payload data transmission                          
+  4th chunk --> Uplink Payload data transmission                            
+  ---------------------                                                     
+  Do deep research on the web, IEEE site, different relevant blog sites and 
+   articles available on web.                                               
+  Double check and verify before providing your final response so that      
+  there is no scope for error.                                              
+
+● I'll do thorough research first, then give you the deep dive. Let me gather
+  resources from the web and re-read the paper section carefully.
+
+● 2 Agent agents finished (ctrl+o to expand)
+   ├─ Research CF-mMIMO system model · 58 tool uses · 63.9k tokens
+   │  ⎿  Done
+   └─ Research MMSE estimation details · 57 tool uses · 49.0k tokens
+      ⎿  Done
+
+● Excellent. Now I have thorough research. Let me give you the full deep dive.
+
+  ---
+  SECTION II: Cell-Free Massive MIMO System Model — Complete Deep Dive
+
+  ---
+  CHUNK 1: System Architecture & Channel Model
+
+  1.1 The High-Level Picture (Simple Terms)
+
+  Imagine a big park (1 km × 1 km). Instead of placing one tall cell tower in
+  the middle, you scatter 100 tiny lamp-post-mounted antennas (Access Points /
+  APs) all over the park. Now 40 people (users) walk around with phones. Every 
+  single AP talks to every single user at the same time, on the same frequency.
+  There are no "cells", no boundaries, no "edge of coverage." A user standing
+  anywhere is always near some APs.
+
+  All these APs are connected by cables (backhaul) to a Central Processing Unit 
+  (CPU) — a server room that coordinates everything. But here's the key
+  constraint: the APs do NOT share their fast-changing channel measurements with
+   each other. Each AP estimates channels on its own and does its own signal
+  processing locally. Only the data symbols and slowly-changing power control
+  coefficients travel over the backhaul.
+
+  1.2 Formal System Setup
+
+  The system has:
+
+  M = number of Access Points (e.g., 100)
+  K = number of users         (e.g., 40)
+
+  Both APs and users have a single antenna each. All M APs simultaneously serve
+  all K users on the same time-frequency resource. The operating regime is M ≫ K
+   (many more APs than users), which is the hallmark of the Massive MIMO
+  paradigm.
+
+  1.3 TDD Protocol — The Three Phases
+
+  The wireless channel changes over time and frequency. It stays approximately
+  constant over a block called the coherence interval, of length:
+
+  τ_c = (coherence time) × (coherence bandwidth)   [in samples]
+
+  For example, with coherence time = 1 ms and coherence bandwidth = 200 kHz:
+
+  τ_c = 200 samples
+
+  Each coherence interval is split into three phases:
+
+  ┌─────────────────────────────────────────────────────┐
+  │              One Coherence Interval (τ_c)           │
+  ├──────────────┬──────────────────┬───────────────────-┤
+  │  Phase 1:    │   Phase 2:       │   Phase 3:         │
+  │  Uplink      │   Downlink       │   Uplink           │
+  │  Training    │   Data TX        │   Data TX          │
+  │  (τ_cf)      │                  │                    │
+  └──────────────┴──────────────────┴────────────────────┘
+
+  Phase 1 — Uplink Training (τ_cf samples): Users send known pilot sequences to
+  the APs. Each AP uses these to estimate the channel to every user. Because of
+  TDD reciprocity (uplink channel = downlink channel), this one set of estimates
+   works for both directions.
+
+  Phase 2 — Downlink Data (remaining samples, shared with Phase 3): APs use
+  their channel estimates to beamform data to users. Users do NOT need to
+  estimate the downlink channel (thanks to channel hardening — explained later).
+
+  Phase 3 — Uplink Data: Users transmit data. APs detect using their channel
+  estimates.
+
+  Why TDD and not FDD? In FDD, uplink and downlink use different frequencies, so
+   the channels are different. Users would need to estimate the downlink channel
+   and feed it back — a massive overhead with 100 APs. TDD exploits reciprocity:
+   estimate once on the uplink, use for both.
+
+  1.4 The Channel Model — Equation (1)
+
+  The channel coefficient between the m-th AP and the k-th user is:
+
+  g_mk = √β_mk · h_mk                                    ... (1)
+
+  This is a product of two independent effects:
+
+  (a) Large-scale fading: β_mk (deterministic, slowly changing)
+
+  This captures path loss (signal weakens with distance) and shadow fading
+  (random blockage by buildings/trees). It depends on:
+  - The distance d_mk between AP m and user k
+  - The random shadowing environment
+
+  β_mk changes very slowly — constant for ~40 coherence intervals (seconds). It
+  is assumed known at both the AP and the CPU (estimated from long-term
+  averaging of received signal strength).
+
+  Critical difference from collocated Massive MIMO: In collocated systems, all M
+   antennas are at the same base station, so β_mk = β_k for all m (same
+  distance). In Cell-Free, every AP-user pair has a different β_mk because the
+  APs are spread out. This is what makes the analysis and power control
+  fundamentally different.
+
+  (b) Small-scale fading: h_mk (random, changes every coherence interval)
+
+  h_mk ~ CN(0, 1)     (i.i.d. complex Gaussian, zero mean, unit variance)
+
+  This is Rayleigh fading — modeling multipath propagation (signal bouncing off
+  scatterers). Key properties:
+
+  - Independent across all (m, k) pairs. Why? APs and users are far apart from
+  each other, so the scattering environments are different.
+  - Changes every coherence interval — must be re-estimated each time.
+  - |h_mk|² ~ Exponential(1), so E{|h_mk|²} = 1.
+
+  Numerical Example
+
+  Suppose AP₃ is 200m away from User₅. The path loss gives β₃₅ = 10⁻⁹·⁵ (≈ −95
+  dB). The small-scale fading in this coherence interval happens to be h₃₅ = 0.7
+   + 0.4j. Then:
+
+  g₃₅ = √(10⁻⁹·⁵) · (0.7 + 0.4j) ≈ 1.78×10⁻⁵ · (0.7 + 0.4j)
+
+  Meanwhile, AP₇ is only 30m from User₅, so β₇₅ = 10⁻⁷ (≈ −70 dB), and:
+
+  g₇₅ = √(10⁻⁷) · h₇₅ ≈ 3.16×10⁻⁴ · h₇₅
+
+  AP₇'s channel is ~18× stronger than AP₃'s, simply because it's closer. This
+  distance-dependent variation is the essence of the distributed architecture.
+
+  1.5 Key Assumptions (Summarized)
+
+  ┌──────────────────────────────────────┬──────────────────────────────────┐
+  │              Assumption              │          Justification           │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Single antenna at each AP and user   │ Simplicity; multi-antenna is     │
+  │                                      │ future work                      │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ h_mk ~ i.i.d. CN(0,1)                │ APs/users spread out → different │
+  │                                      │  scatterers                      │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ β_mk known a priori                  │ Changes slowly, can be tracked   │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Perfect backhaul (infinite capacity, │ Idealized; practical constraints │
+  │  no errors)                          │  are future work                 │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Channel reciprocity (uplink =        │ Requires TDD + hardware          │
+  │ downlink)                            │ calibration                      │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Symbols q_k are i.i.d., independent  │ Standard assumption              │
+  │ of channels/noise                    │                                  │
+  └──────────────────────────────────────┴──────────────────────────────────┘
+
+  1.6 Figure 1 — System Architecture
+
+          ┌─────────┐
+          │   CPU   │  ← Central Processing Unit
+          └────┬────┘
+               │ Backhaul (payload data + power control coefficients)
+       ┌───────┼───────┬───────────┐
+       │       │       │           │
+     ┌─┴─┐  ┌─┴─┐  ┌──┴──┐   ┌──┴──┐
+     │AP₁│  │AP₂│  │AP_m │   │AP_M │    ← M single-antenna APs
+     └─┬─┘  └─┬─┘  └──┬──┘   └──┬──┘
+       │╲      │╲      │╲        │╲       g_mk = channel coefficient
+       │  ╲    │  ╲    │  ╲      │  ╲
+     ┌─┴─┐ ┌──┴──┐ ┌──┴──┐  ┌──┴──┐
+     │UE₁│ │UE_k │ │UE_k'│  │UE_K │    ← K single-antenna users
+     └───┘ └─────┘ └─────┘  └─────┘
+
+  What travels over the backhaul:
+  - Payload data symbols (encoded/decoded at CPU)
+  - Power control coefficients (change on large-scale fading timescale)
+
+  What does NOT travel over the backhaul:
+  - Instantaneous channel estimates (stay local at each AP)
+  - Raw received signals (processed locally)
+
+  This is the key architectural choice that makes Cell-Free Massive MIMO
+  scalable.
+
+  ---
+  CHUNK 2: Uplink Training — Channel Estimation & Pilot Contamination
+
+  2.1 The High-Level Picture
+
+  Before the APs can serve the users, they need to know the channels. So the
+  users send known "pilot" signals. Each AP listens, and from these known
+  signals, figures out the channel to each user. This is like shining a
+  flashlight in a foggy room — from how the known light pattern arrives, you can
+   infer the properties of the fog (the channel).
+
+  The problem: with τ_cf pilot samples, you can only create τ_cf mutually
+  orthogonal pilot sequences. If K > τ_cf, some users must share the same pilot.
+   When two users share a pilot, the AP cannot tell their channels apart — this
+  is pilot contamination, the fundamental bottleneck of Massive MIMO.
+
+  2.2 Pilot Sequences
+
+  Let φ_k ∈ ℂ^{τ_cf × 1} be the pilot sequence used by the k-th user, with:
+
+  ‖φ_k‖² = 1     (unit norm, normalized)
+
+  There exist exactly τ_cf mutually orthogonal pilot sequences. If τ_cf ≥ K,
+  each user gets a unique orthogonal pilot (φ_k^H φ_i = 0 for k ≠ i). If τ_cf <
+  K (the typical case), some users must reuse pilots:
+
+  φ_k^H φ_i = { 1   if users k and i share the same pilot
+               { 0   otherwise
+
+  2.3 Received Pilot Signal at AP m — Equation (2)
+
+  During uplink training, all K users simultaneously transmit their pilot
+  sequences. The received τ_cf × 1 vector at the m-th AP is:
+
+                     K
+  y_{p,m} = √(τ_cf · ρ_cf) · Σ  g_mk · φ_k^H  +  w_{p,m}          ... (2)
+                    k=1
+
+  where:
+  - ρ_cf = normalized SNR of each pilot symbol (= pilot power / noise power)
+  - g_mk = channel coefficient (what we want to estimate)
+  - φ_k^H = Hermitian (conjugate transpose) of user k's pilot — a 1 × τ_cf row
+  vector
+  - w_{p,m} ~ CN(0, I_{τ_cf}) = additive noise at AP m (each element is i.i.d.
+  CN(0,1))
+
+  Dimensions check: g_mk is scalar, φ_k^H is 1 × τ_cf, so g_mk · φ_k^H is 1 ×
+  τ_cf. We're summing K such terms, getting a 1 × τ_cf vector. With the noise,
+  y_{p,m} is also τ_cf × 1 (taking transpose appropriately).
+
+  Physical meaning: Each row of y_{p,m} is one time sample at AP m. The AP hears
+   a superposition of all K users' pilots, each scaled by their respective
+  channel.
+
+  2.4 Projection onto Pilot of User k — Equation (3)
+
+  To extract information about g_mk, the AP projects the received signal onto
+  user k's pilot φ_k:
+
+  ŷ_{p,mk} = φ_k^H · y_{p,m}
+
+  Substituting Eq. (2):
+
+                                        K
+  ŷ_{p,mk} = √(τ_cf · ρ_cf) · g_mk + √(τ_cf · ρ_cf) · Σ   g_mk' · φ_k'^H · φ_k
+  +  φ_k^H · w_{p,m}
+                                       k'≠k
+
+            = √(τ_cf · ρ_cf) · g_mk  +  √(τ_cf · ρ_cf) · Σ   g_mk' · φ_k'^H ·
+  φ_k   +  w̃_{p,mk}
+                                                           k'≠k
+                     ... (3)
+
+  where w̃_{p,mk} = φ_k^H · w_{p,m} ~ CN(0, 1) (the noise after projection is
+  still CN(0,1) because ‖φ_k‖² = 1).
+
+  Let's break this down into three terms:
+
+  ┌──────────────────┬─────────────────────────────┬────────────────────────┐
+  │       Term       │         Expression          │        Meaning         │
+  ├──────────────────┼─────────────────────────────┼────────────────────────┤
+  │ Desired          │ √(τ_cf · ρ_cf) · g_mk       │ The channel we want    │
+  ├──────────────────┼─────────────────────────────┼────────────────────────┤
+  │ Pilot            │ √(τ_cf · ρ_cf) · Σ_{k'≠k}   │ Interference from      │
+  │ contamination    │ g_mk' · φ_k'^H φ_k          │ co-pilot users         │
+  ├──────────────────┼─────────────────────────────┼────────────────────────┤
+  │ Noise            │ w̃_{p,mk}                    │ Filtered noise         │
+  └──────────────────┴─────────────────────────────┴────────────────────────┘
+
+  When φ_k'^H φ_k = 0 (orthogonal pilots): the second term vanishes, and
+  ŷ_{p,mk} is a clean observation of g_mk plus noise.
+
+  When φ_k'^H φ_k ≠ 0 (shared pilots): the AP sees g_mk mixed with g_mk' — it
+  cannot tell them apart. This is pilot contamination.
+
+  2.5 MMSE Channel Estimation — Equation (4)
+
+  Now the AP must estimate g_mk from the observation ŷ_{p,mk}. Since everything
+  is Gaussian, the Minimum Mean Square Error (MMSE) estimator is optimal and has
+   a simple linear form.
+
+  MMSE estimation theory recap: For jointly Gaussian x and y with zero means:
+
+  x̂_MMSE = (C_xy / C_yy) · y
+
+  where C_xy = E{x·y*} (cross-covariance) and C_yy = E{|y|²} (auto-covariance).
+
+  Applying to our problem:
+
+  The unknown is x = g_mk ~ CN(0, β_mk), the observation is y = ŷ_{p,mk}.
+
+  Step 1: Cross-covariance C_{g,y}
+
+  Since g_mk is independent of g_mk' (k' ≠ k) and of w̃_{p,mk}:
+
+  C_{g,y} = E{g_mk · ŷ_{p,mk}*} = √(τ_cf · ρ_cf) · E{|g_mk|²} = √(τ_cf · ρ_cf) ·
+   β_mk
+
+  Step 2: Auto-covariance C_{y,y}
+
+  C_{y,y} = E{|ŷ_{p,mk}|²}
+
+          = τ_cf · ρ_cf · E{|g_mk|²}  +  τ_cf · ρ_cf · Σ_{k'≠k} E{|g_mk'|²} ·
+  |φ_k'^H φ_k|²  +  1
+
+          = τ_cf · ρ_cf · β_mk  +  τ_cf · ρ_cf · Σ_{k'≠k} β_mk' · |φ_k'^H φ_k|²
+   +  1
+
+          = τ_cf · ρ_cf · Σ_{k'=1}^{K} β_mk' · |φ_k'^H φ_k|²  +  1
+
+  Step 3: The MMSE estimate
+
+  ĝ_mk = c_mk · ŷ_{p,mk}
+  ... (4)
+
+  where the MMSE coefficient is:
+
+                          √(τ_cf · ρ_cf) · β_mk
+  c_mk = ─────────────────────────────────────────────────────
+          τ_cf · ρ_cf · Σ_{k'=1}^{K} β_mk' · |φ_k'^H φ_k|²  +  1
+
+  2.6 Numerical Example — MMSE Estimation
+
+  Let's work through a concrete example to make this tangible.
+
+  Setup: M = 3 APs, K = 3 users, τ_cf = 2 (only 2 orthogonal pilots for 3
+  users).
+
+  Pilot assignment: Users 1 and 3 share pilot φ₁, User 2 uses pilot φ₂. So:
+  - φ₁^H φ₃ = 1 (same pilot)
+  - φ₁^H φ₂ = 0 (orthogonal)
+
+  Large-scale fading at AP 1:
+  - β₁₁ = 10⁻⁸ (user 1 is 100m away)
+  - β₁₂ = 10⁻⁹ (user 2 is 300m away)
+  - β₁₃ = 10⁻⁷ (user 3 is 30m away)
+
+  Let τ_cf · ρ_cf = 10⁸ (training SNR parameter).
+
+  Computing c₁₁ (MMSE coeff for AP 1, User 1):
+
+                       √(10⁸) · 10⁻⁸
+  c₁₁ = ──────────────────────────────────────────
+         10⁸ · (β₁₁·|φ₁^Hφ₁|² + β₁₂·|φ₂^Hφ₁|² + β₁₃·|φ₃^Hφ₁|²) + 1
+
+                       10⁴ · 10⁻⁸
+       = ──────────────────────────────────────────
+         10⁸ · (10⁻⁸·1 + 10⁻⁹·0 + 10⁻⁷·1) + 1
+
+                  10⁻⁴
+       = ────────────────────
+         10⁸·10⁻⁸ + 10⁸·10⁻⁷ + 1
+
+                  10⁻⁴
+       = ──────────────────
+           1 + 10 + 1
+
+                10⁻⁴
+       = ─────────── ≈ 8.33 × 10⁻⁶
+             12
+
+  Notice the pilot contamination effect: The denominator includes 10⁸ · β₁₃ = 10
+   (from user 3, who shares the same pilot). This 10× inflates the denominator,
+  reducing the estimation quality for user 1. User 3 is closer to AP 1 and
+  contaminates user 1's estimate.
+
+  If pilots were orthogonal (no contamination from user 3):
+
+  c₁₁ (no contamination) = 10⁻⁴ / (1 + 1) = 5 × 10⁻⁵
+
+  That's 6× larger, meaning a much better estimate without pilot contamination.
+
+  2.7 Properties of the MMSE Estimate
+
+  The MMSE estimation has a beautiful decomposition:
+
+  g_mk = ĝ_mk + ε_mk      (true channel = estimate + error)
+
+  where:
+  - ĝ_mk ~ CN(0, γ_mk) is the estimate
+  - ε_mk ~ CN(0, β_mk − γ_mk) is the estimation error
+  - ĝ_mk and ε_mk are statistically independent (fundamental property of MMSE
+  for Gaussians: uncorrelated Gaussian ⟹ independent)
+
+  The estimate variance γ_mk (also written as E{|ĝ_mk|²}) is:
+
+                      τ_cf · ρ_cf · β_mk²
+  γ_mk = ──────────────────────────────────────────────            ... (8)
+          τ_cf · ρ_cf · Σ_{k'=1}^{K} β_mk' · |φ_k'^H φ_k|² + 1
+
+  Note: γ_mk = √(τ_cf · ρ_cf) · β_mk · c_mk. This γ_mk appears everywhere in the
+   rate expressions later.
+
+  2.8 Remark 1 & 2 — Key Insights
+
+  Remark 1 (Pilot contamination): If τ_cf ≥ K, we can make all pilots orthogonal
+   → no pilot contamination → the estimate ĝ_mk is independent of g_mk' for k' ≠
+   k. But typically τ_cf < K (limited coherence interval), so contamination is
+  unavoidable.
+
+  Remark 2 (Decentralized estimation): Each AP estimates channels independently.
+   AP m uses only its own received signal y_{p,m}. No coordination, no CSI
+  sharing. This is essential for scalability.
+
+  ---
+  CHUNK 3: Downlink Payload Data Transmission
+
+  3.1 The High-Level Picture
+
+  After estimating channels, the APs transmit data to all K users. Each AP knows
+   its own channel estimates and treats them as if they were the true channels.
+  It uses conjugate beamforming — multiply each user's data symbol by the
+  conjugate of the channel estimate. This is the simplest possible precoding
+  scheme, and it works remarkably well in the Massive MIMO regime.
+
+  The magic: when you sum up the signals from all M APs at a user, the desired
+  signal adds up coherently (in phase), while interference from other users adds
+   up incoherently (random phases, partially cancels). As M grows, the desired
+  signal grows as M while interference grows as √M — the ratio improves.
+
+  3.2 Conjugate Beamforming — Equation (5)
+
+  The transmitted signal from the m-th AP is:
+
+                K
+  x_m = √ρ_df · Σ  √η_mk · ĝ*_mk · q_k                          ... (5)
+               k=1
+
+  where:
+  - ρ_df = normalized downlink SNR (= downlink power / noise power)
+  - η_mk = power control coefficient (how much power AP m allocates to user k)
+  - ĝ_mk* = complex conjugate of the channel estimate (the beamforming weight)
+  - q_k = data symbol for user k, with E{|q_k|²} = 1
+
+  Why the conjugate ĝ_mk?* Think of it physically:
+
+  The channel g_mk has some phase rotation θ_mk. The signal arriving at user k
+  from AP m gets multiplied by g_mk = |g_mk|·e^{jθ_mk}. If we pre-multiply by
+  ĝ*_mk ≈ |g_mk|·e^{−jθ_mk}, the product g_mk · ĝ*_mk ≈ |g_mk|² is real and 
+  positive. The signals from all M APs arrive at user k approximately in phase
+  and add up constructively. This is the phase alignment principle.
+
+  3.3 Per-AP Power Constraint — Equations (6)–(8)
+
+  Unlike collocated Massive MIMO (one total power budget for all antennas),
+  Cell-Free has a separate power constraint at each AP:
+
+  E{|x_m|²} ≤ ρ_df     for all m = 1, ..., M                      ... (6)
+
+  Substituting Eq. (5) and using the fact that q_k's are independent with unit
+  power:
+
+                  K
+  E{|x_m|²} = ρ_df · Σ  η_mk · E{|ĝ_mk|²}
+                 k=1
+                  K
+             = ρ_df · Σ  η_mk · γ_mk
+                 k=1
+
+  So the power constraint becomes:
+
+  K
+  Σ  η_mk · γ_mk ≤ 1     for all m = 1, ..., M                    ... (7)
+  k=1
+
+  where γ_mk is defined as:
+
+  γ_mk ≜ E{|ĝ_mk|²} = τ_cf · ρ_cf · β_mk · c_mk                 ... (8)
+
+  Physical meaning of Eq. (7): Each AP m has a total power budget of 1
+  (normalized). The fraction η_mk · γ_mk is the average power AP m spends on
+  serving user k. The sum over all users must not exceed the budget.
+
+  3.4 Received Signal at User k — Equation (9)
+
+  The k-th user receives a superposition of signals from all M APs:
+
+               M
+  r_{d,k} =   Σ   g_mk · x_m  +  w_{d,k}
+              m=1
+
+             M    K
+        = √ρ_df · Σ    Σ  √η_mk' · g_mk · ĝ*_mk' · q_k'  +  w_{d,k}     ... (9)
+            m=1  k'=1
+
+  where w_{d,k} ~ CN(0, 1) is additive noise at user k.
+
+  Splitting into desired signal + interference:
+
+                    M                                M    K
+  r_{d,k} = √ρ_df · Σ  √η_mk · g_mk · ĝ*_mk · q_k + √ρ_df · Σ    Σ   √η_mk' ·
+  g_mk · ĝ*_mk' · q_k' + w_{d,k}
+                   m=1                               m=1  k'≠k
+                └───────────── DS_k ─────────────┘       └──────────────── MUI_k
+   ─────────────────┘
+
+  where DS_k = desired signal, MUI_k = multi-user interference.
+
+  3.5 Channel Hardening — Why No Downlink Pilots Are Needed
+
+  This is one of the most profound aspects of Massive MIMO. Let's understand it
+  step by step.
+
+  The effective channel gain that user k sees is:
+
+                M
+  a_k  ≜  Σ  √η_mk · g_mk · ĝ*_mk
+              m=1
+
+  This is a sum of M random terms. By the law of large numbers, as M → ∞:
+
+  a_k  →  E{a_k} = Σ_{m=1}^{M} √η_mk · E{g_mk · ĝ*_mk} = Σ_{m=1}^{M} √η_mk ·
+  γ_mk
+
+  The random channel gain concentrates around a deterministic constant. The
+  channel "hardens" — the randomness disappears.
+
+  Why this matters for downlink: In a normal system (say, a single AP serving a
+  user), the user must estimate the channel to decode data. Here, the effective
+  channel is approximately a known constant — the user just uses its expected
+  value. No downlink pilots needed. This saves precious training overhead.
+
+  Figure 2 of the paper confirms this. It compares:
+  - Rate assuming user knows only statistics (Eq. 24)
+  - Rate assuming a genie gives user the exact channel (Eq. 26)
+
+  The gap is tiny, proving channel hardening works.
+
+  Numerical intuition: If M = 100, and each term g_mk · ĝ*_mk has mean γ_mk and
+  some variance, the sum of 100 such terms has variance/mean² that shrinks as
+  1/M_eff (where M_eff is the effective number of contributing APs). Even with
+  M_eff ≈ 15–20 (due to nearby APs dominating), the hardening is sufficient.
+
+  3.6 What Gets Sent Over the Backhaul
+
+  Let's be precise about the information flow:
+
+                  CPU
+                 ╱    ╲
+       data symbols    power control coefficients
+       q₁, q₂, ..., qK    η_mk (change slowly)
+                │               │
+                ▼               ▼
+              AP m computes: x_m = √ρ_df · Σ_k √η_mk · ĝ*_mk · q_k
+                                            ↑
+                                     local channel estimate
+                                     (never leaves AP m)
+
+  The CPU sends each AP the same data symbols q₁,...,q_K plus the power control
+  coefficients η_mk. The AP does all beamforming locally. This is what keeps the
+   backhaul requirements manageable.
+
+  ---
+  CHUNK 4: Uplink Payload Data Transmission
+
+  4.1 The High-Level Picture
+
+  In the uplink, roles reverse. All K users transmit their data simultaneously
+  (same time, same frequency) to all M APs. Each AP receives a cocktail mixture
+  of all users' signals. The AP applies matched filtering — multiplying by the
+  conjugate of its channel estimate — to extract each user's signal. These
+  locally-filtered signals are forwarded to the CPU, which combines them for
+  final detection.
+
+  Think of it as 40 people talking simultaneously in a room with 100
+  microphones. Each microphone tries to isolate each speaker using what it knows
+   about the acoustics (channel estimates). The central server then combines all
+   100 microphones' outputs for each speaker to get a clean signal.
+
+  4.2 Uplink Signal Model — Equation (10)
+
+  The k-th user transmits √(η_k) · q_k, where η_k ∈ [0, 1] is its uplink power
+  control coefficient and q_k (E{|q_k|²} = 1) is the data symbol. The received
+  signal at AP m is:
+
+                       K
+  y_{u,m} = √ρ_uf ·  Σ  g_mk · √η_k · q_k  +  w_{u,m}              ... (10)
+                     k=1
+
+  where:
+  - ρ_uf = normalized uplink SNR
+  - w_{u,m} ~ CN(0, 1) = additive noise at AP m
+
+  Key difference from downlink: In the uplink, there are only K power control
+  coefficients η_k (one per user), not M×K as in the downlink. This makes uplink
+   power control much simpler.
+
+  4.3 Matched Filtering at Each AP
+
+  To detect user k's symbol, AP m multiplies the received signal by the
+  conjugate of its channel estimate:
+
+  r̂_{m,k} = ĝ*_mk · y_{u,m}
+
+  This is done locally at AP m using only its own channel estimate. The result
+  r̂_{m,k} is a scalar — one number representing AP m's "vote" on what user k
+  transmitted.
+
+  4.4 Combining at the CPU — Equation (11)
+
+  AP m sends r̂_{m,k} = ĝ*mk · y{u,m} to the CPU via the backhaul. The CPU
+  combines all M APs' contributions:
+
+                M
+  r_{u,k} =   Σ   ĝ*_mk · y_{u,m}
+              m=1
+
+            K    M                              M
+      = √ρ_uf · Σ   √η_k' · ( Σ  ĝ*_mk · g_mk') · q_k'  +  Σ  ĝ*_mk · w_{u,m}
+    ... (11)
+           k'=1         m=1                           m=1
+
+  Decomposing into signal and interference:
+
+                         M                       K           M
+      M
+  r_{u,k} = √ρ_uf · √η_k · Σ  ĝ*_mk · g_mk · q_k  +  √ρ_uf · Σ   √η_k' · Σ
+  ĝ*_mk · g_mk' · q_k' + Σ  ĝ*_mk · w_{u,m}
+                        m=1                          k'≠k        m=1
+        m=1
+             └────────── desired signal ──────────┘     └────────── inter-user
+  interference ──────────┘   └── noise ──┘
+
+  4.5 Why Matched Filtering Works — Favorable Propagation
+
+  The key inner product is:
+
+           M
+  a_kk' = Σ  ĝ*_mk · g_mk'
+          m=1
+
+  For the desired user (k' = k):
+
+           M                    M
+  a_kk = Σ  ĝ*_mk · g_mk  =  Σ  (|ĝ_mk|² + ĝ*_mk · ε_mk)
+         m=1                  m=1
+
+  Using the decomposition g_mk = ĝ_mk + ε_mk (estimate + error), and since ĝ_mk
+  and ε_mk are independent:
+
+  E{a_kk} = Σ_{m=1}^{M} E{|ĝ_mk|²} = Σ_{m=1}^{M} γ_mk
+
+  As M grows, by the law of large numbers: a_kk / M → (1/M) · Σ_m γ_mk
+  (deterministic).
+
+  For interfering users (k' ≠ k) with orthogonal pilots:
+
+  E{a_kk'} = Σ_{m=1}^{M} E{ĝ*_mk · g_mk'} = 0     (since ĝ_mk and g_mk' are
+  independent)
+
+  And by the law of large numbers: a_kk' / M → 0. This is favorable propagation:
+   the channels of different users become asymptotically orthogonal.
+
+  For interfering users (k' ≠ k) sharing the same pilot as k:
+
+  E{a_kk'} = Σ_{m=1}^{M} E{ĝ*_mk · g_mk'} ≠ 0     (because ĝ_mk contains g_mk'
+  contamination)
+
+  This non-zero term persists even as M → ∞. This is the pilot contamination 
+  bottleneck — it creates a ceiling on performance.
+
+  4.6 What Travels Over the Backhaul (Uplink)
+
+             AP m
+              │
+              │  computes: r̂_{m,k} = ĝ*_mk · y_{u,m}  for each k = 1,...,K
+              │  (K scalar values per AP)
+              │
+              ▼
+             CPU
+              │
+              │  combines: r_{u,k} = Σ_{m=1}^{M} r̂_{m,k}
+              │  then detects q_k from r_{u,k}
+
+  Each AP sends K complex scalars to the CPU (one per user). Total backhaul
+  load: M × K complex numbers per coherence interval. Crucially, the AP sends
+  the filtered signal, not the raw received signal — this is much more
+  efficient.
+
+  4.7 Comparison: Downlink vs. Uplink Processing
+
+  ┌──────────────────┬─────────────────────────┬───────────────────────────┐
+  │      Aspect      │        Downlink         │          Uplink           │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ Processing at AP │ Beamforming: multiply   │ Matched filter: multiply  │
+  │                  │ q_k by ĝ*_mk            │ y_{u,m} by ĝ*_mk          │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ What AP needs    │ Channel estimates +     │ Channel estimates +       │
+  │                  │ data symbols            │ received signal           │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ Backhaul content │ CPU → AP: data symbols  │ AP → CPU: filtered        │
+  │                  │ q_k                     │ signals ĝ*mk · y{u,m}     │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ Power control    │ η_mk (M × K variables)  │ η_k (K variables)         │
+  │ variables        │                         │                           │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ Power constraint │ Per-AP: Σ_k η_mk · γ_mk │ Per-user: 0 ≤ η_k ≤ 1     │
+  │                  │  ≤ 1                    │                           │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ Channel          │ User uses E{channel}    │ CPU uses E{channel} for   │
+  │ hardening        │ for decoding            │ decoding                  │
+  ├──────────────────┼─────────────────────────┼───────────────────────────┤
+  │ Combining        │ Happens naturally over  │ Done at CPU after         │
+  │                  │ the air                 │ backhaul                  │
+  └──────────────────┴─────────────────────────┴───────────────────────────┘
+
+  4.8 Summary of the Complete System Flow
+
+  Timeline within one coherence interval (τ_c = 200 samples):
+
+    ◄──── τ_cf = 20 ────►◄──────── ~90 ────────►◄──────── ~90 ────────►
+    ┌────────────────────┬────────────────────────┬────────────────────────┐
+    │   UPLINK TRAINING  │   DOWNLINK DATA        │   UPLINK DATA          │
+    │                    │                        │                        │
+    │ Users → APs:       │ APs → Users:           │ Users → APs:           │
+    │ Send pilots φ_k    │ Conjugate beamforming   │ Send data √η_k · q_k  │
+    │                    │ x_m = √ρ · Σ √η_mk    │                        │
+    │ APs estimate:      │      · ĝ*_mk · q_k    │ APs apply MF:          │
+    │ ĝ_mk = c_mk·ŷ_mk │                        │ r̂_mk = ĝ*_mk · y_um  │
+    │                    │ Users decode using      │                        │
+    │                    │ E{effective channel}    │ CPU combines:          │
+    │                    │ (no DL pilots needed)   │ r_uk = Σ_m r̂_mk      │
+    └────────────────────┴────────────────────────┴────────────────────────┘
+
+  ---
+  This completes the deep dive into Section II. The foundation is now solid —
+  the channel model, estimation, and beamforming/filtering are the building
+  blocks for everything that follows (rate derivations in Section III, power
+  control in Section IV). Shall we move to Section III next?
+
+✻ Sautéed for 13m 18s

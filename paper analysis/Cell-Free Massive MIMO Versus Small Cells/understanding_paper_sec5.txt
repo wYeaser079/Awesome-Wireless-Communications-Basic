@@ -1,0 +1,617 @@
+
+===============================================================================
+SECTION V: SMALL-CELL SYSTEM -- Complete Deep Dive
+Paper: "Cell-Free Massive MIMO Versus Small Cells" by Ngo et al. (2017)
+===============================================================================
+
+Research compiled from web sources and the official MATLAB implementation at:
+https://github.com/hienquocngo/Cell-Free-Massive-MIMO-Versus-Small-Cells
+
+===============================================================================
+TOPIC 1: SMALL CELLS IN WIRELESS NETWORKS
+===============================================================================
+
+1.1 What Are Small Cells?
+
+Small cells are low-powered cellular radio access points (base stations) that
+provide wireless coverage over a small geographic area. They are the antithesis
+of traditional macro cells (cell towers) that cover kilometers.
+
+There are three main types, ordered by coverage radius:
+
+  +----------------+------------+----------+-----------+-------------------+
+  | Type           | Range      | Power    | Users     | Typical Use       |
+  +----------------+------------+----------+-----------+-------------------+
+  | Femtocell      | ~10 m      | ~10 mW   | 4-8       | Home/small office |
+  | Picocell       | 100-300 m  | 250mW-2W | 30-100    | Office/mall       |
+  | Microcell      | ~2 km      | 2-10 W   | 100+      | Urban outdoor     |
+  +----------------+------------+----------+-----------+-------------------+
+
+In contrast, a macro cell (traditional tower):
+  - Height: 50-200 feet
+  - Coverage: several kilometers
+  - Power: 20-40 W per sector
+  - Cost: ~$200,000 to set up
+  - Small cells cost: < $10,000
+
+1.2 Small Cell Architecture
+
+In a Heterogeneous Network (HetNet), macro cells provide the "umbrella"
+wide-area coverage, while small cells fill in capacity and coverage gaps:
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                    MACRO CELL (wide-area coverage)                     │
+  │                          [Tower]                                       │
+  │                         /       \                                      │
+  │   ┌──────┐   ┌──────┐           ┌──────┐   ┌──────┐                  │
+  │   │Small │   │Small │           │Small │   │Small │                  │
+  │   │Cell 1│   │Cell 2│           │Cell 3│   │Cell 4│                  │
+  │   └──────┘   └──────┘           └──────┘   └──────┘                  │
+  │      |           |                  |           |                      │
+  │    [Users]     [Users]           [Users]     [Users]                  │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+1.3 How the Ngo et al. Paper Models Small Cells
+
+In the paper, the "small-cell system" is a SPECIFIC DEGRADATION of the
+cell-free system:
+  - Same M single-antenna APs, same K single-antenna users
+  - BUT: each user is served by EXACTLY ONE AP (the "best" one)
+  - No cooperation between APs
+  - Each AP serves at most one user (since M >> K)
+
+This is the KEY CONTRAST:
+  Cell-Free: ALL M APs serve ALL K users cooperatively
+  Small Cell: Each user gets ONE dedicated AP, no cooperation
+
+===============================================================================
+TOPIC 2: AP SELECTION / USER ASSOCIATION IN SMALL CELLS
+===============================================================================
+
+2.1 The Selection Criterion
+
+In the paper's small-cell model, each user k selects the AP m that maximizes
+the large-scale fading coefficient:
+
+  m*(k) = arg max_m  beta_{mk}
+
+where beta_{mk} is the large-scale fading coefficient between AP m and user k,
+which captures path loss and shadowing:
+
+  beta_{mk} [dB] = -L - 35*log10(d_{mk}) + z_{mk}
+
+  L = Hata-COST231 model intercept (~140 dB at 1900 MHz)
+  d_{mk} = distance between AP m and user k (km)
+  z_{mk} = correlated shadow fading (dB), sigma = 8 dB
+
+2.2 Why Large-Scale Fading?
+
+Large-scale fading (beta) changes SLOWLY -- over seconds to minutes as the
+user moves. This means:
+  - The AP selection decision is STABLE (not fluctuating every millisecond)
+  - It can be made at the network level without rapid signaling
+  - It captures the AVERAGE channel quality (not instantaneous fading)
+
+The user does NOT select based on instantaneous small-scale fading (which
+changes every millisecond), because that would require constant re-association.
+
+2.3 Implementation in MATLAB (from the paper's code)
+
+From DL_PowerAllocation_MaxMin_correlation.m:
+
+  % Each terminal chooses an AP which has largest large-scale fading
+  m_index = zeros(1,K);       % indexes of K chosen APs
+  BETAA1 = BETAA;
+  for k = 1:K
+      [Betamax, m_index(k)] = max(BETAA1(:,k));
+      BETAA1(m_index(k),:) = zeros(1,K);  % remove chosen AP
+  end
+
+CRITICAL DETAIL: The line "BETAA1(m_index(k),:) = zeros(1,K)" ensures that
+once an AP is assigned to a user, it is REMOVED from the pool. This means:
+  - Each AP serves AT MOST one user
+  - This is a greedy assignment: users are assigned sequentially
+  - The assignment is NOT globally optimal, but mimics realistic small cells
+
+2.4 Mathematical Result
+
+After assignment, we have a set of K (AP, user) pairs:
+  { (m*(1), 1), (m*(2), 2), ..., (m*(K), K) }
+
+Each pair is essentially a SISO (single-input single-output) link:
+  - One transmit antenna (the AP)
+  - One receive antenna (the user)
+  - The channel is g_{m*(k),k} = sqrt(beta_{m*(k),k}) * h_{m*(k),k}
+
+where h_{m*(k),k} ~ CN(0,1) is the small-scale Rayleigh fading coefficient.
+
+===============================================================================
+TOPIC 3: WHY SMALL CELLS LACK CHANNEL HARDENING
+===============================================================================
+
+3.1 What Is Channel Hardening?
+
+Channel hardening is the phenomenon where the effective channel gain becomes
+nearly deterministic (non-random) as the number of antennas grows.
+
+Mathematically, for a channel vector h in C^M (M antennas):
+
+  ||h||^2 / E{||h||^2}  -->  1   as M --> infinity
+
+The variance of this ratio decays as 1/M for i.i.d. Rayleigh fading:
+
+  Var{ ||h||^2 / E{||h||^2} } = 1/M
+
+This means:
+  M = 1:   Var = 1       (100% variation -- NO hardening)
+  M = 10:  Var = 0.1     (10% variation -- some hardening)
+  M = 100: Var = 0.01    (1% variation -- strong hardening)
+  M = inf: Var = 0       (deterministic -- perfect hardening)
+
+3.2 Why It Fails with a Single Antenna
+
+In the small-cell model, the effective downlink channel from AP m*(k) to
+user k is just a SINGLE scalar:
+
+  effective channel = g_{m*(k),k} = sqrt(beta_{m*(k),k}) * h_{m*(k),k}
+
+The effective channel GAIN is:
+
+  |g_{m*(k),k}|^2 = beta_{m*(k),k} * |h_{m*(k),k}|^2
+
+Since |h|^2 ~ Exp(1) (exponential distribution with mean 1), the channel gain
+is:
+  |g|^2 = beta * X,    where X ~ Exp(1)
+
+The normalized gain is:
+  |g|^2 / E{|g|^2} = X
+
+which has Var{X} = 1. This means 100% coefficient of variation -- the channel
+gain fluctuates WILDLY around its mean.
+
+3.3 Physical Intuition
+
+Channel hardening works because of SPATIAL AVERAGING:
+  - With M antennas, the beamforming gain is sum of M independent terms
+  - By the law of large numbers, this sum concentrates around its mean
+  - The more terms (antennas), the less variation
+
+With ONE antenna:
+  - There is ONE fading coefficient
+  - No spatial diversity, no averaging, no concentration
+  - The channel is fully random -- Rayleigh fading in all its glory
+
+3.4 Consequence for the Rate Expression
+
+In cell-free massive MIMO (Section III-B of the paper), channel hardening
+allows the "use-and-then-forget" bounding technique:
+
+  Rate_cf = log2(1 + SINR)     where SINR is DETERMINISTIC
+
+The user treats the mean beamforming gain as known and the deviation as
+additional noise. Because of hardening, this deviation is small.
+
+In small cells, SINR is RANDOM (it fluctuates with each fading realization),
+so we must compute:
+
+  Rate_sc = E{ log2(1 + SINR_random) }     (ergodic rate)
+
+This expectation over the random SINR is what introduces the exponential
+integral Ei function (Topic 5).
+
+===============================================================================
+TOPIC 4: DOWNLINK PILOTS / TRAINING IN SMALL CELLS
+===============================================================================
+
+4.1 Why No Downlink Pilots Are Needed in Cell-Free Massive MIMO
+
+In TDD massive MIMO with channel hardening:
+
+  Step 1: Users send uplink pilots
+  Step 2: APs estimate channels (via reciprocity, UL channel = DL channel)
+  Step 3: APs beamform on the downlink using estimated channels
+  Step 4: User receives signal -- effective channel gain ~ deterministic
+
+Because the effective channel gain is NEARLY CONSTANT (channel hardening),
+the user can decode using just the STATISTICAL MEAN of the gain, without
+knowing the instantaneous realization.
+
+Key insight from Ngo & Larsson (2017), "No Downlink Pilots Are Needed in
+TDD Massive MIMO":
+  - The effective scalar channel g = ||h|| is positive and real (no phase)
+  - Its value is close to E{||h||} by channel hardening
+  - The user can blindly estimate this gain from the received data
+  - NO downlink pilot symbols are wasted
+
+4.2 Why Downlink Pilots ARE Needed in Small Cells
+
+In a small cell (single AP, single antenna), the downlink channel is:
+
+  g_{mk} = sqrt(beta_{mk}) * h_{mk}
+
+where h_{mk} ~ CN(0,1) is complex Gaussian -- it has BOTH random magnitude
+AND random phase.
+
+The user MUST know both:
+  - |g_{mk}| to determine signal strength for soft decoding
+  - angle(g_{mk}) to compensate the phase rotation
+
+Since there is NO channel hardening:
+  - |g_{mk}| varies wildly (Rayleigh distributed)
+  - angle(g_{mk}) is uniformly distributed on [0, 2*pi)
+  - The user CANNOT rely on statistics alone
+  - The AP must send DOWNLINK PILOT symbols so the user can estimate g_{mk}
+
+4.3 Overhead Cost
+
+The coherence block has tau_c total channel uses. In the cell-free system:
+
+  tau_c = tau_p (UL pilots) + tau_d (DL data)
+
+  Pre-log factor = (1 - tau_p/tau_c)
+
+In the small-cell system, we need ADDITIONAL downlink pilots:
+
+  tau_c = tau_p (UL pilots) + tau_dp (DL pilots) + tau_d (DL data)
+
+  Pre-log factor = (1 - tau_p/tau_c - tau_dp/tau_c)
+
+This is ADDITIONAL overhead that reduces the spectral efficiency.
+
+HOWEVER, in the Ngo et al. (2017) paper, the small-cell rate expression
+in Section V does NOT explicitly include the DL pilot overhead as a pre-log
+penalty. Instead, the paper focuses on the fundamental rate comparison using
+the ergodic rate expression. The pre-log factor (1 - tau_p/tau_c) is used
+for both systems in the "net throughput" computation.
+
+4.4 The Paper's Approach
+
+The paper uses the "use-and-then-forget" bound for cell-free (which gives
+a LOWER BOUND on the rate), and uses the ERGODIC rate for small cells
+(which gives the EXACT achievable rate assuming perfect CSI at the user).
+
+This means:
+  - Cell-free rate: conservative (lower bound)
+  - Small-cell rate: optimistic (assumes user has perfect DL channel knowledge)
+  - Despite this advantage, small cells STILL lose the comparison!
+
+===============================================================================
+TOPIC 5: THE EXPONENTIAL INTEGRAL Ei(x) IN RATE EXPRESSIONS
+===============================================================================
+
+5.1 The Mathematical Setup
+
+In the small-cell system, the downlink SINR for user k is:
+
+                    rho_d * gamma_{m*(k),k}
+  SINR_k = ------------------------------------------
+            1 + rho_d * sum_{m in active} beta_{m,k} - rho_d * gamma_{m*(k),k}
+
+where:
+  gamma_{m*(k),k} = MMSE channel estimate variance at the serving AP
+  beta_{m,k} = large-scale fading from AP m to user k
+  rho_d = downlink transmit SNR
+
+But the INSTANTANEOUS SINR depends on the random channel realization.
+The paper models the effective SINR as:
+
+  SINR_k(instantaneous) = SINR_k_bar * X
+
+where X ~ Exp(1) captures the Rayleigh fading randomness, and SINR_k_bar
+is a deterministic quantity depending on large-scale fading coefficients.
+
+5.2 The Ergodic Rate Computation
+
+The ergodic (average) rate is:
+
+  R_k = E_X{ log2(1 + SINR_k_bar * X) }
+
+    = integral_0^infinity log2(1 + SINR_k_bar * x) * exp(-x) dx
+
+5.3 Derivation of the Closed Form
+
+Let gamma = SINR_k_bar. We need:
+
+  I = integral_0^inf ln(1 + gamma*x) * exp(-x) dx
+
+Step 1: Integration by parts. Let u = ln(1 + gamma*x), dv = exp(-x) dx.
+Then du = gamma/(1+gamma*x) dx, v = -exp(-x).
+
+  I = [-exp(-x)*ln(1+gamma*x)]_0^inf + integral_0^inf gamma*exp(-x)/(1+gamma*x) dx
+
+The boundary term: at x=inf, exp(-x) dominates and kills it; at x=0,
+ln(1)=0. So the boundary term = 0.
+
+  I = gamma * integral_0^inf exp(-x)/(1+gamma*x) dx
+
+Step 2: Substitution. Let t = 1 + gamma*x, so x = (t-1)/gamma, dx = dt/gamma.
+When x=0, t=1; when x=inf, t=inf.
+
+  I = gamma * integral_1^inf exp(-(t-1)/gamma) / t * (dt/gamma)
+
+    = integral_1^inf exp(-(t-1)/gamma) / t dt
+
+    = exp(1/gamma) * integral_1^inf exp(-t/gamma) / t dt
+
+Step 3: Substitution s = t/gamma, dt = gamma*ds. When t=1, s=1/gamma.
+
+  I = exp(1/gamma) * integral_{1/gamma}^inf exp(-s) * gamma / (gamma*s) ds
+
+Wait -- let's be more careful. Let s = t/gamma:
+
+  I = exp(1/gamma) * integral_{1/gamma}^inf exp(-gamma*s/gamma) / (gamma*s) * gamma ds
+
+Actually, let's use a cleaner substitution. From:
+
+  I = exp(1/gamma) * integral_1^inf exp(-t/gamma) / t dt
+
+Let u = t/gamma, so t = gamma*u, dt = gamma*du:
+
+  I = exp(1/gamma) * integral_{1/gamma}^inf exp(-u) / (gamma*u) * gamma du
+
+    = exp(1/gamma) * integral_{1/gamma}^inf exp(-u) / u du
+
+Step 4: Recognize the exponential integral.
+
+The function E_1(z) is defined as:
+
+  E_1(z) = integral_z^inf exp(-t)/t dt    for z > 0
+
+Therefore:
+
+  I = exp(1/gamma) * E_1(1/gamma)
+
+And the ergodic rate in bits/s/Hz is:
+
+  R_k = (1/ln 2) * exp(1/gamma) * E_1(1/gamma)
+
+5.4 Connection Between Ei and E_1
+
+The exponential integral has TWO common notations:
+
+  E_1(z) = integral_z^inf exp(-t)/t dt          (the "E_1" form)
+
+  Ei(z) = -P.V. integral_{-z}^inf exp(-t)/t dt  (the "Ei" form)
+
+The relationship is:
+  E_1(z) = -Ei(-z)     for real z > 0
+
+So equivalently:
+  R_k = -(1/ln 2) * exp(1/gamma) * Ei(-1/gamma)
+
+In MATLAB, the function expint(x) computes E_1(x), so:
+
+  R_k = (1/log(2)) * exp(1/gamma) * expint(1/gamma)
+
+5.5 Verification from the Paper's MATLAB Code
+
+From DL_PowerAllocation_MaxMin_correlation.m:
+
+  % Compute SINR parameter gamma(k):
+  gam = zeros(1,K);
+  for k = 1:K
+      a = -Pd1*MUU(k);
+      for m = 1:K
+          a = a + Pd1*BETAA(m_index(m),k);
+      end
+      gam(k) = Pd1*MUU(k)/(1+a);
+  end
+
+  % Compute ergodic rate:
+  for k = 1:K
+      R_sc(k) = (1/log(2)) * exp(1/gam(k)) * expint(1/gam(k));
+  end
+
+This EXACTLY matches our derivation:
+
+  R_sc(k) = (1/ln(2)) * exp(1/gamma_k) * E_1(1/gamma_k)
+
+5.6 Properties and Intuition
+
+The function f(gamma) = exp(1/gamma) * E_1(1/gamma) has these properties:
+
+  - f(gamma) --> 0  as gamma --> 0  (no SNR => no rate)
+  - f(gamma) --> ln(1+gamma) ~ gamma  for small gamma (low SNR)
+  - f(gamma) ~ ln(gamma) - 0.5772...  for large gamma (high SNR)
+  - f(gamma) < ln(1+gamma) always (fading HURTS compared to no fading)
+
+The "fading penalty": Without fading (deterministic channel with same average
+SNR), the rate would be log2(1+gamma). With Rayleigh fading, the rate is
+(1/ln2)*exp(1/gamma)*E_1(1/gamma), which is ALWAYS LOWER. At gamma=1 (0 dB),
+the fading penalty is about 14% (rate is 0.86x the AWGN rate).
+
+5.7 Why Does This NOT Appear in the Cell-Free Rate?
+
+In the cell-free rate expression (Theorem 1 in the paper):
+
+  R_cf,k = log2(1 + SINR_k)     <-- deterministic SINR
+
+There is NO expectation, NO Ei function, because:
+  - Channel hardening makes the effective SINR nearly constant
+  - The "use-and-then-forget" bound absorbs randomness into the noise term
+  - The resulting SINR is a closed-form function of beta's and gamma's only
+
+The Ei function is the mathematical SIGNATURE of Rayleigh fading without
+hardening. Its appearance in the small-cell rate is a direct consequence of
+having a single random fading coefficient instead of an averaged sum.
+
+===============================================================================
+TOPIC 6: FAIR COMPARISON BETWEEN CELL-FREE AND SMALL CELLS
+===============================================================================
+
+6.1 The Power Normalization Problem
+
+In cell-free massive MIMO:
+  - ALL M APs transmit simultaneously on the downlink
+  - Each AP transmits with normalized power rho_cf,d
+  - Total network radiated power = M * rho_cf,d
+
+In small cells:
+  - Only K APs are active (one per user, and M >> K)
+  - Each active AP transmits with power rho_sc,d
+  - Total network radiated power = K * rho_sc,d
+
+For a FAIR comparison, the total radiated power must be equal:
+
+  M * rho_cf,d = K * rho_sc,d
+
+Solving:
+  rho_sc,d = (M/K) * rho_cf,d
+
+This means each small-cell AP gets M/K TIMES more power than each cell-free AP.
+
+6.2 Why This Is the Right Comparison
+
+Think of it this way: you have a FIXED total power budget P_total for the
+entire network.
+
+  Cell-Free: spread P_total across M APs  =>  each AP gets P_total/M = rho_cf
+  Small Cell: spread P_total across K APs  =>  each AP gets P_total/K = rho_sc
+
+Since M >> K, the small-cell APs get MUCH more power per AP:
+  rho_sc = (M/K) * rho_cf
+
+Example from the paper: M=100 APs, K=40 users
+  rho_sc = (100/40) * rho_cf = 2.5 * rho_cf
+
+Each small-cell AP transmits with 2.5 times the power of each cell-free AP.
+
+6.3 Is This Fair to Cell-Free?
+
+Actually, this comparison is GENEROUS to small cells because:
+
+1. Small cells get more power per AP (concentrated power)
+2. The cell-free rate uses a LOWER BOUND (use-and-then-forget)
+3. The small-cell rate assumes PERFECT DL CSI (ergodic rate)
+
+Despite all three advantages, cell-free STILL massively outperforms small cells.
+This makes the cell-free advantage even more impressive.
+
+6.4 The Power Normalization in MATLAB Code
+
+From the code, the same Pd (= rho_d) is used for both systems because the
+paper normalizes differently. Looking at the code:
+
+  Pd = power_f/noise_p;  % same for both
+
+But in the SINR formulas:
+  Cell-free: rho_d with all M APs contributing (power spread across M)
+  Small-cell: Pd1 = Pd with each of K APs at full power
+
+The paper's Remark 5 explains: "To make a fair comparison in terms of the
+total radiated power, we choose rho_sc,d = M/K * rho_cf,d."
+
+In the code, Pd1 = Pd means the code uses the SAME per-AP power for both.
+But since only K APs transmit in small cells (vs. M in cell-free), the total
+small-cell power is K*Pd while cell-free total power is M*Pd, giving the
+cell-free system MORE total power. However, the power allocation eta in
+cell-free is constrained so that each AP's total output does not exceed Pd,
+making the comparison fair in practice.
+
+6.5 Uplink and Pilot Power
+
+For uplink and pilot power, the paper uses the SAME values for both systems:
+  rho_sc,u = rho_cf,u     (same uplink transmit power per user)
+  rho_sc,p = rho_cf,p     (same pilot transmit power per user)
+
+This is natural because the users are the same devices with the same
+power capabilities in both systems.
+
+6.6 Performance Results
+
+Under this fair comparison:
+  - Uncorrelated shadow fading: Cell-free provides ~5x improvement in
+    95%-likely per-user throughput over small cells
+  - Correlated shadow fading: Cell-free provides ~10x improvement
+  - With max-min power control, cell-free provides ~20x improvement
+
+The dramatic advantage comes from:
+  1. Macro-diversity: Each user is served by MANY APs, not just one
+  2. Channel hardening: Makes the effective channel deterministic
+  3. Cooperative beamforming: Interference is turned into useful signal
+  4. No cell edges: Every user has nearby APs, no "cell-edge" users
+
+===============================================================================
+SUMMARY: THE COMPLETE PICTURE OF SECTION V
+===============================================================================
+
+Section V asks: "What if we DON'T cooperate? What if each user just picks
+the best AP and operates independently?"
+
+The answer:
+1. User association: Each user picks AP with max beta (greedy, simple)
+2. Channel model: Single SISO link, Rayleigh fading, NO hardening
+3. Downlink pilots: NEEDED because user can't predict channel
+4. Rate formula: R = (1/ln2)*exp(1/gamma)*E1(1/gamma) -- involves Ei
+5. Power normalization: rho_sc = (M/K)*rho_cf for fair total power
+6. Result: Cell-free CRUSHES small cells (5-20x better at 95% CDF)
+
+The mathematical story:
+  Cell-free: channel hardening => deterministic SINR => log2(1+SINR)
+  Small cell: NO hardening => random SINR => E{log2(1+SINR)} => Ei function
+
+This is why Section V exists: to provide the BASELINE against which the
+revolutionary cell-free architecture is measured, and to show quantitatively
+how much we gain from cooperation.
+
+===============================================================================
+SOURCES AND REFERENCES
+===============================================================================
+
+Primary Sources:
+- H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+  "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless Commun.,
+  vol. 16, no. 3, pp. 1834-1850, Mar. 2017.
+  https://ieeexplore.ieee.org/document/7827017/
+  https://arxiv.org/abs/1602.08232
+
+- Official MATLAB code:
+  https://github.com/hienquocngo/Cell-Free-Massive-MIMO-Versus-Small-Cells
+
+Channel Hardening References:
+- E. Bjornson, "Channel Hardening Makes Fading Channels Behave as
+  Deterministic," Wireless Future Blog, 2017.
+  https://ma-mimo.ellintech.se/2017/01/25/channel-hardening-makes-fading-channels-behave-as-deterministic/
+
+- E. Bjornson, "When Are Downlink Pilots Needed?", Wireless Future Blog, 2018.
+  https://ma-mimo.ellintech.se/2018/11/02/when-are-downlink-pilots-needed/
+
+Downlink Pilots References:
+- H. Q. Ngo and E. G. Larsson, "No Downlink Pilots Are Needed in TDD
+  Massive MIMO," IEEE Trans. Wireless Commun., 2017.
+  https://arxiv.org/abs/1606.02348
+
+- G. Interdonato et al., "How Much Do Downlink Pilots Improve Cell-Free
+  Massive MIMO?", 2016.
+  https://www.diva-portal.org/smash/get/diva2:1111616/FULLTEXT02
+
+Small Cell Architecture References:
+- Dgtl Infra, "Small Cells: Microcell, Picocell and Femtocell Comparison"
+  https://dgtlinfra.com/small-cells-microcell-picocell-femtocell/
+
+- TechTarget, "Macrocell vs. small cell vs. femtocell: A 5G introduction"
+  https://www.techtarget.com/searchnetworking/feature/Macrocell-vs-small-cell-vs-femtocell-A-5G-introduction
+
+Exponential Integral References:
+- Wolfram MathWorld, "Exponential Integral"
+  https://mathworld.wolfram.com/ExponentialIntegral.html
+
+- I. S. Gradshteyn and I. M. Ryzhik, Table of Integrals, Series, and
+  Products, 6th ed., Academic Press, 2000, p. 567.
+
+- D. Wu, "Communication over Fading Channel"
+  http://www.cs.cmu.edu/~dpwu/books/EE/wireless/FadingChannel_old.html
+
+Ergodic Capacity References:
+- GaussianWaves, "Ergodic Capacity of SISO flat fading channel"
+  https://www.gaussianwaves.com/2014/09/ergodic-capacity-of-a-siso-system-over-a-rayleigh-fading-channel-simulation-in-matlab/
+
+Cell-Free Textbook:
+- O. T. Demir, E. Bjornson, L. Sanguinetti, "Foundations of User-Centric
+  Cell-Free Massive MIMO," Found. Trends Signal Process., 2021.
+  https://arxiv.org/abs/2108.02541
+  https://github.com/emilbjornson/cell-free-book
+
+===============================================================================
+END OF SECTION V DEEP DIVE
+===============================================================================
