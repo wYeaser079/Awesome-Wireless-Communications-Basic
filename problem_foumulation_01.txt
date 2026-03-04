@@ -1,0 +1,691 @@
+
+╭─── Claude Code v2.1.63 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│   F:\Codes\Awesome-Wireless-Communications-Basic   │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ I want to do problem formulation for my research paper and I want you to  
+  help me.                                                                  
+  Read these papers:                                                        
+  From this paper:                                                          
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Novel_Beamforming_Design_for_IRS-Assisted_Cel 
+  l-Free_Massive_MIMO_Systems.pdf                                           
+  read section III.                                                         
+  -----------------------                                                   
+  From this paper:                                                          
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Cooperative beamforming for RIS-aided         
+  cell-free massive MIMO networks.pdf                                       
+  Read Section II, part A and B.                                            
+  -------------------------                                                 
+  From this paper:                                                          
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Cooperative Hybrid Beamforming for the        
+  Mitigation of Realistic Asynchronous Interference in Cell-free mmWave     
+  MIMO Networks.pdf                                                         
+  Read this part: A.Wienerhybridbeamformingforunicast scenarios             
+  -------------------------                                                 
+  From this paper:                                                          
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Decentralized_Beamforming_for_Cell-Free_Massi 
+  ve_MIMO_With_Unsupervised_Learning.pdf                                    
+  Read Section II: System Descriptions                                      
+  ---------------------------                                               
+  From this paper:                                                          
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Distributed beamforming techniques for        
+  cell-free wireless networks using deep reinforcement learning.pdf         
+  Read section II.                                                          
+  -----------------------------                                             
+  You should also read these papers:                                        
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Cell-free_massive_MIMO_Zero_forcing_and_conju 
+  gate_beamforming_receivers.pdf                                            
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Enhanced normalized conjugate beamforming for 
+   cell-free massive MIMO.pdf                                               
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Learning Beamforming in Cell-free Massive     
+  MIMO ISAC Systems.pdf                                                     
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Modified Conjugate Beamforming for Cell-Free  
+  Massive MIMO.pdf                                                          
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Max-min optimal beamforming for cell-free     
+  massive MIMO.pdf                                                          
+  ------------------------------------------------                          
+  I am providing you this lists so that you can guide me in this process. I 
+   am beginner and I don't know what to do.                                 
+  You will read those papers, specially mentioned parts and if needed, you  
+  will also read other parts from these paper.                              
+  Then, you will help me to create a roadmap and guideline which I can      
+  follow and be able to formulate problems by my own within one week.       
+  --------------------------------------                                    
+  Do deep research if needed on the web, medium, youtube and on other       
+  platform.                                                                 
+
+● I'll start by reading all the papers you mentioned. Let me read them in
+  parallel to understand the problem formulation approaches used in each.
+
+● Read 5 files (ctrl+o to expand)
+
+● The PDF reader needs a dependency. Let me install it and try again.
+
+● Bash(pip install PyPDF2 2>/dev/null | tail -1)
+  ⎿  Successfully installed PyPDF2-3.0.1
+
+● Bash(python -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 1: IRS-Assisted CF-mMIMO =====
+     --- Page 1 ---
+     Error: 'charmap' codec can't encode character '\ufb02' in position 315
+     : character maps to <undefined>
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 1: IRS-Assisted CF-mMIMO =====
+     --- Page 1 ---
+     1068 IEEE WIRELESS COMMUNICATIONS LETTERS, VOL. 13, NO. 4, APRIL 2024
+     … +357 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 2: Cooperative BF RIS-aided CF-mMIMO =====
+     --- Page 1 ---
+     arXiv:2207.02650v1  [cs.IT]  6 Jul 20221
+     … +414 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 3: Cooperative Hybrid BF mmWave =====
+     --- Page 1 ---
+     1
+     … +418 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 4: Decentralized BF Unsupervised Learning =====
+     --- Page 1 ---
+     1042 IEEE COMMUNICATIONS LETTERS, VOL. 26, NO. 5, MAY 2022
+     … +410 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 5: Distributed BF Deep RL =====
+     --- Page 1 ---
+     1
+     … +425 lines (ctrl+o to expand)
+
+● Now let me read the remaining papers and the full detailed sections from
+  Papers 2, 3, and 5.
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 6: ZF and Conjugate BF =====
+     --- Page 1 ---
+     Creative Commons Attribution-NonCommercial (CC BY-NC).
+     … +301 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 7: Enhanced NCB =====
+     --- Page 1 ---
+     arXiv:2101.10363v1  [cs.IT]  25 Jan 2021INTERDONATO et al. : ENHANCED
+     … +357 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 8: ISAC BF Learning =====
+     --- Page 1 ---
+     Learning Beamforming in Cell-Free
+     … +381 lines (ctrl+o to expand)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 9: Modified Conjugate BF =====
+     --- Page 1 ---
+     1
+     … +243 lines (ctrl+o to expand)
+  ⎿  (timeout 30s)
+
+● Bash(python -u -c "
+      import PyPDF2…)
+  ⎿  ===== Paper 10: Max-Min Optimal BF =====
+     --- Page 1 ---
+     1
+     … +364 lines (ctrl+o to expand)
+
+● Now let me read the full text of Paper 2 and Paper 5 for the specific sections
+   mentioned.
+
+● Read 2 files (ctrl+o to expand)
+
+● Now let me do web research on problem formulation methodology for wireless
+  communications research.
+
+● Agent(Research problem formulation methodology)
+  ⎿  Done (36 tool uses · 47.3k tokens · 22h 18m 55s)
+  (ctrl+o to expand)
+
+● I've now read all 10 papers thoroughly and done deep web research. Let me
+  synthesize everything into a comprehensive roadmap for you.
+
+  ---
+  Problem Formulation Roadmap for Cell-Free Massive MIMO Beamforming Research
+
+  What I Found Across Your 10 Papers
+
+  After reading all the papers, I can see a universal pattern that every single
+  one follows. Understanding this pattern is the key to being able to formulate
+  problems yourself. Here is the anatomy:
+
+  ---
+  THE UNIVERSAL 5-STEP PATTERN
+
+  Every paper you gave me follows this exact structure:
+
+  Step 1: Define the System Architecture
+
+  What it means: Describe WHAT exists in your system.
+  - How many APs/BSs (M or L), users (K), RIS elements (N), antennas per AP
+  (N_t), RF chains (N_RF)
+  - What connects to what (APs to CPU, RIS placement, user equipment)
+  - Operating mode (TDD/FDD, uplink/downlink)
+
+  From your papers:
+
+  ┌──────────────────┬───────────────────┬─────────────────┬────────────────┐
+  │      Paper       │        APs        │      Users      │     Extras     │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 1 (IRS-CF) │ L APs, M antennas │ K               │ R IRSs, N      │
+  │                  │  each             │ single-antenna  │ elements each  │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 2          │ B BSs, N_t        │ K users, N_r    │ R RISs, M      │
+  │ (Cooperative     │ antennas, N_RF RF │ antennas        │ elements each  │
+  │ RIS)             │  chains           │                 │                │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 3 (Hybrid  │ N APs, N_T        │ U users, N_R    │ Asynchronous   │
+  │ BF mmWave)       │ antennas, N_RF    │ antennas        │ interference   │
+  │                  │ RFCs              │                 │                │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 4          │ M APs, N_T        │ N_U             │ FDD, RSSI      │
+  │ (Decentralized   │ antennas, N_RF RF │ single-antenna  │ feedback       │
+  │ DNN)             │  chains           │                 │                │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 5          │ M single-antenna  │ K               │                │
+  │ (Distributed     │ eAPs              │ single-antenna  │ Uplink, SIC    │
+  │ DRL)             │                   │                 │                │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 9          │ N APs, M antennas │ K               │ No cell        │
+  │ (Modified CB)    │  each             │ single-antenna  │ boundaries     │
+  ├──────────────────┼───────────────────┼─────────────────┼────────────────┤
+  │ Paper 10         │ M single-antenna  │ K               │ TDD,           │
+  │ (Max-Min OB)     │ APs               │ single-antenna  │ front-haul to  │
+  │                  │                   │                 │ CU             │
+  └──────────────────┴───────────────────┴─────────────────┴────────────────┘
+
+  Step 2: Write the Channel Model
+
+  What it means: Describe HOW signals travel from transmitter to receiver.
+
+  Common models from your papers:
+  - Rayleigh fading (Papers 6, 7, 10): g_mk = sqrt(beta_mk) * h_mk where beta is
+   large-scale, h is small-scale
+  - Rician fading (Paper 1): Has both LoS and NLoS components with spatial
+  correlation
+  - Saleh-Valenzuela / geometric (Papers 2, 3): Sparse mmWave channels with L
+  paths, array response vectors
+  - With RIS (Papers 1, 2): u_lk = g_lk + H_l^H * Phi * z_k (direct + reflected
+  path)
+
+  Step 3: Write the Signal Model (Received Signal)
+
+  What it means: Write the mathematical expression for what each user actually
+  receives.
+
+  The universal structure is always:
+
+  received = desired_signal + interference + noise
+
+  From Paper 1 (simplest form):
+  y_k = u_k^H * w_k * s_k  +  sum_{k'!=k} u_k^H * w_{k'} * s_{k'}  +  n_k
+          [desired]              [inter-user interference]          [noise]
+
+  From Paper 2 (with RIS + HBF):
+  y_k = sum_b w_k^H * H_{b,k} * F_{RF,b} * f_{BB,b,k} * s_k    [desired]
+      + sum_b sum_{j!=k} w_k^H * H_{b,k} * F_{RF,b} * f_{BB,b,j} * s_j
+  [interference]
+      + w_k^H * n_k                                                [noise]
+
+  Step 4: Derive the SINR and Performance Metric
+
+  What it means: From the signal model, compute the SINR
+  (Signal-to-Interference-plus-Noise Ratio) and then the achievable rate.
+
+  SINR formula (universal):
+  SINR_k = |desired_signal_power|^2 / (|interference_power|^2 + noise_power)
+
+  Rate formula (always the same):
+  R_k = log2(1 + SINR_k)
+
+  From Paper 1:
+  R_k = log2(1 + |u_k^H * w_k|^2 / (sum_{k'!=k} |u_k^H * w_{k'}|^2 + sigma^2))
+
+  Step 5: Formulate the Optimization Problem
+
+  What it means: State what you want to maximize/minimize, subject to what
+  physical constraints.
+
+  The general template:
+  maximize/minimize   [Objective Function]
+    over variables    [Design Variables]
+    subject to        [Constraints]
+
+  ---
+  OBJECTIVE FUNCTIONS (What to Optimize)
+
+  From your 10 papers, I found 5 common objectives:
+
+  ┌───────────────────────┬─────────────────────────┬──────────────────────┐
+  │       Objective       │    Mathematical Form    │       Used In        │
+  ├───────────────────────┼─────────────────────────┼──────────────────────┤
+  │ Sum-Rate Maximization │ max sum_k R_k           │ Papers 1, 2, 4, 5    │
+  ├───────────────────────┼─────────────────────────┼──────────────────────┤
+  │ Weighted Sum-Rate     │ max sum_k omega_k * R_k │ Paper 2              │
+  ├───────────────────────┼─────────────────────────┼──────────────────────┤
+  │ Max-Min Fairness      │ max min_k R_k           │ Papers 6, 7, 10      │
+  ├───────────────────────┼─────────────────────────┼──────────────────────┤
+  │ NMSE Minimization     │ min E[|d - r|^2]        │ Paper 3              │
+  ├───────────────────────┼─────────────────────────┼──────────────────────┤
+  │ Power Minimization    │ min Tr(W^H W)           │ Paper 1 (subproblem) │
+  └───────────────────────┴─────────────────────────┴──────────────────────┘
+
+  DESIGN VARIABLES (What You Control)
+
+  ┌────────────────────┬──────────────┬───────────────────────┐
+  │      Variable      │    Symbol    │        Used In        │
+  ├────────────────────┼──────────────┼───────────────────────┤
+  │ Digital beamformer │ W, w_k, F_BB │ All papers            │
+  ├────────────────────┼──────────────┼───────────────────────┤
+  │ Analog beamformer  │ F_RF         │ Papers 2, 3, 4        │
+  ├────────────────────┼──────────────┼───────────────────────┤
+  │ RIS phase shifts   │ Phi, theta   │ Papers 1, 2           │
+  ├────────────────────┼──────────────┼───────────────────────┤
+  │ Power allocation   │ p_k, eta_mk  │ Papers 1, 6, 7, 9, 10 │
+  ├────────────────────┼──────────────┼───────────────────────┤
+  │ Receive combiner   │ W_BB, w_k    │ Papers 2, 3           │
+  └────────────────────┴──────────────┴───────────────────────┘
+
+  CONSTRAINTS (Physical Limitations)
+
+  ┌──────────────────────┬───────────────────┬──────────────────────────────┐
+  │      Constraint      │ Mathematical Form │           Meaning            │
+  ├──────────────────────┼───────────────────┼──────────────────────────────┤
+  │ Per-AP power         │ Tr(W_l^H W_l) <=  │ Each AP has limited power    │
+  │                      │ P_l               │                              │
+  ├──────────────────────┼───────────────────┼──────────────────────────────┤
+  │ Total power          │ sum |w_k|^2 <=    │ System-wide power budget     │
+  │                      │ P_max             │                              │
+  ├──────────────────────┼───────────────────┼──────────────────────────────┤
+  │ Unit-modulus (analog │ |F_RF(i,j)|^2 = 1 │ Phase shifters can only      │
+  │  BF)                 │                   │ change phase                 │
+  ├──────────────────────┼───────────────────┼──────────────────────────────┤
+  │ Unit-modulus (RIS)   │ |phi_n|^2 = 1     │ RIS elements are passive     │
+  │                      │                   │ reflectors                   │
+  ├──────────────────────┼───────────────────┼──────────────────────────────┤
+  │ QoS                  │ R_k >= R_min      │ Minimum rate guarantee       │
+  ├──────────────────────┼───────────────────┼──────────────────────────────┤
+  │ Combiner constraint  │ |w_k(i)|^2 = 1    │ Analog combining phase-only  │
+  └──────────────────────┴───────────────────┴──────────────────────────────┘
+
+  ---
+  CONCRETE EXAMPLES FROM YOUR PAPERS
+
+  Example 1: Paper 1 (Simplest - IRS-assisted CF-mMIMO)
+
+  max_{W, Phi}   sum_k log2(1 + |u_k^H w_k|^2 / (sum_{k'!=k} |u_k^H w_{k'}|^2 +
+  sigma^2))
+
+  subject to:
+    Tr(W_l^H W_l) <= P_l,  for all l = 1,...,L    [per-AP power]
+    |phi_{rn}|^2 = 1,  for all r,n                 [RIS unit-modulus]
+
+  Example 2: Paper 10 (Max-Min Optimal BF)
+
+  max_W  min_k  SINR_k
+
+  subject to:
+    sum_k |w_{mk}|^2 <= 1,  for all m = 1,...,M    [per-AP power]
+
+  Example 3: Paper 2 (Cooperative BF for RIS-aided CF-mMIMO)
+
+  max_{F, Phi, w}  sum_k omega_k * log(1 + gamma_k)
+
+  subject to:
+    ||F_{RF,b} * F_{BB,b}||_F^2 <= P_b    [per-BS power]
+    |F_RF_b(i,j)|^2 = 1                    [analog BF unit-modulus]
+    |Theta_r(i,i)|^2 <= 1                  [RIS element constraint]
+    |w_k(i)|^2 = 1                          [combiner unit-modulus]
+
+  ---
+  YOUR 7-DAY LEARNING PLAN
+
+  Day 1: Foundation - Understand the Math Language
+
+  Goal: Be able to read and understand system models fluently.
+
+  Tasks:
+  1. Watch Emil Bjornson's playlist "Basics of Cell-free Massive MIMO" on
+  YouTube (Wireless Future channel)
+  2. Read Section II (System Model) of Paper 10 (Max-Min Optimal BF) - it's the
+  simplest one
+  3. Read Section II of Paper 9 (Modified Conjugate BF) - same simple model
+  4. Exercise: Write down every symbol and its meaning. Make a "dictionary" of
+  notation
+
+  Key concepts to master:
+  - Channel coefficient: g_mk = sqrt(beta_mk) * h_mk
+  - Large-scale fading (beta) vs small-scale fading (h)
+  - MMSE channel estimation formula
+  - What TDD reciprocity means and why it matters
+
+  Day 2: Signal Model and SINR Derivation
+
+  Goal: Be able to derive the received signal and SINR from a system model.
+
+  Tasks:
+  1. Take Paper 10's system model and write the received signal step by step
+  2. Take Paper 7 (Enhanced NCB) Section II and trace how they go from signal
+  model to SINR
+  3. Read Paper 6 (ZF and CB receivers), Section II-B and Section III-A
+  4. Exercise: Given a system with 4 APs and 2 users, write out the received
+  signal at user 1 explicitly (expand all summations)
+
+  Key skill: Going from y_k = sum_{i} g_k^H w_i s_i + n_k to SINR_k = |...|^2 / 
+  (|...|^2 + sigma^2)
+
+  Day 3: Optimization Problem Formulation
+
+  Goal: Be able to write a formal optimization problem.
+
+  Tasks:
+  1. Read Bjornson's paper "Optimal Multiuser Transmit Beamforming" (free on
+  arXiv: 1404.0408) - this is the BEST tutorial
+  2. Study the CVXPY tutorial on Max-Min SINR:
+  https://www.cvxpy.org/examples/applications/maximise_minimum_SINR_BV4.20.html
+  3. Read Section II-B (Problem Formulation) of Paper 2 carefully - note how
+  they go from SINR to the optimization
+  4. Read Section III (Problem Formulation) of Paper 1
+
+  Exercise: Take the SINR you derived on Day 2 and formulate THREE different
+  optimization problems:
+  - (a) Maximize the sum rate
+  - (b) Maximize the minimum user rate (max-min fairness)
+  - (c) Minimize total power subject to minimum rate constraints
+
+  Day 4: Constraints and Why Problems Are Hard
+
+  Goal: Understand what makes optimization problems non-convex and how to handle
+   it.
+
+  Tasks:
+  1. Read Stanford's Convex Optimization book (Boyd & Vandenberghe), Chapter 4
+  sections on LP, SOCP, SDP (free PDF:
+  https://web.stanford.edu/~boyd/cvxbook/bv_cvxbook.pdf)
+  2. Study Paper 1, Section III - see how they decompose the joint problem into
+  subproblems (alternating optimization)
+  3. Study Paper 2, Section III - see how they use fractional programming to
+  transform the objective
+  4. Study Paper 10, Section III - see how they prove quasi-concavity and use
+  bisection
+
+  Key concepts:
+  - Why max sum log(1+SINR) is non-convex (beamformers appear in both numerator
+  and denominator)
+  - Alternating optimization: fix one variable, optimize the other
+  - Fractional programming: transform ratio objectives into tractable forms
+  - Common transformations: SDR, ADMM, SCA, geometric programming
+
+  Day 5: Advanced Formulations (HBF, RIS, mmWave)
+
+  Goal: Handle more complex system models with hybrid beamforming and RIS.
+
+  Tasks:
+  1. Read Paper 2, Section II-A fully - understand the RIS channel model H_{b,k}
+   = H_bar_{b,k} + sum_r V_{r,k} * Theta_r * G_{b,r}
+  2. Read Paper 3, Section II and III-A - understand hybrid beamforming with RF
+  + BB
+  3. Read Paper 4, Section II - understand the HBF formulation with codebooks
+  4. Exercise: Write a problem formulation for:
+    - A cell-free system with 3 APs (each with 4 antennas, 2 RF chains), 2
+  users, and 1 RIS (8 elements)
+    - Objective: maximize sum rate
+    - Include all relevant constraints
+
+  Day 6: ML/DL-Based Approaches
+
+  Goal: Understand how problem formulation changes when using learning-based
+  solutions.
+
+  Tasks:
+  1. Read Paper 4 (Decentralized DNN) Sections II and III - see how the
+  optimization becomes a loss function
+  2. Read Paper 5 (Distributed DRL) Section II - see how they formulate the
+  problem for reinforcement learning
+  3. Read Paper 8 (ISAC GNN) Sections II and III - see the joint
+  communication+sensing formulation
+  4. Key insight: The optimization problem stays the same; the SOLUTION method
+  changes from convex optimization to neural networks
+
+  Day 7: Practice - Formulate Your OWN Problem
+
+  Goal: Write a complete problem formulation from scratch.
+
+  Tasks:
+  1. Choose a scenario (e.g., "RIS-aided cell-free massive MIMO with hybrid
+  beamforming for downlink sum-rate maximization")
+  2. Write the system model section (architecture, channel model, signal model)
+  3. Derive the SINR
+  4. Write the formal optimization problem (objective + constraints)
+  5. Identify WHY the problem is hard (non-convexity sources)
+  6. Propose how to decompose it (alternating optimization subproblems)
+
+  ---
+  KEY RESOURCES (Prioritized)
+
+  Priority: 1
+  Resource: Cell-Free Book (Demir, Bjornson) - THE definitive guide
+  URL: https://github.com/emilbjornson/cell-free-book
+  ────────────────────────────────────────
+  Priority: 2
+  Resource: Optimal Beamforming paper + code
+  URL: https://github.com/emilbjornson/optimal-beamforming
+  ────────────────────────────────────────
+  Priority: 3
+  Resource: Wireless Future YouTube - Video lectures
+  URL: Search "Wireless Future" on YouTube
+  ────────────────────────────────────────
+  Priority: 4
+  Resource: Boyd Convex Optimization - Math foundation
+  URL: https://web.stanford.edu/~boyd/cvxbook/bv_cvxbook.pdf
+  ────────────────────────────────────────
+  Priority: 5
+  Resource: CVXPY Max-Min SINR Tutorial - Hands-on coding
+  URL:
+  https://www.cvxpy.org/examples/applications/maximise_minimum_SINR_BV4.20.html
+  ────────────────────────────────────────
+  Priority: 6
+  Resource: IEEE JSAC Survey on Optimization Methods
+  URL: https://arxiv.org/html/2401.12025v3
+
+  ---
+  CHECKLIST: Can You Formulate a Problem?
+
+  After 7 days, test yourself. You should be able to:
+
+  - Define a system with APs, users, antennas, and (optionally) RIS
+  - Write the channel model (Rayleigh/Rician/mmWave geometric)
+  - Write the transmitted signal after beamforming
+  - Write the received signal showing desired + interference + noise
+  - Derive the SINR expression
+  - Compute the achievable rate R_k = log2(1 + SINR_k)
+  - Choose an appropriate objective (sum-rate, max-min, EE, etc.)
+  - Identify all design variables (what you can control)
+  - List all physical constraints (power, unit-modulus, QoS)
+  - Write the formal optimization problem in standard form
+  - Explain WHY the problem is non-convex
+  - Propose a decomposition strategy (alternating optimization, etc.)
+
+  ---
+  PRO TIPS From Reading Your 10 Papers
+
+  1. Start simple, add complexity. Paper 10 (single-antenna APs, no RIS) is the
+  simplest. Paper 2 (multi-antenna + HBF + RIS + combining) is the most complex.
+   Master the simple case first.
+  2. The signal model is 90% of the work. Once you have the correct received
+  signal expression, the SINR writes itself, and the optimization problem is
+  just choosing what to maximize.
+  3. Every non-convex joint problem gets decomposed. Papers 1, 2, 3 all use
+  alternating optimization. Fix passive BF, optimize active BF. Fix active BF,
+  optimize passive BF. Iterate.
+  4. Unit-modulus constraints are the hardest part. Analog beamformers and RIS
+  elements all have |x| = 1 constraints. This is what makes problems NP-hard.
+  Solutions include: SDR (relax to SDP), manifold optimization, ADMM, BFGS, or
+  element-wise optimization.
+  5. Power allocation and beamforming direction are often separable. Paper 1
+  uses ZF for direction + geometric programming for power. Paper 7 uses ECB for
+  direction + max-min for power. This separation simplifies the problem
+  enormously.
+  6. Read the "contribution" bullet points in the introduction of each paper.
+  They tell you exactly what is NEW in their formulation compared to prior work.
+   Your own paper needs similar novelty.
+
+✻ Crunched for 11m 44s
+
+❯ If I give me the system model, can you help me write the system model?    
+  Or can you guide me through the learning phase?                           
+
+● I can do both. Let me ask what works best for you right now:
+
+● User answered Claude's questions:
+  ⎿  · Which approach would you like to take? → What is the difference 
+     between guided learning and hybrid approach? I am viewing both as 
+     same.
+
+● Good question. Here's the concrete difference:
+
+  Guided learning: I lead the process. I explain a concept, then ask you to fill
+   in the math. If you're stuck, I give hints. You don't need to attempt
+  anything on your own first — I guide every step.
+
+  Example flow:
+  - Me: "First, write the channel between AP m and user k. In cell-free, it has
+  large-scale and small-scale fading. What would that look like?"
+  - You: try to answer
+  - Me: correct/confirm and move to the next piece
+
+  Hybrid approach: You lead the process. You write the entire system model (or a
+   section) on your own first, then show me. I review it like a supervisor would
+   — marking errors, suggesting improvements.
+
+  Example flow:
+  - You: "Here's my system model section..." (you write 1-2 pages)
+  - Me: "Line 3 is wrong because... Line 7 is missing the RIS reflected path...
+  The SINR derivation skipped the interference term from..."
+
+  Since you're a beginner, guided learning is better — the hybrid approach
+  assumes you already know enough to produce a first draft.
+
+● User answered Claude's questions:
+  ⎿  · So shall we start with guided learning? And do you already have a 
+     specific system in mind for your paper? → Currently, I want you to 
+     write it for me as I don't have much time. Later, I will go with the 
+     guided learning approach.
+
+● Got it. I'll write it for you now. Tell me about your system:
+
+● User answered Claude's questions:
+  ⎿  · What is your cell-free system setup? Describe as much as you know — 
+     I'll fill in the gaps. → I have a specific setup in mind
+     · What is your target objective for the optimization? → is it possible 
+     to combine both option 1 and 2. 
+
+
+● Yes, absolutely — you can combine sum-rate maximization with max-min fairness.
+   There are two common ways:
+
+  1. Weighted sum-rate with fairness weights: max sum_k omega_k * R_k where the
+  weights omega_k are tuned to balance fairness and throughput
+  2. Two-stage approach: First ensure a minimum rate for all users (QoS
+  constraint), then maximize the sum-rate above that floor: max sum_k R_k  
+  subject to R_k >= R_min
+
+  Both are publishable and well-motivated.
+
+  Now, describe your specific system setup. Tell me whatever you have in mind:
+
+  - How many APs? How many antennas per AP?
+  - How many users? Single or multi-antenna?
+  - Any RIS involved? How many? How many elements?
+  - Uplink or downlink?
+  - Frequency band (sub-6GHz, mmWave)?
+  - Hybrid beamforming or fully digital?
+  - Any special features (ISAC, NOMA, SWIPT, etc.)?
+
+  Just describe it in your own words — even partial information is fine, I'll
+  help fill gaps.
+
+✻ Sautéed for 49s
+
+❯ I will use two stage approach.                                            
+  ------------------------                                                  
+  System Description:                                                       
+  1. L number of APs with m antennas per AP.                                
+  2. K users with single antenna.                                           
+  3. NO RIS INVOLVE.                                                        
+  4. Downlink.                                                              
+  5. Frequency Band = THZ                                                   
+  6. Hybrid Beamforming.                                                    
+  7. No special features. But, I want to take both inter-user interference  
+  and inter-carrier interferences in account. You might need to SINR        
+  calculation equation and Sum rate calculation equation based on that.     
+  ====================================                                      
+  Do deep research on the web and be as detailed as possible.               
+  Verify and double check your response so there is no room for error.      
+
+● Let me do deep research on THz channel models with phase noise and beam squint
+   to make sure every equation is verified.
+
+● Agent(Research THz channel and phase noise models)
+  ⎿  Done (62 tool uses · 72.8k tokens · 16m 10s)
+  (ctrl+o to expand)
+
+● Excellent. I now have comprehensive verified research. Let me write the
+  complete system model.
+
+● Write(papers\Cell-Free\System_Model_THz_CF_mMIMO_HBF.md)
+  ⎿  Wrote 592 lines to papers\Cell-Free\System_Model_THz_CF_mMIMO_HBF.md
+     # System Model: THz Cell-Free Massive MIMO with Hybrid Beamforming
+
+     ## II. SYSTEM MODEL AND PROBLEM FORMULATION
+
+     ### A. System Architecture
+
+     We consider a downlink cell-free massive MIMO (CF-mMIMO) system
+     operating in the
+     terahertz (THz) band, as illustrated in Fig. 1. The network consists
+     of L access
+     points (APs) that coherently serve K single-antenna user equipments
+     (UEs) over
+     the same time-frequency resources, where L >> K. Each AP is equipped
+     with M
+     … +582 lines (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?

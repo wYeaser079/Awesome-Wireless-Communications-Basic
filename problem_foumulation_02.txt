@@ -1,0 +1,75 @@
+
+╭─── Claude Code v2.1.63 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│   F:\Codes\Awesome-Wireless-Communications-Basic   │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Referenced file papers\Cell-Free\System_Model_THz_CF_mMIMO_HBF.md
+  ⎿  Referenced file 
+     C:\Users\acer\.claude\projects\F--Codes-Awesome-Wireless-Communications-Bas
+     ic\632c971a-b5a0-40bb-808c-40d31b408332\tool-results\b0zjfa4yf.txt
+  ⎿  Referenced file 
+     C:\Users\acer\.claude\projects\F--Codes-Awesome-Wireless-Communications-Bas
+     ic\632c971a-b5a0-40bb-808c-40d31b408332\tool-results\bu20ht0h3.txt
+
+● Let me read the completed system model document to give you a walkthrough.
+
+● Read 1 file (ctrl+o to expand)
+
+● Your system model document is complete. Here's a walkthrough of what was
+  created at papers/Cell-Free/System_Model_THz_CF_mMIMO_HBF.md:
+
+  Document Structure (39 Equations, 10 Sections)
+
+  A. System Architecture — L APs, M antennas, K single-antenna UEs, OFDM with N
+  subcarriers, TDD mode, hybrid beamforming.
+
+  B. THz Channel Model (Eqs. 1-10)
+  - Path gain with free-space spreading + molecular absorption (Beer-Lambert
+  law)
+  - Rician fading with LoS + sparse NLoS (Saleh-Valenzuela)
+  - Beam squint via frequency-dependent array response a_M(φ, f_n) with ratio
+  f_n/f_c
+
+  C. Hybrid Beamforming Architecture (Eqs. 11-14)
+  - Frequency-flat analog precoder (unit-modulus constraint)
+  - Per-subcarrier digital precoder
+  - Per-AP average power constraint
+
+  D. Phase Noise Model → ICI (Eqs. 15-23)
+  - Wiener process model for independent AP oscillators
+  - DFT decomposition into CPE (J[0]) + ICI (J[p≠0])
+  - ICI fraction: ε ≈ π(β_3dB^AP + β_3dB^UE) / Δf
+
+  E. Received Signal Model (Eqs. 24-28)
+  - Four components: Desired Signal, IUI, ICI, Noise
+  - ICI couples ALL subcarriers and ALL users
+
+  F. SINR and Rate (Eqs. 29-37)
+  - SINR with three denominator terms: IUI (coherent), ICI (incoherent), noise
+  - Key insight in Remark 4: IUI vs ICI tradeoff is unique to THz CF-mMIMO
+
+  G. Optimization Formulation (Eqs. 38-39)
+  - (P1): Max sum-rate subject to:
+    - C1: R_k ≥ R_min (QoS / max-min fairness)
+    - C2: Per-AP power constraint
+    - C3: Constant-modulus analog precoder
+  - Decomposition into two alternating subproblems (analog + digital)
+
+  H-J. Notation table, simulation parameter ranges, and 10 key references.
+
+  The document gives you a complete, self-contained system model section ready
+  to adapt into your paper. The next step would be developing the solution 
+  methodology (the actual algorithms for solving P1/P2) — let me know when
+  you're ready for that.
+
+✻ Brewed for 1m 44s
