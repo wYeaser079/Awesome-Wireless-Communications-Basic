@@ -1,0 +1,78 @@
+
+╭─── Claude Code v2.1.68 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│               Opus 4.6 · Claude Max                │                         │
+│ F:\Codes\Awesome-Wireless-Communications-Basic\pa… │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ I want you to read this file:                                             
+  F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All   
+  Paper(without review paper)\Scalable Cell-Free Massive MIMO Systems.pdf   
+  -----------                                                               
+  Give me the summary of the abstract.                                      
+
+● Read 1 file (ctrl+o to expand)
+
+● Bash(pip install pymupdf 2>/dev/null | tail -1)
+  ⎿  Successfully installed pymupdf-1.27.2
+  ⎿  (timeout 30s)
+
+● Bash(python -c "
+      import fitz…)
+  ⎿  Error: Exit code 1
+     Traceback (most recent call last):
+       File "<string>", line 5, in <module>
+       File "C:\Users\acer\AppData\Local\Programs\Python\Python311\Lib\encodings
+     \cp1252.py", line 19, in encode
+         return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     UnicodeEncodeError: 'charmap' codec can't encode character '\ufb01' in 
+     position 596: character maps to <undefined>
+
+     Traceback (most recent call last):
+       File "<string>", line 5, in <module>
+     … +4 lines (ctrl+o to see all)
+
+● Bash(python -c "
+      import sys, io…)
+  ⎿  1
+     Scalable Cell-Free Massive MIMO Systems
+     Emil Björnson, Senior Member, IEEE, Luca Sanguinetti, Senior Member, I
+     … +174 lines (ctrl+o to expand)
+
+● Here's a summary of the abstract:
+
+  Paper: Scalable Cell-Free Massive MIMO Systems by Emil Björnson and Luca
+  Sanguinetti
+
+  Abstract Summary:
+
+  The paper addresses the key challenge of Cell-Free Massive MIMO: making it
+  practically scalable to large networks. In cell-free operation, many
+  distributed access points (APs) cooperate to jointly serve users instead of
+  forming traditional cells, which can resolve interference issues in cellular
+  networks. However, previous formulations were unscalable — computational
+  complexity and fronthaul requirements grew with the number of users.
+
+  The authors propose a scalable framework by leveraging the Dynamic Cooperation
+   Clustering (DCC) concept from the Network MIMO literature. Their key
+  contributions are:
+
+  1. A novel algorithm for joint initial access, pilot assignment, and cluster
+  formation that is provably scalable.
+  2. Adapted channel estimation, precoding, and combining methods made scalable.
+  3. A new uplink-downlink duality used to heuristically design downlink
+  precoding from uplink combining vectors.
+
+  The main finding is that the proposed scalable processing outperforms 
+  conventional maximum ratio (MR) processing and performs close to the best 
+  unscalable alternatives — achieving near-optimal performance with practical
+  complexity.
+
+✻ Brewed for 50s
