@@ -1,0 +1,195 @@
+================================================================================
+TECHNICAL AND HISTORICAL BACKGROUND RESEARCH
+for Section V-C: "Downlink Data Transmission"
+Paper: "Scalable Cell-Free Massive MIMO Systems" -- Bjornson & Sanguinetti, 2020
+IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+================================================================================
+
+
+1. UL-DL DUALITY IN MIMO SYSTEMS
+=================================
+
+UL-DL duality states that any set of SINRs achievable on the uplink with
+a given total power budget is also achievable on the downlink with the same
+total power, though individual per-UE power allocations differ.
+
+Origins.  Rashid-Farrokhi et al. [IEEE JSAC, vol. 16, no. 8, 1998] first
+exploited this structure for joint transmit beamforming and power control.
+Boche and Schubert [IEEE Trans. Inf. Theory, vol. 50, no. 10, 2004]
+established a general duality framework solving the multiuser downlink
+beamforming problem with individual SINR constraints by transforming it
+into an equivalent UL problem.  Viswanath and Tse [IEEE Trans. Inf. Theory,
+vol. 49, no. 8, 2003] proved UL-DL duality at the capacity level, showing
+that the sum capacity of the vector Gaussian broadcast channel equals that
+of the dual MAC under a sum-power constraint.
+
+Extension to cell-free systems.  Classical duality assumes a co-located
+array with a sum-power constraint.  In cell-free massive MIMO every AP l
+has an individual power budget rho_dl, yielding L per-AP constraints
+instead of one global constraint.  Proposition 4 in [1] shows that UL-DL
+duality still holds in this setting when DCC matrices {D_i} restrict which
+APs serve which UEs.  The precoding vectors are constructed as
+
+  w_i = v_i / sqrt( E{ v_i^H D_i v_i } )                        (Eq. 33)
+
+where v_i is the UL combining vector from Section V-B.  The DL power
+coefficients {rho_k} are then obtained by solving a linear system that
+enforces equal SINR in both directions under per-AP power constraints.
+Because the per-AP constraints couple all UEs served by the same AP, the
+DL power allocation differs from the UL allocation -- this is captured by
+the matrix equation in Proposition 4.  Miretti et al. [IEEE Trans. Signal
+Process., 2024] recently generalized this duality to include per-AP
+information constraints (limited fronthaul), proving optimality of team
+MMSE precoding in user-centric cell-free networks.
+
+
+2. THE HARDENING BOUND FOR DL SE (PROPOSITION 3)
+==================================================
+
+Proposition 3 gives the DL SE for UE k as
+
+  SE_k^{dl} = (tau_d / tau_c) log2(1 + SINR_k^{dl})
+
+with
+
+  SINR_k^{dl} = rho_k |E{ h_k^H D_k w_k }|^2 /
+    [ sum_i rho_i E{ |h_k^H D_i w_i|^2 } - rho_k |E{ h_k^H D_k w_k }|^2
+      + sigma_dl^2 ]
+
+The numerator uses E{ h_k^H D_k w_k } -- the mean effective channel -- as
+the "known" signal component.  The UE does not know the instantaneous
+realization h_k^H D_k w_k; it knows only its statistical average.  All
+deviation from this mean is treated as worst-case uncorrelated noise,
+following the hardening bound methodology in [2, Th. 4.6].
+
+When is the bound tight?  When channel hardening is strong (large NL,
+correlated fading, MMSE-type precoding), the instantaneous effective gain
+concentrates tightly around its mean, and the noise term is small.  In
+co-located massive MIMO with M >> K, the bound is nearly exact [2].
+
+When is it loose?  Remark 3 in [1] warns that the bound can be "rather
+loose" in cell-free massive MIMO when N (antennas per AP) is small.  With
+MR precoding and single-antenna APs (N = 1), the effective channel
+h_k^H D_k w_k exhibits heavy fluctuations.  Chen and Bjornson [47] (IEEE
+Trans. Commun., vol. 66, no. 11, 2018) quantified this, showing that
+channel hardening in cell-free systems requires either large N or very
+dense AP deployments.  With LP-MMSE precoding and N >= 4, the effective
+channel distribution has bounded support (Fig. 4 in [1]), substantially
+tightening the bound.
+
+
+3. PRECODING DESIGN IN CELL-FREE SYSTEMS
+==========================================
+
+Downlink precoding is inherently harder than uplink combining because each
+AP must simultaneously serve multiple UEs, and its transmit signal is the
+superposition of all UE-directed beams.  This creates a joint design
+problem constrained per AP:
+
+  sum_{i in D_l} rho_i E{ || w_{il} ||^2 } <= rho_dl,  for each AP l
+
+Under a centralized architecture (Level 4), the CPU computes all precoding
+vectors {w_i} from global CSI and sends the composite DL signal to each AP
+via the fronthaul.  This permits full P-MMSE or MMSE precoding.
+
+Under a distributed architecture (Level 3), each AP l locally computes
+{w_{il} : i in D_l} from its own channel estimates.  Only the power
+coefficients {rho_i} need coordination.  LP-MMSE precoding is the natural
+choice here, matching the LP-MMSE combiner from UL (by duality).
+
+The UL-DL duality motivates using UL combiners directly as DL precoders:
+rather than solving the coupled DL optimization from scratch, one solves
+the decoupled UL combining problem and then maps the solution via (Eq. 33).
+This avoids the NP-hard nature of general multiuser DL beamforming and
+produces high-quality precoders with scalable complexity.
+
+
+4. CHANNEL HARDENING IN CELL-FREE MASSIVE MIMO
+================================================
+
+Channel hardening means the effective channel gain h_k^H w_k concentrates
+around its mean as the number of antennas grows.  Formally, it is measured
+by the normalized variance:
+
+  delta_k = Var{ h_k^H w_k } / | E{ h_k^H w_k } |^2
+
+When delta_k -> 0, the channel "hardens" to a deterministic scalar, and
+the hardening bound becomes tight.
+
+In co-located massive MIMO with M antennas and MR combining, the law of
+large numbers ensures delta_k = O(1/M), yielding strong hardening for
+M >= 64 [2, Sec. 2.4].
+
+In cell-free deployments, antennas are distributed across L APs with N
+antennas each.  Even though the total count LN may be large, the
+contribution of distant APs is attenuated by pathloss, so only a few
+nearby APs provide strong channel gains.  This concentration of effective
+array gain weakens the averaging effect.  Chen and Bjornson [47] proved
+via stochastic geometry that:
+  (i)   hardening requires small pathloss exponents or large N;
+  (ii)  single-antenna APs (N = 1) yield weak hardening even with L large;
+  (iii) N = 5-10 per AP substantially improves the hardening metric.
+
+Fig. 4 in [1] illustrates this dramatically: with LP-MMSE precoding, the
+PDF of the normalized effective channel has bounded support (finite
+variance), whereas MR precoding produces an exponential tail (heavy
+fluctuations).  The practical implication is that LP-MMSE precoding not
+only improves SE through interference suppression but also tightens the
+SE bound itself.
+
+
+5. DL POWER ALLOCATION
+========================
+
+Per-AP power constraints.  Each AP l has a maximum DL power rho_dl,
+yielding L separate constraints.  This differs from cellular MIMO where a
+single sum-power constraint applies to the entire array.
+
+Centralized equal allocation.  For centralized precoding with the
+normalized precoders in (Eq. 33), the equal allocation rho_i = rho_dl /
+tau_p for all i satisfies every per-AP constraint because each AP serves
+at most tau_p UEs (Assumption 1) and the precoders are norm-normalized.
+
+Distributed fractional allocation.  For distributed precoding, Interdonato
+et al. [48] (Proc. IEEE ICC, 2019) proposed the heuristic (Eq. 43 in [1]):
+
+  rho_{ik} proportional to ( beta_{kl}^{alpha} / sum_{i'} beta_{i'l}^{alpha} )
+
+where beta_{kl} is the large-scale fading coefficient and alpha in [0, 1]
+is a fractional exponent.  This allocates more power to UEs with stronger
+channels to each AP, mimicking fractional power control from cellular
+uplink.  The allocation is computed locally per AP using only long-term
+statistics, making it fully scalable.
+
+Network-wide optimization.  Jointly optimizing {rho_k} across all APs
+and UEs for max-min fairness or sum-SE requires solving a global problem
+coupling all L per-AP constraints.  This is inherently unscalable:  the
+problem dimension grows with LK, and centralized coordination of power
+coefficients across all APs contradicts the scalable design philosophy.
+Fractional allocation avoids this by distributing the decision.
+
+
+REFERENCES
+==========
+[1]  E. Bjornson, L. Sanguinetti, "Scalable cell-free massive MIMO systems,"
+     IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+[2]  E. Bjornson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+     Spectral, Energy, and Hardware Efficiency," Found. Trends Signal
+     Process., vol. 11, no. 3-4, pp. 154-655, 2017.
+[47] Z. Chen, E. Bjornson, "Channel hardening and favorable propagation in
+     cell-free massive MIMO with stochastic geometry," IEEE Trans. Commun.,
+     vol. 66, no. 11, pp. 5205-5219, Nov. 2018.
+[48] G. Interdonato, P. Frenger, E. G. Larsson, "Scalability aspects of
+     cell-free massive MIMO," in Proc. IEEE ICC, May 2019, pp. 1-6.
+[R1] F. Rashid-Farrokhi, K. J. R. Liu, L. Tassiulas, "Transmit beamforming
+     and power control for cellular wireless systems," IEEE JSAC, vol. 16,
+     no. 8, pp. 1437-1450, Oct. 1998.
+[R2] H. Boche, M. Schubert, "Solution of the multiuser downlink beamforming
+     problem with individual SINR constraints," IEEE Trans. Inf. Theory,
+     vol. 50, no. 10, pp. 2373-2385, Oct. 2004.
+[R3] P. Viswanath, D. N. C. Tse, "Sum capacity of the vector Gaussian
+     broadcast channel and uplink-downlink duality," IEEE Trans. Inf.
+     Theory, vol. 49, no. 8, pp. 1912-1921, Aug. 2003.
+[R4] L. Miretti, R. L. G. Cavalcante, E. Bjornson, S. Stanczak, "UL-DL
+     duality for cell-free massive MIMO with per-AP power and information
+     constraints," IEEE Trans. Signal Process., vol. 72, 2024.

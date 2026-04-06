@@ -1,0 +1,372 @@
+================================================================================
+TECHNICAL AND HISTORICAL BACKGROUND RESEARCH
+for Section III: "Definition of Scalability and Review of the Original Form
+of Cell-Free Massive MIMO"
+Paper: "Scalable Cell-Free Massive MIMO Systems" -- Bjornson & Sanguinetti, 2020
+IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+================================================================================
+
+
+1. THE ORIGINAL CELL-FREE MASSIVE MIMO SYSTEM MODEL
+=======================================================
+
+The canonical Cell-Free Massive MIMO system was established by Ngo, Ashikhmin,
+Yang, Larsson, and Marzetta in their 2017 paper "Cell-Free Massive MIMO versus
+Small Cells" [IEEE Trans. Wireless Commun., vol. 16, no. 3, pp. 1834-1850,
+Mar. 2017]. The system model has the following defining characteristics:
+
+(a) Network Architecture: M single-antenna APs and K single-antenna UEs are
+    randomly distributed over a coverage area. ALL M APs coherently serve ALL
+    K UEs over the same time-frequency resource. A single CPU connects to every
+    AP via perfect (infinite-capacity, error-free) backhaul links. There is no
+    cell boundary -- hence "cell-free."
+
+(b) Channel Model: The channel between AP m and UE k is g_{mk} = beta_{mk}^{1/2}
+    * h_{mk}, where h_{mk} ~ CN(0,1) is i.i.d. small-scale Rayleigh fading
+    and beta_{mk} captures large-scale fading (pathloss + shadowing). The i.i.d.
+    assumption is justified because APs are spatially distributed with distinct
+    scattering environments.
+
+(c) TDD Protocol: Each coherence block is divided into three phases:
+    - Uplink pilot training (tau_p channel uses)
+    - Downlink data transmission
+    - Uplink data transmission
+    Channel reciprocity is exploited: UL channel estimates serve DL precoding.
+
+(d) UL Signal Processing: Each AP m locally computes the matched-filter output
+    g_hat*_{mk} * y_{u,m} and forwards this scalar to the CPU. The CPU
+    aggregates across all M APs:
+
+        r_{u,k} = sum_{m=1}^{M} g_hat*_{mk} * y_{u,m}
+
+    This is network-wide MR (matched filter) combining performed at a single
+    CPU. The CPU then decodes q_k from r_{u,k}.
+
+(e) DL Signal Processing: The m-th AP transmits:
+
+        x_m = sqrt(rho_d) * sum_{k=1}^{K} eta_{mk}^{1/2} * g_hat*_{mk} * q_k
+
+    This is conjugate beamforming (= MR precoding). Each AP must know ALL K
+    channel estimates and ALL K data symbols. A per-AP power constraint is
+    enforced: E{|x_m|^2} <= rho_d.
+
+(f) Closed-form SE Expressions: Ngo et al. derived exact closed-form achievable
+    rates for both UL and DL under finite M, K, and imperfect CSI with pilot
+    contamination. These are capacity lower bounds based on worst-case
+    uncorrelated additive noise (the "use-and-then-forget" bounding technique).
+
+    The DL achievable rate for UE k [Ngo et al., Theorem 1, Eq. (24)] is:
+
+        R^cf_{d,k} = log2(1 + SINR^dl_k)
+
+    where the numerator contains the squared magnitude of the mean beamforming
+    gain |sum_m eta_{mk}^{1/2} gamma_{mk}|^2 and the denominator contains
+    beamforming gain uncertainty, multi-user interference (with pilot
+    contamination terms scaled by |phi^H_{k'} phi_k|^2), and noise.
+
+    The UL rate [Ngo et al., Theorem 2, Eq. (27)] has an analogous structure
+    with gamma_{mk} = E{|g_hat_{mk}|^2} = sqrt(tau_p * rho_p) * beta_{mk} * c_{mk}
+    capturing the estimation quality.
+
+Key Limitation: Every AP must process signals for ALL K UEs. The computational
+complexity per AP scales as O(K), and the fronthaul load per AP also scales
+as O(K). This is the root of the scalability problem that Section III formalizes.
+
+Source: [1] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, and T. L. Marzetta,
+"Cell-Free Massive MIMO versus Small Cells," IEEE Trans. Wireless Commun.,
+vol. 16, no. 3, pp. 1834-1850, Mar. 2017.
+Source: [2] arxiv.org/abs/1602.08232
+
+
+2. SPECTRAL EFFICIENCY BOUNDS IN MASSIVE MIMO
+=================================================
+
+Two principal capacity bounding techniques are used in the Massive MIMO and
+Cell-Free Massive MIMO literature:
+
+(a) The Use-and-then-Forget (UatF) Bound:
+
+    Origin: The technique was introduced by Marzetta and refined in his 2010
+    seminal paper [T. L. Marzetta, "Noncooperative Cellular Wireless with
+    Unlimited Numbers of Base Station Antennas," IEEE Trans. Wireless Commun.,
+    vol. 9, no. 11, pp. 3590-3600, Nov. 2010] and formalized extensively in
+    the textbook by Marzetta, Larsson, Yang, and Ngo [Fundamentals of Massive
+    MIMO, Cambridge University Press, 2016].
+
+    Mechanism: After using the channel estimate h_hat to design the combining
+    vector v_k, the receiver "forgets" the estimate and treats the combined
+    signal as if it were received over a deterministic scalar channel equal to
+    the mean effective channel gain E{v_k^H * h_k}. All remaining terms --
+    beamforming uncertainty, interference, noise -- are lumped into an
+    uncorrelated effective noise whose variance is computed from second-order
+    statistics. Since uncorrelated Gaussian noise is the worst-case noise for
+    a given variance, this yields a rigorous lower bound on the ergodic
+    capacity. Formally, for the UL of UE k:
+
+        SE^ul_k = (tau_u / tau_c) * log2(1 + SINR_k)
+
+    where
+
+        SINR_k = |E{v_k^H h_k}|^2 / (sum_{i=1}^{K} E{|v_k^H h_i|^2}
+                  - |E{v_k^H h_k}|^2 + sigma^2 E{||v_k||^2})
+
+    The numerator is the squared mean of the desired channel (deterministic).
+    The denominator contains the total variance of the received signal minus
+    the deterministic part.
+
+    Name Rationale: The channel estimate is "used" to design v_k, and then
+    "forgotten" -- the decoder treats E{v_k^H h_k} as the known channel gain
+    and the remainder as worst-case noise.
+
+    Analytical Tractability: The key advantage is that for MR combining
+    (v_k = h_hat_k) with i.i.d. Rayleigh fading and MMSE estimation, all
+    expectations decompose into products of scalar statistics (gamma_{mk},
+    beta_{mk}, c_{mk}), yielding the closed-form expressions in Ngo et al.
+    Theorems 1 and 2.
+
+(b) The Hardening Bound (for Downlink):
+
+    In the DL, UEs typically lack CSI (no DL pilots in canonical TDD Massive
+    MIMO). The "hardening bound" exploits channel hardening: when M is large,
+    the effective channel gain h_k^H w_k concentrates around its mean
+    E{h_k^H w_k}. The UE uses this deterministic mean as its effective channel.
+
+    The DL SE for UE k under the hardening bound is:
+
+        SE^dl_k = (tau_d / tau_c) * log2(1 + SINR^dl_k)
+
+    where
+
+        SINR^dl_k = |E{h_k^H w_k}|^2 / (sum_{i=1}^{K} E{|h_k^H w_i|^2}
+                     - |E{h_k^H w_k}|^2 + sigma^2)
+
+    This bound is tight when channel hardening holds well (i.e.,
+    Var{h_k^H w_k} / |E{h_k^H w_k}|^2 is small), which happens with many
+    co-located antennas. In Cell-Free Massive MIMO, each AP has few antennas,
+    so channel hardening may be weak and the hardening bound becomes loose.
+    This motivated the development of tighter bounds in later work (Theorem
+    4.1 vs. Theorem 4.4 in the Bjornson-Hoydis-Sanguinetti monograph).
+
+(c) Relationship to Ergodic Capacity:
+
+    Both bounds are lower bounds on the ergodic capacity C = E{log2(1 + SINR)}.
+    They arise from applying the capacity of the worst-case noise channel
+    (Gaussian noise with matching second-order statistics). The UatF bound is
+    equivalent to Theorem 4.4 in the monograph; the tighter bound based on
+    conditional expectations (Theorem 4.1) does not require hardening but
+    needs Monte Carlo evaluation. When hardening is strong, Theorems 4.1 and
+    4.4 nearly coincide; when hardening is weak (as in distributed CF-mMIMO),
+    Theorem 4.1 can be substantially tighter [see Figure 4.11 of the monograph].
+
+Source: [3] E. Bjornson, J. Hoydis, and L. Sanguinetti, "Massive MIMO Networks:
+Spectral, Energy, and Hardware Efficiency," Foundations and Trends in Signal
+Processing, vol. 11, no. 3-4, pp. 154-655, 2017.
+Source: [4] T. L. Marzetta, "Noncooperative Cellular Wireless with Unlimited
+Numbers of Base Station Antennas," IEEE Trans. Wireless Commun., vol. 9,
+no. 11, pp. 3590-3600, Nov. 2010.
+Source: [5] T. L. Marzetta, E. G. Larsson, H. Yang, and H. Q. Ngo, Fundamentals
+of Massive MIMO, Cambridge University Press, 2016.
+
+
+3. MR (MAXIMUM RATIO) COMBINING AND PRECODING
+=================================================
+
+(a) Definition and Aliases:
+    - UL: MR combining sets v_{kl} = h_hat_{kl} (the MMSE channel estimate).
+      Equivalently called "matched filtering" because it maximizes SNR for a
+      single-user channel.
+    - DL: MR precoding (= conjugate beamforming) sets w_{kl} proportional to
+      h_hat*_{kl}. This is the conjugate of the channel estimate, hence
+      "conjugate beamforming."
+    - Both are the same operation: correlate with the estimated channel.
+
+(b) Why MR Was the Default in Early Cell-Free Papers:
+    - MR requires only LOCAL CSI: AP l needs only its own channel estimates
+      {h_hat_{kl}}, not the channels at other APs. This avoids CSI sharing
+      over backhaul/fronthaul.
+    - MR has the lowest computational complexity among linear methods: O(N)
+      per UE per AP (a single inner product), versus O(N^2) or O(N^3) for
+      MMSE-type methods that require matrix inversions.
+    - MR yields closed-form SE expressions under i.i.d. Rayleigh fading +
+      MMSE estimation (as in Ngo et al. Theorems 1-2), enabling tractable
+      analysis and power control optimization.
+    - Historical precedent: MR was the processing scheme in Marzetta's 2010
+      paper that launched the Massive MIMO field, establishing it as the
+      canonical baseline.
+
+(c) Limitations:
+    - MR maximizes signal power but IGNORES interference. In multi-user
+      settings, interference can dominate, especially when users share pilots
+      (pilot contamination) or when the number of users is comparable to the
+      number of antennas.
+    - MR does not suppress inter-user interference; its SINR saturates as
+      SNR grows (interference-limited regime). MMSE combining, by contrast,
+      jointly suppresses interference and noise, achieving near-optimal
+      performance.
+    - In CF-mMIMO, Bjornson and Sanguinetti [2020, and earlier in Bjornson,
+      Sanguinetti, Hoydis, and Debbah, "Making Cell-Free Massive MIMO
+      Competitive With MMSE Processing and Centralized Implementation,"
+      IEEE Trans. Wireless Commun., 2020] showed that replacing MR with
+      local MMSE (L-MMSE) combining at each AP can provide 2-3x SE
+      improvement over MR, with only moderately higher complexity.
+
+Source: [6] E. Bjornson, L. Sanguinetti, H. Wymeersch, J. Hoydis, and T. L.
+Marzetta, "Massive MIMO is a Reality -- What is Next?" Digital Signal
+Processing, vol. 94, pp. 3-20, Nov. 2019.
+
+
+4. THE CONCEPT OF SCALABILITY IN CELL-FREE MASSIVE MIMO
+=========================================================
+
+(a) Scalability in Computer Science vs. Wireless Networks:
+    In computer science, a system is scalable if performance does not degrade
+    (or degrades gracefully) as the system size grows. More precisely, per-node
+    resource consumption (computation, memory, communication) must remain
+    bounded as the number of nodes increases. In wireless networks, the
+    analogous requirement is that per-AP and per-UE resource consumption
+    remains finite as the network size (L APs, K UEs) grows without bound.
+
+(b) Previous Work on Scalability of Cooperative Systems:
+    The scalability problem was recognized in the Network MIMO literature.
+    Bjornson, Jalden, Bengtsson, and Ottersten [2011, "Optimality Properties,
+    Distributed Strategies, and Measurement-Based Evaluation of Coordinated
+    Multicell OFDMA Transmission," IEEE Trans. Signal Process.] showed that
+    network-wide joint processing requires O(K) complexity per AP. The dynamic
+    cooperation clustering (DCC) framework, formalized by Bjornson, Kountouris,
+    and Debbah [2013, "Massive MIMO and Small Cells: Improving Energy
+    Efficiency by Optimal Soft-Cell Coordination," Proc. ICT] and extensively
+    in Bjornson, Jalden, Bengtsson, and Ottersten [2013], proposed that each
+    UE is served by only a subset of nearby APs. This limits per-AP complexity
+    to O(|D_l|), where |D_l| is the number of UEs associated with AP l --
+    a constant independent of K.
+
+(c) The Four Scalability Criteria (Definition 1 in Section III-B):
+    Bjornson and Sanguinetti define scalability by letting K -> infinity and
+    checking whether each of the following tasks remains implementable with
+    FINITE per-AP complexity:
+
+    1) Channel Estimation: AP l must estimate channels only for the UEs it
+       serves, not all K UEs. In the original CF-mMIMO, AP l computes
+       {h_hat_{kl} : k = 1,...,K} -- complexity O(K).
+
+    2) Signal Processing (combining/precoding): AP l must compute combining
+       vectors v_{kl} or precoding vectors w_{kl} only for its served UEs,
+       and the transmitted signal sum_{k in D_l} w_{kl} s_k must have a
+       bounded number of terms. In original CF-mMIMO, the sum runs over
+       all K UEs -- complexity O(K).
+
+    3) Fronthaul Signaling: AP l must exchange data symbols and CSI-related
+       information only for |D_l| UEs, not K UEs. In original CF-mMIMO,
+       each AP forwards K scalars in the UL and receives K data symbols in
+       the DL -- fronthaul load O(K).
+
+    4) Power Control Optimization: The optimization algorithm must have
+       per-AP complexity independent of K. Network-wide max-min or
+       sum-rate optimization over all K UEs has complexity growing
+       polynomially (or worse) in K -- unscalable.
+
+(d) Why O(K) Per-AP Complexity is Unacceptable:
+    In a practical deployment, K may range from hundreds to millions of UEs
+    across a metropolitan area. If each AP must track, estimate, and
+    beamform toward every UE, the per-AP hardware (memory, processing,
+    fronthaul capacity) must scale with K -- this makes the network
+    economically and technically infeasible for large-scale deployment.
+    The DCC solution (Lemma 1 in Section IV-B) proves that if |D_l| is
+    constant as K -> infinity, the first three criteria are satisfied. The
+    fourth is addressed by using distributed/heuristic power control (e.g.,
+    equal power allocation, fractional power control) rather than
+    network-wide optimization.
+
+Source: [7] E. Bjornson and L. Sanguinetti, "Scalable Cell-Free Massive MIMO
+Systems," IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+Source: [8] E. Bjornson, N. Jalden, M. Bengtsson, and B. Ottersten, "Optimality
+Properties, Distributed Strategies, and Measurement-Based Evaluation of
+Coordinated Multicell OFDMA Transmission," IEEE Trans. Signal Process.,
+vol. 59, no. 12, pp. 6086-6101, Dec. 2011.
+
+
+5. POWER CONSTRAINTS IN CELL-FREE VS. CELLULAR SYSTEMS
+=========================================================
+
+(a) Per-AP Power Constraints:
+    In Cell-Free Massive MIMO, each AP has its own power amplifier with a
+    finite power budget. The DL power constraint is applied per-AP:
+
+        E{||x_l||^2} <= rho_l,   for l = 1,...,L
+
+    where x_l = sum_{k in D_l} w_{kl} s_k is the transmitted signal from AP l.
+    This means the precoding vectors at each AP are coupled: increasing the
+    power to one UE forces a reduction for others served by the same AP. In
+    the Ngo et al. formulation with MR precoding, this becomes:
+
+        sum_{k=1}^{K} eta_{mk} * gamma_{mk} <= 1,   for all m
+
+    where eta_{mk} is the power control coefficient and gamma_{mk} = E{|g_hat_{mk}|^2}.
+
+(b) Contrast with Cellular Systems:
+    In co-located Massive MIMO, a single BS has a total power constraint
+    summed across all its antennas: E{||x||^2} <= P_total. This is effectively
+    a single constraint. Per-antenna constraints in co-located arrays can be
+    relaxed to a sum-power constraint with negligible loss when the array is
+    large (due to channel hardening of the total transmit power).
+
+    In Cell-Free systems, there are L separate per-AP constraints. Each is
+    strict (short-term, not long-term average) because a single AP with few
+    antennas does NOT exhibit sufficient channel hardening to justify a
+    long-term relaxation. Miretti and Stanczak [IEEE Trans. Signal Process.,
+    2023] formalized this through UL-DL duality under per-AP constraints.
+
+(c) Why DL Power Allocation is More Complex:
+    - Multiple coupled constraints: The K x L power allocation variables
+      {eta_{mk}} must jointly satisfy L per-AP constraints. This is far more
+      constrained than the single sum-power constraint in cellular systems.
+    - Network-wide optimization: Max-min fairness or sum-SE maximization
+      requires solving a problem whose dimension grows as O(KL). The
+      bisection-based algorithms in Ngo et al. [2017] and the SOC-based
+      methods in Ngo, Tran, Duong, Matthaiou, and Larsson [2017] have
+      polynomial complexity in K and L -- not scalable.
+    - Per-AP constraints create coupling between UEs: power allocated to UE k
+      at AP l affects the budget available for all other UEs served by AP l.
+      This inter-UE coupling does not exist in cellular systems where each BS
+      independently serves its own cell users.
+    - Scalable alternatives: Equal power allocation (rho_k = rho_max / |D_l|),
+      large-scale fading-based heuristics, and fractional power control have
+      O(1) per-AP complexity and are used in the scalable framework.
+
+Source: [9] L. Miretti and S. Stanczak, "UL-DL Duality for Cell-Free Massive
+MIMO with Per-AP Power and Information Constraints," IEEE Trans. Signal
+Process., 2023.
+Source: [10] O. T. Demir, E. Bjornson, and L. Sanguinetti, "Foundations of
+User-Centric Cell-Free Massive MIMO," Foundations and Trends in Signal
+Processing, vol. 14, no. 3-4, pp. 162-472, 2021.
+
+
+================================================================================
+SUMMARY OF KEY TAKEAWAYS FOR SECTION III
+================================================================================
+
+1. The original Cell-Free Massive MIMO (Ngo et al., 2017) is an idealized
+   system where ALL APs serve ALL UEs via MR processing through a single CPU
+   with infinite-capacity backhaul. This provides an upper bound on cooperative
+   gains but is fundamentally unscalable.
+
+2. The SE expressions use the UatF capacity bounding technique (originating
+   from Marzetta 2010/2016), which "forgets" the channel estimate after
+   combining vector design and treats the effective channel as deterministic.
+   The DL hardening bound further assumes the UE uses only the mean effective
+   channel gain. Both are rigorous lower bounds on ergodic capacity.
+
+3. MR combining/precoding is analytically elegant but ignores interference,
+   making it the simplest but weakest linear processing option. Its dominance
+   in early CF-mMIMO papers was driven by tractability, not optimality.
+
+4. Scalability is formally defined via four criteria (estimation, processing,
+   fronthaul, power control), all of which must have O(1) per-AP complexity
+   as K -> infinity. The original CF-mMIMO fails all four, motivating the
+   DCC-based user-centric framework proposed in the rest of the paper.
+
+5. Per-AP power constraints in CF-mMIMO create inter-UE coupling absent in
+   cellular systems, making DL power control inherently harder and requiring
+   distributed/heuristic algorithms for scalability.
+
+================================================================================

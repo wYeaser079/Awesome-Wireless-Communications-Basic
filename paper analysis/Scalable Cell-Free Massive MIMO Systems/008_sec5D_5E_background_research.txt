@@ -1,0 +1,207 @@
+================================================================================
+TECHNICAL AND HISTORICAL BACKGROUND RESEARCH
+for Sections V-D (Power Allocation) and V-E (Network Topology)
+Paper: "Scalable Cell-Free Massive MIMO Systems" -- Bjornson & Sanguinetti, 2020
+IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+================================================================================
+
+
+1. UPLINK POWER CONTROL IN CELL-FREE MASSIVE MIMO
+===================================================
+
+Full power transmission (p_i = P for all i) is the simplest strategy: every
+UE transmits at maximum power regardless of channel conditions.  Bjornson
+and Sanguinetti [7] (IEEE Trans. Wireless Commun., vol. 19, no. 2, 2020)
+showed this is "good for both strong and weak UEs" in cell-free systems
+because, unlike cellular networks, macro-diversity from many distributed
+APs eliminates the near-far effect.  Strong UEs are heard by many APs;
+weak UEs are heard by fewer APs but still benefit from full power reaching
+those closest APs.  Full power is therefore a reasonable default when the
+primary concern is simplicity rather than strict fairness.
+
+Max-min fairness power control aims to maximize the minimum SE across all
+UEs, producing uniform service quality.  Ngo et al. [5] (IEEE Trans.
+Commun., vol. 65, no. 4, 2017) formulated this for cell-free massive MIMO
+as a quasi-concave optimization solved via bisection: at each step an SOCP
+feasibility problem is checked.  Bashar et al. [31] (IEEE Trans. Commun.,
+vol. 67, no. 10, 2019) extended max-min to include fronthaul quantization
+constraints, solving the problem via geometric programming (GP) combined
+with an iterative receiver-filter / power-allocation decomposition.
+
+Fractional power control was introduced to cell-free systems by Nikbakht
+and Lozano [34] (Proc. IEEE ICC, 2019).  It generalizes the cellular
+fractional power control policy p_i = P * (f(beta_i))^alpha, where
+beta_i is a large-scale fading measure and alpha in [0, 1] is a single
+control parameter.  At alpha = 0 all UEs use full power; at alpha = 1 full
+channel inversion is recovered.  The scheme relies only on large-scale
+statistics, is fully distributed, and provides a smooth trade-off between
+average SE and fairness.
+
+Why network-wide UL power optimization is unscalable.  Max-min SINR via
+bisection + SOCP has complexity growing in the total number of UEs K and
+APs L; all UEs and APs must be jointly considered.  Every new UE added to
+the network changes the global feasibility problem.  Fractional or full
+power control is computed per-UE using only local statistics, satisfying
+the scalability definition in [1, Def. 2].
+
+
+2. DOWNLINK POWER ALLOCATION
+==============================
+
+Per-AP constraints.  Each AP l has maximum DL power rho, yielding L
+independent constraints rather than one global sum-power constraint.
+
+Equal power allocation: rho_i = rho / tau_p for all UEs i.  Because each
+AP serves at most tau_p pilot-sharing groups (Assumption 1 in [1]) and the
+precoding vectors w_{il} are unit-normalized (Eq. 33 in [1]), the power
+consumed at AP l is sum_{i in D_l} rho_i E{ ||w_{il}||^2 } <= tau_p *
+(rho / tau_p) * 1 = rho.  Every AP automatically satisfies its constraint
+regardless of the channel realization.  This is the simplest scalable DL
+power rule.
+
+Fractional allocation from Interdonato et al. [33] (Proc. IEEE ICC, 2019):
+
+  rho_{kl} = rho * sqrt(beta_{kl}) / sum_{i in D_l} sqrt(beta_{il})
+
+The numerator weights UE k proportional to sqrt(beta_{kl}), so UEs with
+stronger large-scale fading to AP l receive more power from that AP.  The
+denominator normalizes so that AP l's total power equals rho.  This is a
+locally-computed heuristic: each AP only needs its own large-scale fading
+coefficients, making it scalable.
+
+Comparison with water-filling.  Classical water-filling allocates power
+inversely proportional to channel quality -- pouring more power into weaker
+sub-channels until all reach the same level.  The fractional allocation
+does the opposite: it gives more power to stronger channels at each AP.
+The rationale is that in a multi-UE multi-AP DL setting, each AP should
+concentrate its limited budget on UEs it can most effectively serve rather
+than wasting power on distant UEs.  This is closer to "inverse water-
+filling" or matched-filter power loading.
+
+Network-wide DL power optimization.  Ngo et al. [5], Nayebi et al. [6]
+(IEEE Trans. Wireless Commun., vol. 16, no. 10, 2017), and Bjornson and
+Sanguinetti [10] (Proc. Asilomar, 2019) all formulated global DL power
+optimization, typically max-min or max-sum-SE, involving all L per-AP
+constraints jointly.  These require centralized knowledge of all channels
+and yield problems whose dimension scales with L * K -- unscalable by the
+paper's definition.  Dual decomposition [10, Sec. 4.3] partially
+distributes the computation but still requires iterative message-passing
+across all APs and a global dual variable update, making it impractical
+at scale.
+
+
+3. NETWORK TOPOLOGY OPTIONS
+=============================
+
+Star topology.  The original cell-free massive MIMO formulation [5] assumed
+all L APs connected to a single CPU via dedicated fronthaul links.  This
+is the simplest logical architecture but creates a single point of failure
+and a fronthaul bottleneck that scales as O(L).
+
+Multiple CPUs / edge-cloud processors.  APs are partitioned into groups,
+each connected to one of several edge CPUs.  This mirrors the Cloud-RAN
+(C-RAN) architecture studied by China Mobile Research Institute (C-I et
+al. [55], IEEE Commun. Mag., vol. 52, no. 2, 2014) and surveyed by Peng
+et al. [56] (IEEE Wireless Commun., vol. 22, no. 6, 2015), where Remote
+Radio Heads (RRHs) connect to a centralized Baseband Unit (BBU) pool.
+The key difference is that C-RAN retains cell boundaries while cell-free
+systems do not.  Multiple CPUs reduce per-link fronthaul load but
+introduce inter-CPU coordination overhead for UEs served by APs in
+different groups.
+
+Local processing at each AP.  Each AP acts as its own processor: it
+estimates channels locally, computes combining/precoding locally, and
+decodes data locally.  This is the classic cellular base station model
+repurposed for a dense small-cell deployment.  No fronthaul is needed for
+data processing, but inter-AP cooperation (the defining feature of cell-
+free) is forfeited unless APs exchange information over backhaul.
+
+Master AP as CPU.  The paper [1] introduces a key insight: for each UE k,
+the "Master AP" (the AP with the strongest large-scale fading to UE k,
+denoted m_k) performs the CPU tasks for that UE.  This includes final
+signal combining (UL), power coefficient selection (DL), and SE
+computation.  The Master AP aggregates partial local estimates from other
+serving APs via the fronthaul, but only from those in UE k's DCC --
+not from all APs.  Different UEs may have different Master APs, fully
+distributing the CPU role across the network.
+
+The pCell architecture.  Artemis Networks' pCell system [21] (Forenza et
+al., Proc. Asilomar, 2015) is a commercial implementation of distributed
+MIMO.  It uses software-defined radios as distributed APs connected to a
+centralized cloud processor that jointly computes precoding across all
+APs, creating a personal cell (pCell) for each UE.  pCell demonstrated
+real-time cooperative transmission over commodity hardware, validating the
+cell-free concept, but its centralized design corresponds to a single-CPU
+star topology -- not scalable by the criteria in [1].
+
+The CPU as a "set of tasks."  Section V-E in [1] redefines the CPU not as
+a physical box but as a collection of processing tasks: final combining,
+power allocation, SE computation, handover decisions.  These tasks can be
+distributed arbitrarily across the network infrastructure.  Any physical
+node -- a dedicated server, an edge processor, or even an AP itself --
+can execute CPU tasks for a subset of UEs.  This abstraction decouples the
+logical architecture from the physical deployment and is essential for
+scalability: adding UEs or APs redistributes tasks without redesigning
+the network topology.
+
+
+4. SCALABLE VS. UNSCALABLE POWER CONTROL ALGORITHMS
+=====================================================
+
+Unscalable algorithms:
+  - Max-min SINR: bisection + SOCP, O(K^3.5) per iteration [5]
+  - Sum-SE maximization: non-convex, typically solved via SCA or WMMSE
+    with complexity coupling all K UEs and L APs
+  - Weighted MMSE (WMMSE): iterates between MMSE filters and power
+    updates over the full network [10]
+
+Scalable heuristics:
+  - Full UL power (p_i = P): zero computational cost
+  - Equal DL power (rho_i = rho / tau_p): zero computational cost
+  - Fractional power control [34]: per-UE computation using local stats
+  - Fractional DL allocation [33]: per-AP computation using local stats
+
+The paper's philosophy.  Any heuristic power rule -- however simple -- is
+acceptable as long as it can be embedded in the DCC framework without
+violating the scalability definition (Def. 2 in [1]).  The key requirement
+is that each AP and each UE can compute its power coefficients using only
+information from its own DCC, not from the entire network.  Optimality is
+explicitly sacrificed for scalability; the SE loss is compensated by the
+gains from LP-MMSE combining/precoding and well-designed DCCs.
+
+
+REFERENCES
+==========
+[1]  E. Bjornson, L. Sanguinetti, "Scalable cell-free massive MIMO systems,"
+     IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+[5]  H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-free massive MIMO versus small cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834-1850, Mar. 2017.
+[6]  E. Nayebi, A. Ashikhmin, T. L. Marzetta, H. Yang, B. D. Rao,
+     "Precoding and power optimization in cell-free massive MIMO systems,"
+     IEEE Trans. Wireless Commun., vol. 16, no. 10, pp. 4940-4955, 2017.
+[7]  E. Bjornson, L. Sanguinetti, "Making cell-free massive MIMO competitive
+     with MMSE processing and centralized implementation," IEEE Trans.
+     Wireless Commun., vol. 19, no. 2, pp. 77-90, Feb. 2020.
+[10] E. Bjornson, L. Sanguinetti, "Cell-free versus cellular massive MIMO:
+     What processing is needed for cell-free to win?" in Proc. IEEE Asilomar,
+     Nov. 2019, pp. 603-607.
+[21] A. Forenza, S. Perlman, F. Saibi, M. Di Stasio, R. Tao, M. Shariat,
+     "Achieving large multiplexing gain in distributed antenna systems via
+     cooperation with pCell technology," in Proc. IEEE Asilomar, 2015.
+[31] M. Bashar, K. Cumanan, A. G. Burr, H. Q. Ngo, M. Debbah, P. Xiao,
+     "Max-min rate of cell-free massive MIMO uplink with optimal uniform
+     quantization," IEEE Trans. Commun., vol. 67, no. 10, pp. 6796-6815,
+     Oct. 2019.
+[33] G. Interdonato, P. Frenger, E. G. Larsson, "Scalability aspects of
+     cell-free massive MIMO," in Proc. IEEE ICC, May 2019, pp. 1-6.
+[34] R. Nikbakht, A. Lozano, "Uplink fractional power control for cell-free
+     wireless networks," in Proc. IEEE ICC, May 2019, pp. 1-5.
+[55] C. Mobile, "C-RAN: The road towards green RAN," China Mobile Research
+     Institute White Paper, ver. 3.0, 2014.  (Also: I. Chih-Lin et al.,
+     "Recent progress on C-RAN centralization and cloudification," IEEE
+     Access, vol. 2, pp. 1030-1039, 2014.)
+[56] M. Peng, Y. Sun, X. Li, Z. Mao, C. Wang, "Recent advances in cloud
+     radio access networks: System architectures, key techniques, and open
+     issues," IEEE Commun. Surveys Tuts., vol. 18, no. 3, pp. 2282-2308,
+     3rd Quart. 2016.

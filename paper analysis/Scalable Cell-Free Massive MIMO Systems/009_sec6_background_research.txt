@@ -1,0 +1,187 @@
+================================================================================
+TECHNICAL AND HISTORICAL BACKGROUND RESEARCH
+for Section VI (Numerical Analysis)
+Paper: "Scalable Cell-Free Massive MIMO Systems" -- Bjornson & Sanguinetti, 2020
+IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+================================================================================
+
+
+1. SIMULATION SETUP AND METHODOLOGY
+====================================
+
+The evaluation uses a 2x2 km square area with wrap-around, a standard
+technique in cellular and cell-free simulations to approximate an infinitely
+large network and eliminate boundary effects [5], [7].  Without wrap-around,
+UEs at the edge of the simulated area would see fewer APs, creating an
+artificial performance imbalance unrelated to the protocol under test.
+
+Two deployment configurations share the same total antenna budget (M=400):
+
+  (i)  L=400 APs, N=1 antenna each  -- dense single-antenna deployment
+  (ii) L=100 APs, N=4 antennas each -- sparser multi-antenna deployment
+
+Both yield 100 antennas/km^2 alongside K=100 UEs (25 UEs/km^2).  The
+propagation model follows [2, Sec. 4.1.3], which includes three-slope
+pathloss, log-normal shadow fading with spatial correlation, and spatially
+correlated Rayleigh fading generated from local scattering around each AP.
+APs are elevated 10 m above UEs, establishing a natural minimum distance
+that prevents singularities in the pathloss model.
+
+Key parameters: coherence block tau_c=200 symbols, pilot length tau_p=10,
+UL transmit power p_k=100 mW, DL AP power rho=1 W, bandwidth 20 MHz.
+For UL evaluation tau_u=190 data symbols are used; for DL tau_d=190.
+Results are averaged over 25 Monte Carlo network layouts with 1000 channel
+realizations each, producing statistically reliable CDFs.
+
+
+2. CDF ANALYSIS IN WIRELESS SYSTEM EVALUATION
+==============================================
+
+The cumulative distribution function (CDF) of per-UE spectral efficiency
+(SE) is the standard tool for comparing schemes in cell-free massive MIMO
+[5], [7].  Each realization of UE and AP positions produces one SE value per
+UE; plotting the empirical CDF over all UEs and layouts reveals the full
+performance distribution.
+
+Two summary statistics are extracted from each CDF:
+
+  -- 95%-likely SE (5th percentile): the SE exceeded by 95% of UEs.  This
+     metric captures the experience of the weakest users and is the primary
+     fairness indicator.  Cell-free massive MIMO was proposed precisely to
+     improve this metric relative to cellular networks [5].
+
+  -- Average (median) SE: represents typical system throughput.  A scheme
+     may have a high median but a poor 5th percentile if it favors strong
+     UEs at the expense of weak ones.
+
+When reading CDF plots: a rightward shift of the entire curve signals
+uniformly better performance; a steeper CDF indicates more uniform service
+across UEs; a curve with a long left tail reveals poor fairness with some
+UEs experiencing very low SE.
+
+
+3. UPLINK RESULTS (FIG. 5)
+===========================
+
+Section VI-A compares two scalable schemes (P-MMSE centralized, LP-MMSE
+distributed) against three non-scalable "(All)" benchmarks where every AP
+serves every UE: optimal MMSE combining from [7],[30], distributed L-MMSE
+from [7], and conventional MR from the original cell-free paper [5].
+
+Key quantitative findings:
+
+  (a) Scalable P-MMSE achieves 89% of the average SE of optimal MMSE (All).
+      The 11% loss arises from two sources: limiting the number of APs per
+      UE (dynamic cooperation clusters) and using the scalable, suboptimal
+      cluster formation algorithm from Section V-A.  The loss is small
+      because the few nearest APs capture the vast majority of received
+      power for each UE, and these are precisely the APs selected by the
+      clustering algorithm.
+
+  (b) Distributed LP-MMSE average SE is 2.7x higher than MR.  This is a
+      central result: MMSE-type processing is essential even in distributed
+      cell-free operation, contradicting the early literature [5] that
+      advocated MR for its simplicity.
+
+  (c) LP-MMSE vs L-MMSE (All): negligible performance gap.  The scalable
+      LP-MMSE, which only uses local CSI at each AP, matches the unscalable
+      L-MMSE that requires global pilot-sharing information.  This validates
+      the scalability framework.
+
+  (d) Comparing L=400,N=1 with L=100,N=4: single-antenna APs are preferable
+      overall.  UEs with the lowest SEs benefit the most from having many
+      distributed APs (greater macro-diversity), while the strongest UEs
+      achieve roughly the same SE with fewer multi-antenna APs thanks to
+      more capable local interference suppression at each AP.
+
+
+4. DOWNLINK RESULTS (FIG. 6)
+==============================
+
+Section VI-B focuses on two phenomena: interference-limited operation and
+tightness of the capacity lower bounds (the hardening bound from
+Proposition 3).
+
+Key quantitative findings:
+
+  (a) Interference-limited regime.  The distributed precoding schemes (MR
+      and LP-MMSE) collectively use 40x more total transmit power than the
+      centralized P-MMSE scheme, yet still achieve lower SE.  The reason:
+      the cell-free DL is interference-limited, so raw power is far less
+      valuable than spatial interference mitigation enabled by centralized
+      precoding.  Adding more power simply raises both signal and
+      interference proportionally.
+
+  (b) Centralized P-MMSE substantially outperforms distributed LP-MMSE,
+      particularly for L=400,N=1 (Fig. 6a).  The gap shrinks with N=4
+      (Fig. 6b) because each multi-antenna AP can locally suppress
+      interference toward unintended UEs, partially compensating for the
+      lack of centralized coordination.
+
+  (c) Among distributed schemes, LP-MMSE outperforms MR for 95% of UEs.
+      The remaining 5% (the weakest UEs) see comparable SE under both
+      schemes.
+
+  (d) Hardening bound tightness, verified via a genie-aided case where UEs
+      have perfect CSI:
+        -- P-MMSE:  98% of genie-aided SE (excellent hardening)
+        -- LP-MMSE: 90% of genie-aided SE (good hardening)
+        -- MR:      60% of genie-aided SE (poor hardening)
+
+      The 60% figure for MR confirms the limited channel hardening observed
+      by Chen and Bjornson [47] and motivates using LP-MMSE precoding, for
+      which the hardening-based capacity bound is tight, instead of
+      resorting to costly DL pilot transmission.
+
+
+5. MANY SINGLE-ANTENNA APs vs FEWER MULTI-ANTENNA APs
+=======================================================
+
+The comparison of L=400,N=1 versus L=100,N=4 (same total M=400 antennas)
+reveals a fundamental tradeoff in cell-free deployment:
+
+  -- Macro-diversity advantage (favors many APs, N=1):  With 400 APs the
+     average distance between any UE and its nearest AP is much smaller.
+     Weak UEs -- those in coverage holes or far from any AP cluster --
+     benefit enormously because at least a few APs are always nearby.
+     This drives up the 95%-likely (5th percentile) SE.
+
+  -- Local interference suppression advantage (favors fewer APs, N=4):
+     Multi-antenna APs can form local spatial nulls, suppressing
+     interference to/from nearby UEs without centralized coordination.
+     Strong UEs, already close to an AP, benefit from this cleaner
+     interference environment.  The DL performance gap between centralized
+     and distributed processing also shrinks with N=4.
+
+  -- General recommendation: For deployments prioritizing uniform coverage
+     and fairness (the defining promise of cell-free massive MIMO), many
+     distributed single-antenna APs are preferable.  When the deployment
+     must also support high peak rates for well-positioned UEs, or when
+     centralized processing is unavailable, fewer multi-antenna APs offer
+     a practical compromise by enabling local interference management.
+
+This tradeoff is consistent with the broader massive MIMO literature:
+Bjornson et al. [2] showed that distributing antennas improves the weakest
+users' rates via macro-diversity, while co-located arrays excel at spatial
+multiplexing for users already in favorable positions.
+
+
+REFERENCES (as cited above, matching paper numbering)
+=====================================================
+[2]  E. Bjornson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+     Spectral, Energy, and Hardware Efficiency," Found. Trends Signal
+     Process., vol. 11, no. 3-4, 2017.
+[5]  H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834-1850, 2017.
+[7]  E. Bjornson, L. Sanguinetti, "Making Cell-Free Massive MIMO
+     Competitive With MMSE Processing and Centralized Implementation,"
+     IEEE Trans. Wireless Commun., vol. 19, no. 1, pp. 77-90, 2020.
+[30] E. Nayebi, A. Ashikhmin, T. L. Marzetta, B. D. Rao, "Performance
+     of Cell-Free Massive MIMO Systems With MMSE and LSFD Receivers,"
+     Asilomar Conf. Signals, Systems, Computers, 2016.
+[33] G. Interdonato, P. Frenger, E. G. Larsson, "Scalability Aspects of
+     Cell-Free Massive MIMO," IEEE ICC, 2019.
+[47] Z. Chen, E. Bjornson, "Channel Hardening and Favorable Propagation
+     in Cell-Free Massive MIMO With Stochastic Geometry," IEEE Trans.
+     Commun., vol. 17, no. 11, pp. 5205-5219, 2018.

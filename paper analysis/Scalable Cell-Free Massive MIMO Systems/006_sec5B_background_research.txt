@@ -1,0 +1,184 @@
+================================================================================
+TECHNICAL AND HISTORICAL BACKGROUND RESEARCH
+for Section V-B: "Uplink Data Transmission"
+Paper: "Scalable Cell-Free Massive MIMO Systems" -- Bjornson & Sanguinetti, 2020
+IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+================================================================================
+
+
+1. CENTRALIZED vs. DISTRIBUTED PROCESSING
+==========================================
+
+Bjornson and Sanguinetti [7] defined four cooperation levels for CF-mMIMO
+in "Making Cell-Free Massive MIMO Competitive" (IEEE Trans. Wireless
+Commun., 2020). The present paper focuses on the two most relevant:
+
+  Level 4 (Centralized):  Each AP l forwards its raw received pilot signals
+    {y^{pilot}_{tl}} and data signal y^{ul}_l to the CPU over the fronthaul.
+    The CPU performs all channel estimation and data detection jointly across
+    all L APs.  Fronthaul load per AP per coherence block: (tau_p + tau_u)N
+    complex scalars.  This is efficient when the coherence block tau_c is
+    large because the overhead of sending tau_p*N pilot samples is amortized
+    over many data symbols [7, Sec. III].
+
+  Level 3 (Distributed):  AP l locally estimates channels {hat{h}_{il} :
+    i in D_l} and computes per-UE soft estimates hat{s}_{kl} = v^H_{kl}
+    D_{kl} y^{ul}_l.  Only the scalar estimates {hat{s}_{kl} : k in D_l}
+    are forwarded.  Fronthaul load: tau_u |D_l| complex scalars per
+    coherence block, upper-bounded by tau_u * tau_p (Assumption 1).
+
+When is centralized better?  Level 4 enables joint MMSE combining across
+all AP antennas, which captures the full macro-diversity.  It dominates
+when tau_c is large (tau_u >> tau_p), making the pilot-forwarding cost
+negligible [7].  Level 4 also permits full MMSE or P-MMSE combining.
+
+When is distributed sufficient?  Level 3 is preferred when fronthaul
+capacity is limited or when each AP has enough antennas to suppress local
+interference via LP-MMSE.  It avoids sending raw pilot signals and scales
+naturally because per-AP signaling is bounded by tau_p [1, Table I].
+
+
+2. MMSE COMBINING AND THE GENERALIZED RAYLEIGH QUOTIENT
+=========================================================
+
+The instantaneous UL SINR for UE k with combining vector v_k is [1, Eq. 18]:
+
+  SINR^{(ul,1)}_k = p_k |v^H_k D_k hat{h}_k|^2 /
+    [ sum_{i != k} p_i |v^H_k D_k hat{h}_i|^2 + v^H_k Z_k v_k ]
+
+This is a generalized Rayleigh quotient of the form v^H a a^H v / v^H B v,
+where a = sqrt(p_k) D_k hat{h}_k and B = sum_{i != k} p_i D_k hat{h}_i
+hat{h}^H_i D_k + Z_k.  By [2, Lemma B.10], this ratio is maximized by
+v_k = B^{-1} a (or B^{dagger} a when B is singular), yielding
+
+  v^{MMSE}_k = p_k [ sum_i p_i D_k hat{h}_i hat{h}^H_i D_k + Z_k ]^{dagger}
+               D_k hat{h}_k.                                          (Eq. 20)
+
+This v_k simultaneously maximizes the instantaneous SINR and minimizes the
+conditional MSE = E{|s_k - hat{s}_k|^2 | {hat{h}_i}}, establishing the
+equivalence between SINR-optimal combining and Wiener filtering [2, Sec. 4.1].
+The result traces back to the classical Wiener filter and its MIMO extension
+via the matrix inversion lemma; see Verdu, "Multiuser Detection," Cambridge
+University Press, 1998, Ch. 5.
+
+Computational cost:  MMSE combining requires inverting a (N|M_k|) x (N|M_k|)
+matrix and computing K channel estimates at every AP serving UE k.  Both
+operations scale with K, making full MMSE unscalable (Table II in [1]).
+
+
+3. PARTIAL MMSE (P-MMSE) -- THE SCALABLE INNOVATION
+=====================================================
+
+Key insight from [30] (Interdonato et al., "Local Partial Zero-Forcing
+Precoding for Cell-Free Massive MIMO," IEEE Trans. Wireless Commun., 2020):
+interference at UE k is dominated by UEs whose serving clusters overlap
+with UE k's cluster.  UEs served by entirely disjoint AP sets contribute
+weakly because their signals are spatially separated.
+
+P-MMSE restricts the MMSE summation to the set [1, Eq. 22]:
+
+  P_k = { i : D_k D_i != 0_{LN} }
+
+i.e., UEs sharing at least one AP with UE k.  The P-MMSE combiner is:
+
+  v^{P-MMSE}_k = p_k [ sum_{i in P_k} p_i D_k hat{h}_i hat{h}^H_i D_k
+                 + Z'_k ]^{dagger} D_k hat{h}_k               (Eq. 23)
+
+Scalability guarantee:  |P_k| <= (tau_p - 1)|M_k| + 1.  Each AP serves at
+most tau_p UEs (Assumption 1), and |M_k| is the number of APs in UE k's
+cluster, which is bounded by design.  Hence |P_k| is bounded independent of
+K, and the matrix dimension N|M_k| x N|M_k| does not grow with K.
+
+Performance:  Simulations in [1, Fig. 3] show P-MMSE achieves 98% of full
+MMSE performance while having scalable complexity.  It vastly outperforms MR
+combining, particularly for cell-edge UEs where interference suppression is
+most needed.  P-MMSE coincides with MMSE when UE k is served by all APs.
+
+
+4. LOCAL P-MMSE (LP-MMSE) COMBINING
+=====================================
+
+In the distributed architecture (Level 3), AP l has access only to its local
+channel estimates {hat{h}_{il} : i in D_l}.  LP-MMSE combining [1, Eq. 29]:
+
+  v^{LP-MMSE}_{kl} = p_k [ sum_{i in D_l} p_i (hat{h}_{il} hat{h}^H_{il}
+                     + C_{il}) + sigma^2 I_N ]^{-1} hat{h}_{kl}
+
+Critical differences from L-MMSE in [7]:
+  - L-MMSE sums over ALL K UEs, requiring global CSI at each AP (unscalable).
+  - LP-MMSE sums only over D_l (at most tau_p UEs), using only local CSI.
+
+Complexity per AP:  LP-MMSE requires inverting an N x N matrix (not NL x NL),
+with cost O(N^3) per AP.  This is dramatically cheaper than centralized
+P-MMSE (O((N|M_k|)^3)).  For typical values N = 4, |M_k| = 10, the matrix
+dimension drops from 40 x 40 to 4 x 4.
+
+LP-MMSE vs. MR:  Even with single-antenna APs (N = 1), LP-MMSE provides
+interference-aware combining by weighting the local estimate according to
+inter-user interference statistics.  With N >= 4, LP-MMSE exploits spatial
+degrees of freedom to null dominant interferers locally, vastly outperforming
+MR [1, Fig. 3], [7, Fig. 4].
+
+
+5. THE USE-AND-THEN-FORGET (UatF) BOUND
+=========================================
+
+In distributed processing, the CPU receives only soft estimates hat{s}_k =
+sum_l hat{s}_{kl} without access to channel estimates.  The standard
+capacity bound from Proposition 1 (which conditions on {hat{h}_i}) is
+therefore inapplicable.  Instead, Proposition 2 applies the UatF technique.
+
+Formal construction:  The received signal after combining is decomposed as
+
+  hat{s}_k = E{v^H_k D_k h_k} * s_k  +  (effective noise)
+
+where the deterministic scalar E{v^H_k D_k h_k} acts as the "known" channel,
+and all remaining terms -- including the deviation v^H_k D_k h_k - E{v^H_k
+D_k h_k} -- are lumped into worst-case uncorrelated Gaussian noise.  This
+yields the SE in (27)-(28) with SINR expressed entirely in terms of
+expectations over channel realizations [2, Th. 4.4].
+
+When is UatF tight?
+  - Strong channel hardening:  When NL is large, v^H_k D_k h_k concentrates
+    around its mean, so the "forgotten" information is small.  The gap
+    between UatF and the genie bound (Proposition 1) becomes negligible.
+  - Co-located massive MIMO with M >> K antennas exhibits strong hardening
+    [2, Sec. 2.4], making UatF nearly exact.
+
+When is UatF loose?
+  - Few antennas per AP (N = 1 or 2):  The product v^H_k D_k h_k fluctuates
+    significantly around its mean, and treating this fluctuation as noise is
+    pessimistic.  Chen and Bjornson (IEEE Trans. Commun., 2021) showed UatF
+    can underestimate rates by 0.5-1.0 bit/s/Hz in such regimes.
+  - Weak channel hardening:  Cell-free deployments with spatially distributed
+    single-antenna APs exhibit limited hardening [45] (Chen and Bjornson,
+    "Channel Hardening and Favorable Propagation in Cell-Free Massive MIMO
+    with Stochastic Geometry," IEEE Globecom, 2018).
+
+Connection to DL hardening bound:  The DL SE in Section V-C uses the
+"hardening bound" [2, Th. 4.6], which is the DL dual of UatF.  Both replace
+the instantaneous effective channel by its mean and treat deviations as
+noise.  They become tight under the same conditions (large NL, strong
+hardening) and loose under the same conditions (few antennas, distributed
+geometry).
+
+
+REFERENCES
+==========
+[1]  E. Bjornson, L. Sanguinetti, "Scalable cell-free massive MIMO systems,"
+     IEEE Trans. Commun., vol. 68, no. 7, pp. 4247-4261, Jul. 2020.
+[2]  E. Bjornson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+     Spectral, Energy, and Hardware Efficiency," Found. Trends Signal
+     Process., vol. 11, no. 3-4, pp. 154-655, 2017.
+[7]  E. Bjornson, L. Sanguinetti, "Making cell-free massive MIMO competitive
+     with MMSE processing and centralized implementation," IEEE Trans.
+     Wireless Commun., vol. 19, no. 2, pp. 1257-1274, Feb. 2020.
+[30] G. Interdonato, M. Karlsson, E. Bjornson, E. G. Larsson, "Local
+     partial zero-forcing precoding for cell-free massive MIMO," IEEE Trans.
+     Wireless Commun., vol. 19, no. 7, pp. 4758-4774, Jul. 2020.
+[45] Z. Chen, E. Bjornson, "Channel hardening and favorable propagation in
+     cell-free massive MIMO with stochastic geometry," IEEE Trans. Commun.,
+     vol. 66, no. 11, pp. 5205-5219, Nov. 2018.
+[49] A. Ben-Israel, T. N. E. Greville, "Generalized Inverses: Theory and
+     Applications," 2nd ed., Springer, 2003.
+     S. Verdu, "Multiuser Detection," Cambridge Univ. Press, 1998.

@@ -1,0 +1,2056 @@
+╭─── Claude Code v2.1.92 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│             Welcome back Tech Shottify!            │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│         Opus 4.6 (1M context) · Claude Max         │                         │
+│   F:\Codes\Awesome-Wireless-Communications-Basic   │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ You are a PhD degree holder in wireless communication systems. You have       
+expertise in these fields:                                                      
+- Wireless Communication Systems                                                
+- 6G                                                                            
+- Beamforming (Analog, Digital, Hybrid) and Different Beamforming schemes       
+- MIMO/Massive MIMO/Ultra Massive MIMO                                          
+- RIS/IRS                                                                       
+- Holographic Beamforming                                                       
+- Cell-free MIMO                                                                
+- Optimization Problems (convex and non convex)                                 
+- Problem formulation                                                           
+- NOMA                                                                          
+- Power Allocation/Resource Allocation                                          
+- Related & Required Mathematics                                                
+-------------------------------------                                           
+Now, I will give you paper title and the pdf file.                              
+You will study it like a PhD student study a paper in a very very detailed way. 
+ You must always study one section of the paper at a time. If any section of    
+the paper is very large, then you will divide it in sections. Then, you will    
+provide a very very very detailed explanations of that section or part of the   
+section.                                                                        
+Your response or explanation should follow this structure:                      
+1. A very high level explanation using easy/layman's term so that anyone can    
+understand this.                                                                
+2. Followed by a very detailed and technical explanation of the section (PhD    
+level).                                                                         
+3. Detailed explanation should include historical or prior developments about   
+the topic discussed in that section (for which you might need to use web).      
+4. Mathematical explanation in Unicode notation/format so that it renders       
+properly in terminal. Each mathematical equation should be explained properly.  
+SO that after reading this, I will have PhD level knowledge.                    
+5. You will also provide numerical example and (practice problem if possible)   
+so that I can have better grasp on these topics discussed in that section.      
+6. Then, you will provide a brief but well structured summary of that section.  
+-----------------------------------------                                       
+You will always site the sources, from where you are getting information.       
+You will only use credible sources to find out information. For example,        
+sources like IEEE journals, transactions, conferences, other Q1 journals like   
+nature, spring, Elsevier etc.                                                   
+You will assume I have zero knowledge about the topic discussed in that         
+sections. You will start from level ground and reach level 100 of knowledge     
+about these topic in your response.                                             
+Your goal will be that after reading your response, I will have PhD level       
+knowledge and expertise on the topics discussed in a section.                   
+
+● I understand the task perfectly. You want me to study a research paper
+  section-by-section with extremely detailed explanations at multiple levels
+  (layman to PhD), including mathematical derivations, historical context,
+  numerical examples, and practice problems.
+
+  I'm ready. Please provide me the paper title and the PDF file path, and I'll
+  begin the deep study.
+
+❯ Paper Title: Scalable Cell-Free Massive MIMO Systems                          
+Paper pdf path:                                                                 
+F:\Codes\Awesome-Wireless-Communications-Basic\papers\Cell-Free\001_All         
+Paper(without review paper)\Scalable Cell-Free Massive MIMO Systems.pdf         
+
+● Let me start by reading the paper and exploring the repository structure.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+● Bash(pip show pymupdf 2>/dev/null || pip install pymupdf 2>/dev/null | tail
+      -3)
+  ⎿  Name: PyMuPDF
+     Version: 1.27.2
+     Summary: A high performance Python library for data extraction, analys
+     … +10 lines (ctrl+o to expand)
+
+● Bash(python -c "
+      import fitz…)
+  ⎿  Error: Exit code 1
+     Traceback (most recent call last):
+       File "<string>", line 9, in <module>
+       File "C:\Users\acer\AppData\Local\Programs\Python\Python311\Lib\encodings
+     \cp1252.py", line 19, in encode
+         return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     UnicodeEncodeError: 'charmap' codec can't encode character '\ufb01' in 
+     position 596: character maps to <undefined>
+     Total pages: 14
+
+     ===== PAGE 1 =====
+
+● Bash(python -c "
+      import sys, fitz…)
+  ⎿  Total pages: 14
+
+     ===== PAGE 1 =====
+     … +406 lines (ctrl+o to expand)
+
+● Bash(python -c "
+      import sys, fitz…)
+  ⎿  ===== PAGE 6 =====
+     6
+     access, pilot assignment, and cluster formation that resolves
+     … +345 lines (ctrl+o to expand)
+
+● Bash(python -c "
+      import sys, fitz…)
+  ⎿  ===== PAGE 11 =====
+     11
+     of this paper, we consider a good baseline scheme. Each UE
+     … +335 lines (ctrl+o to expand)
+
+● I've successfully read all 14 pages of the paper. Let me now save relevant
+  context and begin the deep study.
+
+  Recalled 1 memory, wrote 3 memories (ctrl+o to expand)
+
+● Now let me gather historical context for the Introduction section.
+
+● wireless-researcher-1(Research CF-MIMO history for intro)
+  ⎿  Done (17 tool uses · 30.3k tokens · 2m 29s)
+  (ctrl+o to expand)
+
+● I have now read the entire 14-page paper and gathered historical context. The
+  paper has 7 sections + Appendix. Let me begin with Section I: Introduction.
+
+  ---
+  SECTION I: INTRODUCTION
+
+  Paper: "Scalable Cell-Free Massive MIMO Systems" — Björnson & Sanguinetti 
+  (2020)
+
+  ---
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+
+  Imagine you're at a huge music festival, and instead of having one giant
+  speaker on a stage (that blasts music to everyone but is too loud for people
+  near it and too quiet for people far away), you scatter hundreds of small
+  speakers all over the festival grounds. Each speaker is not very powerful on
+  its own, but if you coordinate them smartly — making them all play the same
+  music in sync — every person in the crowd gets a clear, strong sound
+  regardless of where they stand.
+
+  That's the core idea of Cell-Free Massive MIMO.
+
+  In today's cellular networks, each cell tower (base station) creates a "cell"
+  — a geographic area it serves. If you're at the edge of two cells, both towers
+   interfere with each other and your signal quality drops. This is the
+  cell-edge problem and it's one of the biggest limitations of cellular
+  networks.
+
+  Cell-Free Massive MIMO says: "Let's get rid of cells entirely." Instead of
+  having big towers that each own a territory, let's deploy many small access
+  points (APs) — like those festival speakers — across the entire area. All of
+  them cooperate together to serve every user. There are no cell boundaries, so
+  there are no cell edges, and therefore no cell-edge interference.
+
+  But here's the catch: if you have 10,000 users and 1,000 access points, and
+  every access point tries to serve every user, the amount of computation and
+  data sharing between access points becomes impossibly large. It's like asking
+  every festival speaker to individually customize its output for every single
+  person in the crowd — it doesn't scale.
+
+  This paper's big idea: You don't need every access point to serve every user.
+  Each user only needs to be served by the few closest access points (the ones
+  with the best signal). This is called Dynamic Cooperation Clustering (DCC) —
+  and it makes the system scalable, meaning it works just as well whether you
+  have 100 users or 100,000 users, without the computational load per access
+  point exploding.
+
+  ---
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+
+  2.1 The Coherent Transmission Paradigm
+
+  The introduction opens with the fundamental physical principle that underlies
+  the entire paper: coherent joint transmission.
+
+  When a signal is transmitted coherently from M antennas, the received power at
+   a target user can scale proportionally to M without increasing the total
+  transmit power. This is the array gain or beamforming gain. Mathematically, if
+   M antennas each transmit with power P/M, the coherent combination at the
+  receiver yields a received power proportional to M·(P/M)² · M = P (after
+  beamforming). In practice, the received signal-to-noise ratio (SNR) scales as:
+
+  SNR ∝ M · (P_total / M) · |channel gain|² × M = M · P_total · |channel gain|²
+  Wait, let me be more precise. If all M antennas transmit the same signal with
+  appropriate phase alignment:
+
+  Received signal = Σᵢ₌₁ᴹ hᵢ · xᵢ
+  where hᵢ is the channel from antenna i to the user, and xᵢ = (hᵢ*/|hᵢ|) ·
+  √(P/M) · s is the transmitted signal with maximum ratio transmission (MRT).
+  The received power becomes:
+
+  |Σᵢ₌₁ᴹ |hᵢ|² · √(P/M)|² = P/M · (Σᵢ₌₁ᴹ |hᵢ|²)²
+  This is the coherent beamforming gain — the squared sum of channel magnitudes,
+   which grows as M² in the best case, compared to M for non-coherent combining.
+
+  Key insight from the paper: This coherent gain applies not only to co-located
+  arrays (standard MIMO) but also to distributed access points. Even when
+  different APs have very different channel gains to a user, it is still better
+  to distribute the transmit power across multiple APs and transmit coherently
+  than to transmit only from the strongest AP.
+
+  Source: This principle is thoroughly treated in [2] E. Björnson, J. Hoydis,
+  and L. Sanguinetti, "Massive MIMO Networks: Spectral, Energy, and Hardware
+  Efficiency," Foundations and Trends in Signal Processing, vol. 11, no. 3-4,
+  pp. 154–655, 2017.
+
+  2.2 Network MIMO: The Original Concept
+
+  The idea of having multiple base stations cooperate to jointly serve users was
+   formalized under the name Network MIMO:
+
+  - Shamai and Zaidel (2001) [3]: First proposed enhancing cellular downlink
+  capacity via co-processing at the transmitting end — the earliest idea of what
+   would become Network MIMO.
+  - Venkatesan, Lozano, and Valenzuela (2007) [4]: Coined the term "Network
+  MIMO" and demonstrated that coordination across access points in an indoor
+  environment could overcome intercell interference, yielding multi-fold
+  spectral efficiency gains.
+  - Gesbert, Hanly, Huang, Shamai, Simeone, and Yu (2010) [8]: Provided a
+  comprehensive survey of multi-cell MIMO cooperative networks, establishing a
+  theoretical framework for understanding interference in cooperative systems.
+
+  The early Network MIMO papers made two assumptions:
+
+  1. Network-wide CSI: Every AP knows the channels of all users in the entire
+  network.
+  2. All APs serve all UEs: Every AP transmits to (and receives from) every
+  user.
+
+  These assumptions are theoretically optimal but practically disastrous:
+  - CSI sharing requires enormous fronthaul capacity (the links connecting APs
+  to central processors)
+  - Data sharing for all users at all APs requires even more fronthaul
+  - Computational complexity for joint processing grows rapidly
+
+  2.3 Attempts to Make Network MIMO Practical
+
+  The paper traces how researchers tried to make Network MIMO practical:
+
+  Step 1 — Eliminating CSI sharing (Björnson et al. 2010, [9]):
+  - Proved that Network MIMO can operate without CSI sharing between APs
+  - Each AP only uses its local CSI (the channels it can estimate from uplink
+  pilots)
+  - Trade-off: Lose the ability for APs to jointly cancel interference
+
+  Step 2 — Limiting which APs serve which users (Björnson and Jorswieck, 2013
+  [10]):
+  - Each UE is served only by a subset of APs
+  - Two approaches emerged:
+
+  (a) Network-centric clustering [11]–[13]:
+  - Divide APs into non-overlapping (disjoint) clusters
+  - APs within a cluster share data and potentially CSI
+  - Serve only UEs within the cluster's coverage area
+  - Problem: UEs at cluster edges see strong inter-cluster interference — the
+  very problem we were trying to solve!
+  - This approach was considered in 4G CoMP (Coordinated Multi-Point) but
+  provided small practical gains [14]
+
+  (b) User-centric clustering [16]–[18]:
+  - Each UE is served by the APs providing the best channels to that specific UE
+  - Since different UEs have different "best AP subsets," the clusters overlap
+  - Each AP cooperates with different APs for different UEs
+  - This is fundamentally a cell-free approach
+
+  2.4 Dynamic Cooperation Clustering (DCC)
+
+  The general user-centric cooperation framework was formalized by Björnson, 
+  Jaldén, Bengtsson, and Ottersten (2011) [17] under the name Dynamic 
+  Cooperation Clustering (DCC):
+
+  - "Dynamic" means the clusters adapt to time-varying characteristics: channel
+  properties, UE locations, traffic patterns
+  - Each UE gets its own set of cooperating APs
+  - The sets overlap — this is the defining feature
+  - Further described in the textbook [10]: Björnson and Jorswieck, "Optimal
+  Resource Allocation in Coordinated Multi-Cell Systems," Foundations and Trends
+   in Communications and Information Theory, 2013.
+
+  pCell Technology: The practical feasibility of DCC was experimentally
+  demonstrated by Artemis Networks' pCell technology [21], which creates a
+  virtual personal cell for each user through coordinated distributed
+  transmission.
+
+  Why DCC didn't take off initially: Massive MIMO was conceived at approximately
+   the same time (Marzetta, 2010 [22]) and "rightfully gained the spotlight"
+  according to the paper. The research community focused on co-located Massive
+  MIMO instead.
+
+  2.5 Massive MIMO and its Maturation
+
+  Marzetta's seminal 2010 paper [22] introduced the concept of a base station
+  with an unlimited number of antennas serving multiple single-antenna users in
+  TDD mode:
+
+  - In the limit of infinite antennas, thermal noise and fast fading vanish
+  - Only pilot contamination (interference from pilot reuse) remains
+  - This was a paradigm shift: simple linear processing (MR/ZF) becomes
+  near-optimal with many antennas
+
+  By 2020, Massive MIMO had:
+  - A comprehensive theoretical framework [2], [23], [24]
+  - Been adopted into the 5G NR standard [25]
+  - Commercial deployments with 64-antenna base stations
+  - Become "a rather mature technology"
+
+  Source: S. Parkvall, E. Dahlman, A. Furuskär, and M. Frenne, "NR: The New 5G
+  Radio Access Technology," IEEE Communications Standards Magazine, vol. 1, no.
+  4, pp. 24–30, 2017.
+
+  2.6 Cell-Free Massive MIMO: The Rebirth of Network MIMO
+
+  With Massive MIMO mature, the research focus shifted back to distributed
+  cooperation under the new name Cell-Free Massive MIMO, coined by Ngo et al.
+  (2017) [5], [6]:
+
+  Key features of the original Cell-Free Massive MIMO:
+  - L access points (APs), each with N antennas (often N = 1)
+  - K single-antenna users
+  - Usually L ≫ K (many more APs than users)
+  - TDD operation with uplink pilot-based channel estimation
+  - All APs connected to a single CPU
+  - All APs serve all UEs simultaneously
+
+  Key novelty over Network MIMO: Rigorous spectral efficiency (SE) analysis that
+   accounts for imperfect CSI — borrowing the analytical tools from Massive
+  MIMO.
+
+  Conceptual relationship: Cell-Free Massive MIMO is a special case of Network
+  MIMO operating in TDD mode. However, the paper argues it was actually "a step
+  backwards in terms of implementation feasibility" because:
+  - While it adopted the "no CSI sharing" approach from [9], it assumed all APs
+  connect to a single CPU
+  - All APs still serve all UEs
+  - This is exactly the unscalable setup that Network MIMO researchers had
+  already identified as problematic
+
+  2.7 Section I-A: The Scalability Crisis
+
+  This is the paper's central problem statement. The original Cell-Free Massive
+  MIMO is unscalable. The paper will formally define scalability in Section III,
+   but the Introduction previews the issue:
+
+  What went wrong:
+  - User-centric clustering was reintroduced in [27]–[29] (Buzzi & D'Andrea
+  2017; Ngo et al. 2018; Bursalioglu et al. 2019)
+  - But without connecting to DCC, without proving scalability, and without
+  leveraging Network MIMO insights
+
+  Power control scalability:
+  - Network-wide optimization algorithms [5], [6], [26], [30], [31] have
+  complexity that grows polynomially with the number of APs and UEs
+  - Not feasible for practical implementation
+  - Only suboptimal heuristic algorithms combined with DCC can achieve scalable
+  power control
+  - Simplest scalable power control: equal power allocation
+  - Many other heuristic algorithms exist in the literature
+
+  2.8 Section I-B: Motivation and Contributions
+
+  The paper's contributions are:
+
+  1. Proving CF-mMIMO is a special case of DCC: This is the theoretical
+  foundation — once this is established, all the scalability tools from Network
+  MIMO become available.
+  2. Scalable algorithm for joint initial access, pilot assignment, and cluster 
+  formation: A new three-step procedure that guarantees every UE is served.
+  3. Novel SE expressions for two implementations:
+    - (a) Centralized: CPUs gather all pilot signals, perform channel
+  estimation, and jointly process UL/DL signals
+    - (b) Distributed/Decentralized: Each AP locally estimates channels and
+  processes signals; CPUs only handle data encoding/decoding
+  4. General SE expressions valid for: Arbitrary clusters, spatially correlated
+  Rayleigh fading, imperfect CSI, any number N of AP antennas, any signal
+  processing scheme
+  5. New UL-DL duality: Proves that UL combining vectors can be used to design
+  DL precoding vectors — simplifying the DL design problem enormously
+  6. Numerical demonstration: Scalable processing performs nearly as well as
+  unscalable alternatives and vastly outperforms MR processing
+
+  2.9 Section I-C: Paper Outline and Notation
+
+  The notation is standard for the Massive MIMO literature:
+
+  ┌────────────────────────┬───────────────────────────────────────┐
+  │         Symbol         │                Meaning                │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ x (boldface lowercase) │ Column vector                         │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ X (boldface uppercase) │ Matrix                                │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ (·)ᵀ                   │ Transpose                             │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ (·)*                   │ Conjugate                             │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ (·)ᴴ                   │ Conjugate transpose (Hermitian)       │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ (·)†                   │ Pseudo-inverse                        │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ Iₙ                     │ n × n identity matrix                 │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ ≜                      │ Definition                            │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ diag(A₁,...,Aₙ)        │ Block-diagonal matrix                 │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ 𝒩_C(0, R)              │ Circularly symmetric complex Gaussian │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ E{x}                   │ Expected value                        │
+  ├────────────────────────┼───────────────────────────────────────┤
+  │ |𝒜|                    │ Cardinality of set 𝒜                  │
+  └────────────────────────┴───────────────────────────────────────┘
+
+  Reproducible research: All simulation code is available at:
+  https://github.com/emilbjornson/scalable-cell-free
+
+  ---
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+
+  Timeline of Key Developments
+
+  2001  Shamai & Zaidel — Co-processing at transmitting end (proto-Network MIMO)
+  2007  Venkatesan et al. — "Network MIMO" coined
+  2008  Marsch & Fettweis — Multicell cooperative transmission with backhaul
+  constraints
+        Papadogiannis et al. — Dynamic clustering in multi-cell processing
+  2009  Zhang et al. — Networked MIMO with clustered precoding
+  2010  Marzetta — Massive MIMO concept (unlimited BS antennas)
+        Björnson et al. — Network MIMO without CSI sharing
+        Gesbert et al. — Survey: Multi-cell MIMO cooperative networks
+  2011  Björnson et al. — Dynamic Cooperation Clustering (DCC) framework
+  2013  Björnson & Jorswieck — Textbook on optimal resource allocation in
+  multi-cell
+        Hoydis et al. — "How many antennas do we need?" (Massive MIMO scaling)
+  2015  Perlman & Forenza — pCell technology demonstration
+  2016  4G CoMP standardized — Limited practical gains observed
+  2017  Ngo et al. — "Cell-Free Massive MIMO versus Small Cells" (coined name)
+        Nayebi et al. — Precoding and power optimization for CF-mMIMO
+        Buzzi & D'Andrea — User-centric CF-mMIMO
+        5G NR standard with Massive MIMO
+  2019  Björnson & Sanguinetti — Conference version at IEEE PIMRC [1]
+        Interdonato et al. — Scalability aspects of CF-mMIMO
+  2020  THIS PAPER — Full scalable framework for CF-mMIMO
+
+  The 4G CoMP Failure — Why It Matters
+
+  A crucial piece of context: 4G LTE attempted cooperative multi-cell processing
+   through Coordinated Multi-Point (CoMP) transmission/reception. CoMP used
+  network-centric (disjoint) clustering — dividing cells into non-overlapping
+  groups. The results were disappointing:
+
+  - UEs at cluster edges still suffered severe inter-cluster interference
+  - The gains over non-cooperative operation were marginal in practice
+  - This failure is one reason the community pivoted to co-located Massive MIMO
+  instead
+
+  Source: A. Osseiran, J. F. Monserrat, and P. Marsch, 5G Mobile and Wireless 
+  Communications Technology, Cambridge University Press, 2016, Ch. 9.
+
+  The lesson learned: user-centric (overlapping) clusters are essential, not
+  network-centric (disjoint) clusters.
+
+  ---
+  4. MATHEMATICAL FOUNDATIONS
+
+  4.1 Coherent Beamforming Gain
+
+  Consider L access points, each with N antennas, serving a single-antenna UE.
+  The channel from AP l to the UE is:
+
+  h_l ∈ ℂᴺ
+  The collective channel from all APs:
+
+  h = [h₁ᵀ  h₂ᵀ  ...  h_Lᵀ]ᵀ ∈ ℂᴹ,    M = NL
+  If all APs transmit coherently using precoding vector w ∈ ℂᴹ, the received
+  signal is:
+
+  y = hᴴw·s + n
+  where s is the data signal and n is noise. The received signal power is:
+
+  |hᴴw|²
+  With maximum ratio transmission (MRT): w = h/‖h‖, this becomes:
+
+  |hᴴh/‖h‖|² = ‖h‖² = Σₗ₌₁ᴸ ‖h_l‖²
+  This is the coherent array gain — the sum of all channel norms squared. Even
+  if some APs have weak channels (small ‖h_l‖²), they still contribute
+  positively.
+
+  Non-coherent case (single best AP): Only AP l* = argmax_l ‖h_l‖² transmits:
+
+  Received power = ‖h_{l*}‖²
+  Coherent case (all APs):
+
+  Received power = Σₗ₌₁ᴸ ‖h_l‖² ≥ ‖h_{l*}‖²
+  The coherent case is always at least as good, and typically much better.
+
+  4.2 Why Cell-Edge Problems Disappear
+
+  In a cellular network, UE k at the edge of cell l receives:
+  - Desired signal from AP l with power: P_l · |h_{kl}|²
+  - Interference from neighboring AP l' with power: P_{l'} · |h_{kl'}|²
+
+  The SINR at the cell edge is approximately:
+
+  SINR_edge ≈ P_l · |h_{kl}|² / (P_{l'} · |h_{kl'}|² + σ²)
+  At the cell edge, |h_{kl}|² ≈ |h_{kl'}|², so:
+
+  SINR_edge ≈ P_l / (P_{l'} + σ²/|h_{kl}|²) → ~1  (0 dB)
+  This is terrible performance. In cell-free operation, both APs l and l'
+  cooperate:
+
+  Received power = |h_{kl}·w_l + h_{kl'}·w_{l'}|²
+  With coherent transmission, this becomes approximately:
+
+  ≈ (|h_{kl}| + |h_{kl'}|)² ≈ 4·|h_{kl}|²   (when |h_{kl}| ≈ |h_{kl'}|)
+  The interference is eliminated and the signal power doubles (compared to
+  single-AP).
+
+  4.3 Polynomial vs. Scalable Complexity
+
+  The paper distinguishes between:
+  - Polynomial complexity (grows as O(Kᵅ) for some α > 0): Network-wide
+  optimization algorithms fall here. While polynomial sounds acceptable in
+  theory, for wireless networks with K potentially in the thousands, even O(K²)
+  or O(K³) is impractical for real-time processing within a coherence block
+  (typically a few milliseconds).
+  - Scalable complexity (O(1) per AP as K → ∞): Each AP's computational burden
+  does not grow with the number of users. The total network complexity grows
+  with L (number of APs), but since each AP has its own processor, this is fine.
+
+  ---
+  5. NUMERICAL EXAMPLE
+
+  Example: Coherent vs. Non-Coherent Transmission
+
+  Setup: L = 4 APs, each with N = 1 antenna, serving 1 UE. The channels (scalar
+  for N = 1) are:
+
+  h₁ = 0.9,  h₂ = 0.5,  h₃ = 0.3,  h₄ = 0.1
+  Total transmit power: P_total = 1 W, Noise power: σ² = 0.01 W
+
+  (a) Non-coherent (best single AP):
+
+  Best AP is AP 1. Received power = |h₁|² · P_total = 0.81 W
+
+  SNR = 0.81 / 0.01 = 81   →   SE = log₂(1 + 81) = 6.36 bit/s/Hz
+  (b) Coherent (all APs with MRT):
+
+  ‖h‖² = 0.81 + 0.25 + 0.09 + 0.01 = 1.16
+  With MRT: w_l = h_l*/‖h‖ · √P_total, received power = ‖h‖² · P_total = 1.16 W
+
+  SNR = 1.16 / 0.01 = 116   →   SE = log₂(1 + 116) = 6.87 bit/s/Hz
+  Gain: 43% more received power, 8% more SE. The gains are more dramatic with
+  more APs.
+
+  (c) If this were a cell-edge scenario with APs 1 and 2 in different cells:
+
+  - Cell 1 serves UE: Desired power = 0.81, Interference from AP 2 = 0.25
+  - SINR = 0.81/(0.25 + 0.01) = 3.12 → SE = log₂(1 + 3.12) = 2.04 bit/s/Hz
+
+  Cooperating instead of interfering: SE jumps from 2.04 to 6.87 bit/s/Hz — a
+  3.4× improvement!
+
+  Example: Scalability Problem
+
+  Setup: L = 100 APs, N = 1 antenna each. Consider what happens as K grows:
+
+  ┌──────────┬───────────────────┬───────────────────┬──────────────────────┐
+  │    K     │ Channel estimates │ Combining vectors │  Fronthaul scalars   │
+  │ (users)  │       per AP      │       per AP      │     per AP (UL)      │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 10       │ 10                │ 10                │ 10 per time slot     │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 100      │ 100               │ 100               │ 100 per time slot    │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 1,000    │ 1,000             │ 1,000             │ 1,000 per time slot  │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 10,000   │ 10,000            │ 10,000            │ 10,000 per time slot │
+  └──────────┴───────────────────┴───────────────────┴──────────────────────┘
+
+  Every metric grows linearly with K — this is unscalable!
+
+  With DCC (τ_p = 10 pilots, at most 1 UE per pilot per AP):
+
+  ┌──────────┬───────────────────┬───────────────────┬──────────────────────┐
+  │    K     │ Channel estimates │ Combining vectors │  Fronthaul scalars   │
+  │ (users)  │       per AP      │       per AP      │     per AP (UL)      │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 10       │ ≤ 10              │ ≤ 10              │ ≤ 10 per time slot   │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 100      │ ≤ 10              │ ≤ 10              │ ≤ 10 per time slot   │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 1,000    │ ≤ 10              │ ≤ 10              │ ≤ 10 per time slot   │
+  ├──────────┼───────────────────┼───────────────────┼──────────────────────┤
+  │ 10,000   │ ≤ 10              │ ≤ 10              │ ≤ 10 per time slot   │
+  └──────────┴───────────────────┴───────────────────┴──────────────────────┘
+
+  Everything stays constant — scalable!
+
+  ---
+  6. PRACTICE PROBLEMS
+
+  Problem 1: Consider L = 3 APs with N = 1 antenna each serving a single UE. The
+   channels are h₁ = 0.7e^(j·0), h₂ = 0.4e^(j·π/3), h₃ = 0.2e^(j·π/2). Total
+  power P = 1 W, σ² = 0.05 W.
+  - (a) Compute the SNR with only the best AP transmitting.
+  - (b) Compute the SNR with coherent MRT from all 3 APs.
+  - (c) Compute the coherent beamforming gain in dB.
+
+  Solution hints:
+  - (a) Best AP is AP 1: SNR = |h₁|²·P/σ² = 0.49/0.05 = 9.8 (9.91 dB)
+  - (b) ‖h‖² = |h₁|² + |h₂|² + |h₃|² = 0.49 + 0.16 + 0.04 = 0.69. SNR =
+  0.69/0.05 = 13.8 (11.40 dB)
+  - (c) Gain = 13.8/9.8 = 1.41 (1.49 dB)
+
+  Problem 2: A cell-free network has L = 200 APs, N = 1, τ_p = 5 pilots, and K
+  users. Under the original CF-mMIMO (all APs serve all UEs), how many channel
+  estimates must each AP compute when K = 50? When K = 500? Under Assumption 1
+  (at most one UE per pilot per AP), what is the maximum number of estimates per
+   AP regardless of K?
+
+  Solution:
+  - Original: K = 50 → 50 estimates; K = 500 → 500 estimates (unscalable)
+  - Assumption 1: At most τ_p = 5 estimates per AP, regardless of K (scalable)
+
+  Problem 3 (Conceptual): Explain why network-centric (disjoint) clustering
+  fails while user-centric (overlapping) clustering succeeds. Draw a simple 1D
+  example with 6 APs and 3 UEs.
+
+  Solution: In disjoint clustering, APs {1,2,3} form cluster A and APs {4,5,6}
+  form cluster B. A UE located between AP 3 and AP 4 sees strong interference
+  from the other cluster. In user-centric clustering, this UE would be served by
+   APs {3,4} (and possibly {2,5}), eliminating the inter-cluster interference
+  entirely.
+
+  ---
+  7. SECTION SUMMARY
+
+  ┌────────────────┬────────────────────────────────────────────────────────┐
+  │     Aspect     │                       Key Point                        │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Core concept   │ Cell-Free Massive MIMO: many distributed APs cooperate │
+  │                │  to serve all users without cell boundaries            │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Origin         │ Rebranding of Network MIMO (2007) with Massive MIMO    │
+  │                │ analysis tools (imperfect CSI, TDD)                    │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Central        │ Original CF-mMIMO is unscalable: per-AP complexity     │
+  │ problem        │ grows linearly with K (number of users)                │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Root cause     │ All APs serve all UEs → unbounded channel estimation,  │
+  │                │ precoding, fronthaul, and power control                │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Solution       │ Dynamic Cooperation Clustering (DCC) from Network MIMO │
+  │ approach       │  literature → user-centric AP subsets                  │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Key            │ First provably scalable CF-mMIMO framework with joint  │
+  │ contribution   │ initial access, pilot assignment, cluster formation,   │
+  │                │ and new combining/precoding schemes                    │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Historical     │ Co-processing (2001) → Network MIMO (2007) → DCC       │
+  │ lineage        │ (2011) → Massive MIMO maturation (2010-2017) →         │
+  │                │ CF-mMIMO (2017) → Scalable CF-mMIMO (2020, this paper) │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Practical      │ pCell by Artemis Networks demonstrated DCC             │
+  │ validation     │ feasibility; 4G CoMP showed disjoint clustering fails  │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ Performance    │ Scalable P-MMSE and LP-MMSE vastly outperform MR and   │
+  │                │ perform close to unscalable MMSE                       │
+  └────────────────┴────────────────────────────────────────────────────────┘
+
+  ---
+  Ready for Section II: Network Model whenever you are. That section covers the
+  system model, channel model, pilot transmission, and MMSE channel estimation —
+   the mathematical backbone of the entire paper.
+
+✻ Brewed for 6m 28s
+
+❯ Yes.                                                                          
+
+● Let me gather deeper historical context on the channel modeling and MMSE
+  estimation topics in Section II.
+
+● wireless-researcher-1(Research MMSE estimation & Rayleigh fading)
+  ⎿  Done (21 tool uses · 33.9k tokens · 4m 22s)
+  (ctrl+o to expand)
+
+● Now I have all the research needed. Let me deliver the comprehensive
+  explanation of Section II.
+
+  ---
+  SECTION II: NETWORK MODEL
+
+  Paper: "Scalable Cell-Free Massive MIMO Systems" — Björnson & Sanguinetti 
+  (2020)
+
+  ---
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+
+  Think of a large shopping mall where many small Wi-Fi routers (access points)
+  are mounted on the ceiling everywhere. There are also many shoppers (users)
+  walking around with their phones. Every router can "hear" every phone, and
+  every phone can "hear" every router — but some are close and have a strong
+  connection, while others are far and have a weak, noisy connection.
+
+  The Network Model answers these basic questions:
+  - How many routers and phones? K phones, L routers, each router has N small
+  antennas.
+  - How do they communicate? They take turns: first phones send a known "hello"
+  signal (pilot) so routers can learn the channel, then phones send data
+  (uplink), then routers send data back (downlink). All within a tiny time
+  window (a few milliseconds) during which the channel stays roughly constant.
+  - What does the channel look like? The signal between any phone and any router
+   antenna is a random number that changes unpredictably (fading). But it's not
+  purely random — there's a statistical structure (some directions are more
+  likely than others) captured by a "correlation matrix."
+  - How do routers learn the channel? Each phone sends a known pilot signal. The
+   router receives it, and because it knows what was sent, it can figure out
+  what the channel must be. This is channel estimation. The best method is
+  called MMSE (Minimum Mean Squared Error) — it uses prior statistical knowledge
+   to make the best possible guess.
+  - What's the catch? There aren't enough unique pilot signals for every phone.
+  Some phones share the same pilot, which confuses the routers — this is pilot 
+  contamination.
+
+  ---
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+
+  2.1 System Setup
+
+  The paper considers a cell-free network with:
+  - K single-antenna UEs (User Equipments)
+  - L APs (Access Points), each equipped with N antennas
+  - Total antenna count in the network: M = NL
+  - APs and UEs are arbitrarily distributed over the coverage area
+  - APs are connected to edge-cloud processors called CPUs (Central Processing
+  Units) in an arbitrary fashion
+
+  This is called Cell-Free Massive MIMO when L and K are large. The original
+  papers [5], [6] assumed L ≫ K (many more APs than users), but this paper's
+  methods work for any values of L and K.
+
+  Why this matters: Unlike cellular Massive MIMO where a single base station has
+   M co-located antennas, here the M antennas are distributed across L
+  locations. This provides:
+  - Macro-diversity: Different APs see different large-scale fading, so if one
+  AP has a deep shadow fade to a UE, another AP likely doesn't.
+  - Proximity gains: With many APs, each UE is likely close to at least one AP,
+  reducing pathloss.
+  - Reduced transmit power: Shorter AP-UE distances require less power.
+
+  2.2 The TDD Protocol
+
+  The system operates in Time Division Duplex (TDD) mode. The time-frequency
+  resources are divided into coherence blocks, each consisting of τ_c channel
+  uses (symbols):
+
+  ┌────────────────────────────────────────────────────────┐
+  │                    Coherence Block (τ_c)                │
+  ├──────────────┬───────────────────┬─────────────────────┤
+  │  UL Pilots   │    UL Data        │     DL Data          │
+  │   (τ_p)      │    (τ_u)          │     (τ_d)            │
+  ├──────────────┴───────────────────┴─────────────────────┤
+  │              τ_c = τ_p + τ_u + τ_d                      │
+  └────────────────────────────────────────────────────────┘
+
+  Why TDD and not FDD?
+
+  In Frequency Division Duplex (FDD), UL and DL use different frequencies, so
+  the channels are different. To enable DL precoding, the base station needs DL
+  CSI, which requires:
+  - DL pilot signals: the base station sends pilots, UEs estimate the DL
+  channel, and feed it back
+  - Overhead: proportional to M (number of BS antennas) — prohibitive for
+  Massive MIMO
+
+  In TDD, UL and DL use the same frequency at different times. By
+  electromagnetic reciprocity, the physical propagation channel is identical in
+  both directions:
+
+  h_UL(f) = h_DL(f)ᵀ     at the same frequency f
+  This means:
+  - Only τ_p UL pilot symbols needed (proportional to K, independent of M)
+  - The AP estimates h from UL pilots, then uses it directly for DL precoding
+  - This is the foundation of Massive MIMO and Cell-Free Massive MIMO
+
+  Source: The TDD protocol follows the standard Massive MIMO framework from [2]:
+   E. Björnson, J. Hoydis, and L. Sanguinetti, "Massive MIMO Networks: Spectral,
+   Energy, and Hardware Efficiency," Foundations and Trends in Signal 
+  Processing, vol. 11, no. 3-4, 2017.
+
+  2.3 What is a Coherence Block?
+
+  A coherence block is the time-frequency region over which the channel is
+  approximately constant. Its size is:
+
+  τ_c = B_c × T_c
+  where:
+  - B_c = coherence bandwidth ≈ 1/(delay spread). The delay spread is the time
+  difference between the first and last significant multipath arrivals.
+  - T_c = coherence time ≈ 1/(Doppler spread) = c/(f_c · v), where f_c is
+  carrier frequency and v is UE velocity.
+
+  Typical values (from [2, Sec. 2.1]):
+
+  ┌──────────────────────────┬───────────────────────────────────┐
+  │        Parameter         │               Value               │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ Carrier frequency f_c    │ 2 GHz                             │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ UE speed v               │ 30 km/h (pedestrian/slow vehicle) │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ Coherence time T_c       │ ~5 ms                             │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ Delay spread             │ ~1 μs (urban)                     │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ Coherence bandwidth B_c  │ ~200 kHz                          │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ Bandwidth per subcarrier │ ~15 kHz (LTE/5G)                  │
+  ├──────────────────────────┼───────────────────────────────────┤
+  │ Coherence block size τ_c │ ~200 channel uses                 │
+  └──────────────────────────┴───────────────────────────────────┘
+
+  In this paper's simulations: τ_c = 200, τ_p = 10.
+
+  2.4 Channel Model: Correlated Rayleigh Fading
+
+  The channel between AP l and UE k is:
+
+  h_{kl} ∈ ℂᴺ
+  The collective channel from all APs to UE k is formed by stacking:
+
+  h_k = [h_{k1}ᵀ  h_{k2}ᵀ  ...  h_{kL}ᵀ]ᵀ ∈ ℂᴹ
+  where M = NL is the total number of antennas.
+
+  The distribution: In each coherence block, an independent realization is
+  drawn:
+
+  h_{kl} ~ 𝒩_C(0, R_{kl})                    ... (Eq. implied)
+  where R_{kl} ∈ ℂ^{N×N} is the spatial correlation matrix.
+
+  2.4.1 What Does 𝒩C(0, R{kl}) Mean?
+
+  The notation 𝒩_C(0, R) denotes a circularly symmetric complex Gaussian
+  distribution with:
+  - Zero mean (no line-of-sight component → Rayleigh fading)
+  - Correlation matrix R
+
+  A random vector h ~ 𝒩_C(0, R) has the property:
+
+  E{h} = 0
+  E{hhᴴ} = R
+  E{hhᵀ} = 0    (circular symmetry: e^{jθ}h has the same distribution as h for
+  any θ)
+  The probability density function is:
+
+  f(h) = 1/(πᴺ det(R)) · exp(-hᴴR⁻¹h)
+  Physical justification (Clarke's model, 1968):
+  When a signal propagates from UE to AP through many scatterers (buildings,
+  trees, cars), each scatterer creates a reflected copy with a random phase and
+  amplitude. By the Central Limit Theorem, the sum of many such independent
+  contributions converges to a complex Gaussian random variable. The zero mean
+  arises because there is no dominant line-of-sight path (NLOS condition).
+
+  Source: R. H. Clarke, "A statistical theory of mobile-radio reception," Bell 
+  System Technical Journal, vol. 47, no. 6, pp. 957–1000, 1968.
+
+  2.4.2 The Spatial Correlation Matrix R_{kl}
+
+  The matrix R_{kl} is the statistical fingerprint of the channel between UE k
+  and AP l. It encodes:
+
+  1. Large-scale fading (path loss + shadowing):
+
+  The average channel gain is:
+
+  β_{kl} = tr(R_{kl})/N
+  This scalar captures the distance-dependent pathloss and shadow fading. A
+  common pathloss model:
+
+  β_{kl} [dB] = -30.5 - 36.7 · log₁₀(d_{kl}) + F_{kl}
+  where d_{kl} is the distance in meters and F_{kl} ~ 𝒩(0, σ_sf²) is the shadow
+  fading (typically σ_sf = 4-8 dB).
+
+  2. Spatial channel correlation:
+
+  The (m,n)-th entry of R_{kl} describes the correlation between the channel at
+  the m-th and n-th antenna of AP l:
+
+  [R_{kl}]_{m,n} = E{[h_{kl}]_m · [h_{kl}]_n*}
+  This correlation depends on:
+  - Angular spread: How wide the range of arrival angles is at the AP. Narrower
+  spread → higher correlation.
+  - Antenna spacing: Closer antennas → higher correlation.
+  - Scattering environment: Rich scattering → lower correlation (more
+  isotropic).
+
+  The one-ring model (Shiu et al., 2000): Scatterers are placed on a ring of
+  radius r around the UE, at distance D from the AP. The angular spread as seen
+  from the AP is:
+
+  Δ ≈ arctan(r/D)
+  For a Uniform Linear Array (ULA) with antenna spacing d, the (m,n)-th entry
+  becomes:
+
+  [R_{kl}]_{m,n} = β_{kl} · ∫₋_Δ^Δ exp(j2π(m-n)(d/λ)sin(θ₀+α)) · f(α) dα
+  where θ₀ is the nominal angle of arrival, f(α) is the angular power spectrum,
+  and λ is the wavelength.
+
+  Special cases:
+  - Uncorrelated fading (isotropic scattering, d ≥ λ/2): R_{kl} = β_{kl} · I_N
+  - Fully correlated (single direction): R_{kl} = β_{kl} · a(θ)a(θ)ᴴ where a(θ)
+  is the steering vector
+
+  Source: D. Shiu, G. J. Foschini, M. J. Gans, and J. M. Kahn, "Fading
+  correlation and its effect on the capacity of multielement antenna systems,"
+  IEEE Trans. Commun., vol. 48, no. 3, pp. 502–513, 2000.
+
+  2.4.3 Independence Between APs
+
+  The paper assumes:
+
+  E{h_{kn} · (h_{kl})ᴴ} = 0    for l ≠ n
+  This means the channels from UE k to different APs are uncorrelated. This is
+  justified because the APs are spatially distributed — they see completely
+  different scattering environments. The collective channel thus has a
+  block-diagonal correlation matrix:
+
+  h_k ~ 𝒩_C(0, R_k)                          ... Eq. (1)
+  where:
+
+  R_k = diag(R_{k1}, R_{k2}, ..., R_{kL}) ∈ ℂ^{M×M}
+  This block-diagonal structure is extremely important computationally — it
+  means operations can be decomposed per-AP.
+
+  Additionally, the channels of different UEs are independently distributed: h_k
+   and h_j are independent for k ≠ j.
+
+  2.4.4 Practical Estimation of Correlation Matrices
+
+  The paper assumes R_{kl} is known wherever needed and cites methods for
+  practical estimation:
+
+  - [36] Björnson, Sanguinetti, Debbah (2016): Massive MIMO with imperfect
+  channel covariance information
+  - [37] Neumann, Joham, Utschick (2018): Covariance matrix estimation in
+  Massive MIMO
+  - [38] Upadhya and Vorobyov (2018): Covariance matrix estimation for Massive
+  MIMO
+  - [39] Haghighatshoar and Caire (2017): Wideband sparse channel estimation
+
+  In practice, R_{kl} changes slowly (on the order of seconds to minutes) — it
+  depends on the UE's general location and the scattering environment, not the
+  instantaneous fast-fading. Thus, it can be estimated by averaging over many
+  coherence blocks.
+
+  ---
+  2.5 Section II-A: Pilot Transmission and Channel Estimation
+
+  This subsection is the mathematical heart of Section II. Let me derive every
+  step in detail.
+
+  2.5.1 Pilot Signal Design
+
+  There are τ_p mutually orthogonal pilot signals, each of length τ_p symbols.
+  Let:
+
+  φ_t ∈ ℂ^{τ_p},    t = 1, ..., τ_p
+  be the t-th pilot signal, satisfying:
+
+  φ_t^H · φ_t' = { τ_p  if t = t'
+                  { 0    if t ≠ t'
+  These form an orthonormal basis (scaled by √τ_p) for ℂ^{τ_p}.
+
+  Crucially: τ_p is a constant independent of K. This means when K > τ_p, some
+  UEs must share pilots. The set of UEs assigned to pilot t is:
+
+  𝒮_t ⊂ {1, ..., K}
+  The sets partition {1, ..., K}: every UE is assigned exactly one pilot.
+
+  2.5.2 Received Pilot Signal at the AP
+
+  When all UEs assigned to pilot t transmit simultaneously, the received signal
+  at AP l (after correlating/despreading with φ_t) is:
+
+  y^{pilot}_{tl} = Σ_{i ∈ 𝒮_t} √(τ_p · p_i) · h_{il} + n_{tl}     ... Eq. (2)
+  where:
+  - p_i is the transmit power of UE i
+  - τ_p is the processing gain from correlating with the pilot (like spread
+  spectrum)
+  - n_{tl} ~ 𝒩_C(0, σ² · I_N) is thermal noise
+
+  Let me derive this step by step:
+
+  During the pilot phase, each UE i sends: x_i^{pilot} = √p_i · φ_{t_i} ∈
+  ℂ^{τ_p}
+
+  The received signal at AP l over the entire pilot phase (τ_p symbols) is the N
+   × τ_p matrix:
+
+  Y_l^{pilot} = Σ_{i=1}^{K} h_{il} · (x_i^{pilot})ᵀ + N_l
+              = Σ_{i=1}^{K} √p_i · h_{il} · φ_{t_i}ᵀ + N_l
+  where N_l ∈ ℂ^{N×τ_p} is the noise matrix with i.i.d. 𝒩_C(0, σ²) entries.
+
+  To extract the signal from pilot t, the AP correlates with φ_t (despreading):
+
+  y^{pilot}_{tl} = Y_l^{pilot} · φ_t* / √1 = Σ_{i=1}^{K} √p_i · h_{il} ·
+  (φ_{t_i}ᵀ · φ_t*) + N_l · φ_t*
+  Using the orthogonality property:
+
+  φ_{t_i}ᵀ · φ_t* = φ_t^H · φ_{t_i} = { τ_p  if t_i = t  (i.e., i ∈ 𝒮_t)
+                                          { 0    otherwise
+  Therefore:
+
+  y^{pilot}_{tl} = Σ_{i ∈ 𝒮_t} √p_i · τ_p · h_{il} + N_l · φ_t*
+  Since N_l · φ_t* has distribution 𝒩_C(0, σ² · ‖φ_t‖² · I_N) = 𝒩_C(0, σ² · τ_p
+  · I_N), we can write:
+
+  n_{tl} = N_l · φ_t* / √τ_p ~ 𝒩_C(0, σ² · I_N)
+  And rescaling:
+
+  y^{pilot}_{tl} = Σ_{i ∈ 𝒮_t} √(τ_p · p_i) · h_{il} + √τ_p · n_{tl}
+  Wait — let me be more careful. Looking at the paper's equation (2) directly:
+
+  y^{pilot}_{tl} = Σ_{i ∈ 𝒮_t} √(τ_p · p_i) · h_{il} + n_{tl}
+  where n_{tl} ~ 𝒩_C(0, σ² · I_N). This is the despreaded signal with the noise
+  term already incorporating the processing. The key point is that the √(τ_p ·
+  p_i) factor represents the combined effect of transmit power and processing
+  gain from pilot despreading.
+
+  2.5.3 The MMSE Channel Estimator
+
+  Given the observation y^{pilot}{tl} from Eq. (2), we want to estimate h{kl}
+  for UE k ∈ 𝒮_t.
+
+  The MMSE estimate is:
+
+  ĥ_{kl} = √(p_k · τ_p) · R_{kl} · Ψ_{tl}⁻¹ · y^{pilot}_{tl}     ... Eq. (3)
+  where:
+
+  Ψ_{tl} = E{y^{pilot}_{tl} · (y^{pilot}_{tl})ᴴ} = Σ_{i ∈ 𝒮_t} τ_p · p_i ·
+  R_{il} + σ² · I_N     ... Eq. (4)
+  Full derivation of the MMSE estimator:
+
+  The MMSE estimator exploits the fact that h_{kl} and y^{pilot}_{tl} are
+  jointly Gaussian. For jointly Gaussian vectors, the MMSE estimator equals the
+  Linear MMSE (LMMSE) estimator:
+
+  ĥ_{kl} = E{h_{kl} · (y^{pilot}_{tl})ᴴ} · [E{y^{pilot}_{tl} ·
+  (y^{pilot}_{tl})ᴴ}]⁻¹ · y^{pilot}_{tl}
+  Step A: Compute the cross-correlation E{h_{kl} · (y^{pilot}_{tl})ᴴ}:
+
+  E{h_{kl} · (y^{pilot}_{tl})ᴴ} = E{h_{kl} · (Σ_{i ∈ 𝒮_t} √(τ_p · p_i) · h_{il}
+  + n_{tl})ᴴ}
+
+  = Σ_{i ∈ 𝒮_t} √(τ_p · p_i) · E{h_{kl} · h_{il}ᴴ} + E{h_{kl} · n_{tl}ᴴ}
+  Since channels of different UEs are independent: E{h_{kl} · h_{il}ᴴ} = 0 for i
+   ≠ k. Also, h_{kl} is independent of noise: E{h_{kl} · n_{tl}ᴴ} = 0.
+  Therefore:
+
+  E{h_{kl} · (y^{pilot}_{tl})ᴴ} = √(τ_p · p_k) · E{h_{kl} · h_{kl}ᴴ} = √(τ_p ·
+  p_k) · R_{kl}
+  Step B: Compute the auto-correlation Ψ_{tl} = E{y^{pilot}{tl} · 
+  (y^{pilot}{tl})ᴴ}:
+
+  Ψ_{tl} = E{(Σ_{i ∈ 𝒮_t} √(τ_p p_i) · h_{il} + n_{tl})(Σ_{j ∈ 𝒮_t} √(τ_p p_j) ·
+   h_{jl} + n_{tl})ᴴ}
+  Expanding and using independence between different UEs and between channels
+  and noise:
+
+  = Σ_{i ∈ 𝒮_t} τ_p · p_i · E{h_{il} · h_{il}ᴴ} + E{n_{tl} · n_{tl}ᴴ}
+
+  = Σ_{i ∈ 𝒮_t} τ_p · p_i · R_{il} + σ² · I_N                    ... Eq. (4)
+  Step C: Combine Steps A and B:
+
+  ĥ_{kl} = √(τ_p · p_k) · R_{kl} · Ψ_{tl}⁻¹ · y^{pilot}_{tl}    ... Eq. (3)
+  This is the MMSE estimate (also known as Wiener filter in this context).
+
+  Source: S. M. Kay, Fundamentals of Statistical Signal Processing: Estimation 
+  Theory, Prentice Hall, 1993, Ch. 12.
+
+  2.5.4 Properties of the MMSE Estimate
+
+  Property 1: Distribution of the estimate
+
+  ĥ_{kl} ~ 𝒩_C(0, B_{kl})
+  where:
+
+  B_{kl} = τ_p · p_k · R_{kl} · Ψ_{tl}⁻¹ · R_{kl}
+  This is the correlation matrix of the estimate, which is also the effective
+  estimation quality.
+
+  Property 2: The estimation error
+
+  Define the estimation error:
+
+  h̃_{kl} = h_{kl} - ĥ_{kl}
+  Then:
+
+  h̃_{kl} ~ 𝒩_C(0, C_{kl})
+  where:
+
+  C_{kl} = R_{kl} - B_{kl} = R_{kl} - τ_p · p_k · R_{kl} · Ψ_{tl}⁻¹ · R_{kl}
+  Property 3: Orthogonality principle
+
+  The MMSE estimate and the estimation error are uncorrelated:
+
+  E{ĥ_{kl} · h̃_{kl}ᴴ} = 0
+  Since both are Gaussian, uncorrelated implies independent. This is a crucial
+  property that makes the SE analysis tractable.
+
+  Property 4: Independence of estimation errors across APs
+
+  Since h_{kl} and h_{kn} are independent for l ≠ n (different APs), the
+  estimates and errors across different APs are also independent. The collective
+   estimate and error are:
+
+  ĥ_k = [ĥ_{k1}ᵀ  ...  ĥ_{kL}ᵀ]ᵀ ~ 𝒩_C(0, diag(B_{k1}, ..., B_{kL}))
+  h̃_k = [h̃_{k1}ᵀ  ...  h̃_{kL}ᵀ]ᵀ ~ 𝒩_C(0, C_k)
+  where C_k = diag(C_{k1}, ..., C_{kL}).
+
+  2.5.5 Pilot Contamination: The Two Consequences
+
+  When |𝒮_t| > 1 (multiple UEs share pilot t), the received pilot signal at AP l
+   contains contributions from all of them:
+
+  y^{pilot}_{tl} = √(τ_p p_k) · h_{kl} + Σ_{i ∈ 𝒮_t, i≠k} √(τ_p p_i) · h_{il} +
+  n_{tl}
+                      ↑ desired               ↑ pilot contamination         ↑
+  noise
+  Consequence 1: Reduced estimation quality
+
+  The contaminating terms inflate Ψ_{tl}:
+
+  Ψ_{tl} = τ_p p_k · R_{kl} + Σ_{i ∈ 𝒮_t, i≠k} τ_p p_i · R_{il} + σ² I_N
+            ↑ desired power     ↑ contamination power          ↑ noise
+  Since Ψ_{tl}⁻¹ appears in the estimator, larger Ψ_{tl} (from contamination)
+  means a worse estimate. The MSE increases.
+
+  Without contamination (|𝒮_t| = 1, UE k is the only user on pilot t):
+
+  Ψ_{tl} = τ_p p_k R_{kl} + σ² I_N
+
+  B_{kl}^{no cont.} = τ_p p_k · R_{kl}(τ_p p_k R_{kl} + σ² I_N)⁻¹ R_{kl}
+  With contamination (additional UE j on same pilot):
+
+  Ψ_{tl} = τ_p p_k R_{kl} + τ_p p_j R_{jl} + σ² I_N
+
+  B_{kl}^{cont.} = τ_p p_k · R_{kl}(τ_p p_k R_{kl} + τ_p p_j R_{jl} + σ² I_N)⁻¹
+  R_{kl}
+  Since (A + B)⁻¹ ≼ A⁻¹ for positive semidefinite B ≽ 0 (Löwner ordering), we
+  have B_{kl}^{cont.} ≼ B_{kl}^{no cont.}: the estimate quality strictly
+  degrades.
+
+  Consequence 2: Correlated estimates → Coherent interference
+
+  The estimates of pilot-sharing UEs are correlated:
+
+  E{ĥ_{kl} · ĥ_{jl}ᴴ} ≠ 0    for j ∈ 𝒮_t, j ≠ k
+  Specifically:
+
+  E{ĥ_{kl} · ĥ_{jl}ᴴ} = τ_p√(p_k p_j) · R_{kl} · Ψ_{tl}⁻¹ · R_{jl} · Ψ_{tl}⁻¹ ·
+  [τ_p² p_k p_j · R_{kl} · Ψ_{tl}⁻¹ · ... ]
+  Actually, more precisely, the correlation arises because both estimates are
+  linear functions of the same observation y^{pilot}{tl}. When the AP beamforms 
+  toward UE k using ĥ{kl}, it inadvertently beamforms toward UE j as well,
+  creating coherent interference that scales with N (the number of antennas per
+  AP) — at the same rate as the desired signal.
+
+  This is the phenomenon identified by Marzetta (2010) [22] as the fundamental
+  limitation of Massive MIMO (later shown to be overcomable by Björnson et al.
+  [41]).
+
+  2.5.6 Computational Complexity of Channel Estimation
+
+  The paper notes an important practical detail: the matrix √(p_k τ_p) · R_{kl}
+  · Ψ_{tl}⁻¹ in Eq. (3) depends only on channel statistics (R_{kl}, p_k, τ_p,
+  Ψ_{tl}), which are constant over many coherence blocks. Therefore:
+
+  Precomputation (done once, per statistics change):
+  - Compute Ψ_{tl}⁻¹: requires N³ operations (matrix inversion)
+  - Compute √(p_k τ_p) · R_{kl} · Ψ_{tl}⁻¹: requires N³ operations (matrix
+  multiplication)
+  - Store this N × N matrix
+
+  Per coherence block:
+  - Compute y^{pilot}_{tl} (despreading): requires N · τ_p multiplications per
+  pilot
+  - Compute ĥ_{kl} = (precomputed matrix) · y^{pilot}_{tl}: requires N²
+  multiplications per UE
+
+  This is efficient and, under DCC where each AP serves at most τ_p UEs, the
+  per-block complexity is bounded by τ_p · N² — independent of K.
+
+  ---
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+
+  3.1 The Rayleigh Fading Model
+
+  1868  Lord Rayleigh — Rayleigh distribution for random phasor sums
+  1968  Clarke — Statistical theory of mobile radio: complex Gaussian channel
+  model
+  1974  Jakes — "Microwave Mobile Communications": popularized Clarke's model,
+         introduced the U-shaped Doppler spectrum, Jakes' simulator
+  2000  Shiu, Foschini, Gans, Kahn — One-ring model for spatial correlation
+  2003  3GPP TR 25.996 — Spatial Channel Model (SCM) for MIMO
+  2017  3GPP TR 38.901 — 5G NR channel model (cluster-based, 0.5-100 GHz)
+
+  3.2 MMSE Estimation in Wireless
+
+  1949  Wiener — "Extrapolation, Interpolation, and Smoothing of Stationary
+         Time Series" — the Wiener filter (continuous-time MMSE)
+  1960  Kalman — Kalman filter (recursive MMSE for state-space models)
+  1993  Kay — "Fundamentals of Statistical Signal Processing" — textbook
+         treatment of MMSE estimation
+  2
+
+● Now I have all the deep background needed. Let me deliver the comprehensive
+  Section II explanation.
+
+  ---
+  SECTION II: NETWORK MODEL
+
+  Paper: "Scalable Cell-Free Massive MIMO Systems" — Björnson & Sanguinetti 
+  (2020)
+
+  ---
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+
+  Imagine a large shopping mall with many small Wi-Fi routers (access points)
+  mounted on the ceiling throughout the building, and many people with 
+  smartphones (users) walking around. This section describes the "rules of the
+  game" — how the routers and phones communicate.
+
+  The setup is simple:
+  - There are K people (users/UEs), each with a phone that has one antenna.
+  - There are L routers (access points/APs), each with N small antennas.
+  - The routers are connected to powerful computers called CPUs (Central
+  Processing Units) that help coordinate everything.
+
+  The wireless channel between any router and any phone is like an invisible,
+  constantly changing tunnel. The signal bounces off walls, furniture, people —
+  creating multiple copies of itself that arrive at different times and angles.
+  Sometimes these copies add up nicely (strong signal), sometimes they cancel
+  out (weak signal). This random fluctuation is called fading.
+
+  How do the routers learn the channel? They can't see the invisible tunnel
+  directly. Instead, they use a clever trick called pilot signals: each phone
+  sends a known, pre-agreed signal (like a specific ring tone) to the routers.
+  Since the routers know exactly what was sent, they can figure out what the
+  channel did to the signal — and thus "estimate" the channel.
+
+  The problem: there are only a limited number of unique ring tones (pilot
+  signals) — typically far fewer than the number of phones. So multiple phones
+  must share the same ring tone. When two phones send the same ring tone
+  simultaneously, the routers get confused — they can't perfectly tell which
+  channel belongs to which phone. This confusion is called pilot contamination,
+  and it's one of the biggest challenges in these systems.
+
+  The time structure: Everything happens in short time windows called coherence 
+  blocks. Within each block, the channel stays approximately constant (the
+  person hasn't moved much). Each block is divided into three phases:
+  1. Pilot phase: Phones send their ring tones so routers can learn channels
+  2. Uplink phase: Phones send actual data to routers
+  3. Downlink phase: Routers send data to phones
+
+  ---
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+
+  2.1 System Architecture
+
+  The paper considers a cell-free network with:
+
+  - K single-antenna UEs (User Equipments)
+  - L APs (Access Points), each equipped with N antennas
+  - M = NL total antennas in the coverage area
+  - APs connected to edge-cloud processors called CPUs
+
+  The connection between APs and CPUs is "in an arbitrary fashion" — the paper
+  deliberately leaves the network topology flexible (this is elaborated in
+  Section V-E). The key architectural point: this setup enables coherent joint 
+  transmission and reception across the entire coverage area.
+
+  Definition: The system is called Cell-Free Massive MIMO when both L and K are
+  large. While it is often assumed L ≫ K (many more APs than users), the methods
+   in this paper hold for any values of L and K.
+
+  Physical interpretation: Unlike cellular networks where each base station
+  autonomously serves its own cell, here all APs can potentially cooperate to
+  serve any UE. There are no cell boundaries — hence "cell-free."
+
+  2.2 TDD Protocol and Coherence Block Structure
+
+  The system operates in Time-Division Duplex (TDD) mode. This is critical for
+  two reasons:
+
+  (a) Channel Reciprocity: In TDD, both uplink and downlink transmissions occur
+  on the same frequency but at different times. Due to electromagnetic
+  reciprocity, the physical propagation channel is identical in both directions.
+   This means:
+
+  h_UL(f) = h_DL(f)    (at the same carrier frequency f)
+  This allows APs to estimate the channel from UL pilots and use that estimate
+  for DL precoding — without needing separate DL training.
+
+  (b) Pilot Overhead Scales with K, not M: In TDD, only the UEs need to send
+  pilots (K pilots), not the APs (which would require M = NL pilots in FDD).
+  Since K ≪ M typically, TDD is far more efficient.
+
+  The coherence block is the fundamental time-frequency resource unit. The
+  channel is assumed constant within one coherence block (block fading model).
+  Each coherence block consists of τ_c channel uses, divided as:
+
+  τ_c = τ_p + τ_u + τ_d
+  where:
+  - τ_p = channel uses for UL pilot transmission (channel estimation)
+  - τ_u = channel uses for UL data transmission
+  - τ_d = channel uses for DL data transmission
+
+  Physical basis for τ_c: The coherence block size is the product of the
+  coherence time T_c and coherence bandwidth B_c:
+
+  τ_c = B_c × T_c
+  where:
+  - Coherence time: T_c ≈ c / (f_c · v), where c is the speed of light, f_c is
+  the carrier frequency, v is the UE velocity
+    - At f_c = 2 GHz, v = 3 km/h (walking): T_c ≈ 25 ms
+    - At f_c = 2 GHz, v = 120 km/h (driving): T_c ≈ 0.625 ms
+  - Coherence bandwidth: B_c ≈ 1/τ_rms, where τ_rms is the RMS delay spread
+    - Urban environment: τ_rms ≈ 1-5 μs → B_c ≈ 200 kHz - 1 MHz
+
+  Example: B_c = 200 kHz, T_c = 1 ms → τ_c = 200 channel uses (the value used in
+   the paper's simulations)
+
+  Source: E. Björnson, J. Hoydis, and L. Sanguinetti, "Massive MIMO Networks:
+  Spectral, Energy, and Hardware Efficiency," Foundations and Trends in Signal 
+  Processing, vol. 11, no. 3-4, 2017, Sec. 2.1.
+
+  2.3 Channel Model: Correlated Rayleigh Fading
+
+  The channel between AP l and UE k is denoted:
+
+  h_{kl} ∈ ℂᴺ
+  This is an N-dimensional complex vector (one entry per antenna at AP l). The
+  collective channel from ALL APs to UE k is:
+
+  h_k = [h_{k1}ᵀ  h_{k2}ᵀ  ...  h_{kL}ᵀ]ᵀ ∈ ℂᴹ
+  where M = NL is the total number of antennas.
+
+  The fading model: In each coherence block, an independent realization is
+  drawn:
+
+  h_{kl} ~ 𝒩_C(0, R_{kl})                ... (1-local)
+  where R_{kl} ∈ ℂᴺˣᴺ is the spatial correlation matrix.
+
+  What the Gaussian distribution models: The zero-mean circularly symmetric
+  complex Gaussian distribution models the small-scale fading — the rapid random
+   fluctuations caused by multipath propagation. The physical justification
+  comes from Clarke's model (1968):
+
+  - A mobile UE is surrounded by many scatterers
+  - Each scatterer reflects the signal, creating a propagation path with random
+  phase
+  - By the Central Limit Theorem, the superposition of many independent random
+  phasors converges to a complex Gaussian distribution
+  - Zero mean: no dominant line-of-sight (LOS) component (NLOS scenario)
+  - Circular symmetry: the phases of the scatterer contributions are uniformly
+  distributed over [0, 2π)
+
+  The envelope |h_{kl,n}| (for each antenna element n) follows a Rayleigh 
+  distribution — hence the name "Rayleigh fading."
+
+  Source: R. H. Clarke, "A statistical theory of mobile-radio reception," Bell 
+  System Technical Journal, vol. 47, no. 6, pp. 957–1000, 1968.
+
+  2.4 The Spatial Correlation Matrix R_{kl} — Deep Dive
+
+  The positive semi-definite matrix R_{kl} ∈ ℂᴺˣᴺ is perhaps the single most
+  important quantity in the entire paper. It encodes everything about the
+  large-scale propagation characteristics:
+
+  (a) Geometric pathloss: The average power decay with distance d:
+
+  PL(d) ∝ d^{-α}
+  where α is the pathloss exponent (typically 2–5). This affects tr(R_{kl})/N =
+  β_{kl}, the average channel gain.
+
+  (b) Shadow fading: Random log-normal variations caused by large obstacles
+  (buildings, hills):
+
+  Shadow fading ~ 10^{σ_SF · Z / 10},    Z ~ 𝒩(0,1)
+  where σ_SF is the shadow fading standard deviation (typically 4–10 dB).
+
+  (c) Antenna gains: Directional patterns of the AP antennas.
+
+  (d) Spatial channel correlation: The statistical coupling between channel
+  coefficients at different antenna elements.
+
+  How spatial correlation arises physically: Consider a Uniform Linear Array
+  (ULA) at the AP with antenna spacing d and a UE at angle θ. If multipath
+  arrives within angular spread Δ around θ:
+
+  [R_{kl}]_{m,n} = β_{kl} ∫ e^{j2π(m-n)(d/λ)sin(φ)} f(φ) dφ
+  where f(φ) is the angular power spectrum and λ is the wavelength. When Δ is
+  small (few scatterers near the UE), adjacent antenna elements see highly
+  correlated channels. When Δ is large (rich scattering), correlation is low.
+
+  Special cases:
+  - Uncorrelated fading (isotropic scattering, large angular spread): R_{kl} =
+  β_{kl} · I_N
+  - Fully correlated (single path, Δ → 0): R_{kl} = β_{kl} · a(θ)a(θ)ᴴ, where
+  a(θ) is the array response vector — rank-1 matrix
+  - General case: R_{kl} has rank between 1 and N, with eigenvalues reflecting
+  the angular power distribution
+
+  The one-ring model (Shiu et al., 2000): Places scatterers on a ring of radius
+  r around the UE at distance D from the AP. The angular spread seen by the AP
+  is Δ ≈ arctan(r/D). This model is widely used in Massive MIMO analysis.
+
+  Source: D. Shiu, G. J. Foschini, M. J. Gans, and J. M. Kahn, "Fading
+  correlation and its effect on the capacity of multielement antenna systems,"
+  IEEE Trans. Commun., vol. 48, no. 3, pp. 502–513, 2000.
+
+  2.5 Independence Across APs
+
+  The paper assumes:
+
+  E{h_{kn} (h_{kl})ᴴ} = 0    for l ≠ n
+  That is, the channel vectors from UE k to different APs are statistically 
+  independent. The justification: APs are spatially distributed in the network,
+  so they see completely different scattering environments. The scatterers near
+  AP l and AP n are different, leading to independent fading realizations.
+
+  This means the collective correlation matrix is block-diagonal:
+
+  R_k = diag(R_{k1}, R_{k2}, ..., R_{kL}) ∈ ℂᴹˣᴹ          ... (Eq. 1)
+  so that:
+
+  h_k ~ 𝒩_C(0, R_k)
+  Why block-diagonal structure matters: It dramatically simplifies channel
+  estimation — each AP can estimate its own channels independently, without
+  needing information from other APs.
+
+  2.6 Assumption on Correlation Matrix Knowledge
+
+  The paper states: "We assume the spatial correlation matrices {R_{kl}} are
+  available wherever needed."
+
+  This is a standard assumption in the Massive MIMO literature. The
+  justification is that R_{kl} changes on a much slower timescale than the
+  instantaneous channel h_{kl}:
+
+  - h_{kl} changes every coherence block (milliseconds)
+  - R_{kl} changes over large-scale coherence intervals (seconds to minutes) —
+  only when UE moves significantly or the scattering environment changes
+
+  Therefore, R_{kl} can be estimated using many samples collected over multiple
+  coherence blocks. The paper cites four methods for practical correlation
+  matrix estimation:
+
+  1. Björnson, Sanguinetti, and Debbah (2016) [36]: Massive MIMO with imperfect
+  covariance information
+  2. Neumann, Joham, and Utschick (2018) [37]: Covariance matrix estimation in
+  Massive MIMO
+  3. Upadhya and Vorobyov (2018) [38]: Alternative covariance estimation
+  approach
+  4. Haghighatshoar and Caire (2017) [39]: Wideband sparse channel estimation
+
+  ---
+  SECTION II-A: PILOT TRANSMISSION AND CHANNEL ESTIMATION
+
+  2.7 Pilot Signal Structure
+
+  There are τ_p mutually orthogonal pilot signals, each of length τ_p (they form
+   a τ_p × τ_p orthogonal matrix). The crucial design choice:
+
+  τ_p is a CONSTANT, independent of K
+  This is essential for scalability. If τ_p grew with K, the pilot overhead
+  would eventually consume the entire coherence block.
+
+  Pilot assignment: Since there are only τ_p pilots but K > τ_p users (in
+  general), multiple users must share the same pilot. Let:
+
+  𝒮_t ⊂ {1, ..., K}
+  denote the subset of UEs assigned to pilot t, for t = 1, ..., τ_p.
+
+  Orthogonality: The τ_p pilot signals φ₁, ..., φ_{τ_p} ∈ ℂ^{τ_p} satisfy:
+
+  φᵢᴴ φⱼ = { τ_p  if i = j
+            { 0    if i ≠ j
+  This means when a UE transmits pilot t and the AP correlates (despreads) the
+  received signal with φ_t, all other pilots are perfectly removed — only
+  signals from UEs sharing pilot t remain.
+
+  2.8 Received Pilot Signal (Equation 2)
+
+  When UEs in set 𝒮_t simultaneously transmit pilot t, the received signal at AP
+   l after despreading is:
+
+  y^{pilot}_{tl} = Σ_{i ∈ 𝒮_t} √(τ_p · p_i) · h_{il} + n_{tl}          ... (Eq.
+  2)
+  where:
+  - p_i is the transmit power of UE i (in Watts)
+  - τ_p is the processing gain (from the pilot length)
+  - h_{il} ∈ ℂᴺ is the channel from UE i to AP l
+  - n_{tl} ~ 𝒩_C(0, σ² I_N) is the thermal noise after despreading
+
+  Derivation of Equation (2):
+
+  Before despreading, the received signal at AP l during the pilot phase is (for
+   all τ_p time slots):
+
+  Y^{pilot}_l = Σ_{k=1}^{K} √(p_k) · h_{kl} · φ_{t_k}ᵀ + N_l ∈ ℂᴺˣᵗᵖ
+  where t_k is the pilot index assigned to UE k and N_l ∈ ℂᴺˣᵗᵖ is the noise
+  matrix.
+
+  To extract the signal from pilot t, we despread (correlate) by multiplying
+  with φ_t*/τ_p:
+
+  y^{pilot}_{tl} = Y^{pilot}_l · φ_t* / √1
+  Wait, let me be precise. The despreading operation is:
+
+  y^{pilot}_{tl} = Y^{pilot}_l · φ_t*
+                  = Σ_{k=1}^{K} √(p_k) · h_{kl} · (φ_{t_k}ᵀ · φ_t*)
+                  = Σ_{k: t_k = t} √(p_k) · h_{kl} · τ_p + N_l · φ_t*
+  Actually, the standard formulation from [2, Sec. 3] gives equation (2)
+  directly. Let me redo carefully:
+
+  Each UE k assigned to pilot t transmits the signal √(p_k) · φ_t ∈ ℂ^{τ_p} over
+   τ_p channel uses. The received signal at AP l across all τ_p pilot channel
+  uses is:
+
+  Y_l = Σ_{k=1}^{K} h_{kl} √(p_k) φ_{t_k}ᵀ + N_l ∈ ℂᴺˣᵗᵖ
+  Despreading with pilot t (multiply by φ_t*/√τ_p and scale):
+
+  y^{pilot}_{tl} = Y_l · φ_t* / √τ_p · √τ_p = ...
+  The standard result after proper normalization gives:
+
+  y^{pilot}_{tl} = Σ_{i ∈ 𝒮_t} √(τ_p p_i) h_{il} + n_{tl}
+  The key takeaway: After despreading, only UEs sharing the same pilot t 
+  contribute to y^{pilot}_{tl}. The factor √(τ_p) represents the processing gain
+   — the signal power is boosted by a factor τ_p relative to noise through the
+  correlation process (spreading/despreading gain).
+
+  2.9 MMSE Channel Estimation (Equation 3)
+
+  Given the received pilot signal y^{pilot}{tl}, the MMSE estimate of h{kl} for
+  k ∈ 𝒮_t is:
+
+  ĥ_{kl} = √(p_k τ_p) · R_{kl} · Ψ_{tl}⁻¹ · y^{pilot}_{tl}          ... (Eq. 3)
+  where:
+
+  Ψ_{tl} = E{y^{pilot}_{tl} (y^{pilot}_{tl})ᴴ} = Σ_{i ∈ 𝒮_t} τ_p p_i R_{il} + σ²
+   I_N     ... (Eq. 4)
+  Detailed Derivation of the MMSE Estimator:
+
+  The MMSE estimate of a random vector x given observation y when both are
+  jointly Gaussian is (from Kay, 1993, Ch. 12):
+
+  x̂_{MMSE} = E{x} + C_{xy} C_{yy}⁻¹ (y - E{y})
+  For our problem:
+  - x = h_{kl} with E{h_{kl}} = 0 and Cov(h_{kl}) = R_{kl}
+  - y = y^{pilot}{tl} with E{y^{pilot}{tl}} = 0
+
+  The cross-correlation is:
+
+  C_{xy} = E{h_{kl} (y^{pilot}_{tl})ᴴ}
+         = E{h_{kl} (Σ_{i ∈ 𝒮_t} √(τ_p p_i) h_{il} + n_{tl})ᴴ}
+         = √(τ_p p_k) · E{h_{kl} h_{kl}ᴴ}     (since channels of different UEs
+  are independent)
+         = √(τ_p p_k) · R_{kl}
+  The auto-correlation is:
+
+  C_{yy} = E{y^{pilot}_{tl} (y^{pilot}_{tl})ᴴ}
+         = Σ_{i ∈ 𝒮_t} τ_p p_i · E{h_{il} h_{il}ᴴ} + σ² I_N
+         = Σ_{i ∈ 𝒮_t} τ_p p_i R_{il} + σ² I_N
+         = Ψ_{tl}
+  Therefore:
+
+  ĥ_{kl} = C_{xy} C_{yy}⁻¹ y = √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ y^{pilot}_{tl}     ✓
+  Properties of the MMSE estimate:
+
+  (i) Distribution of the estimate:
+
+  ĥ_{kl} ~ 𝒩_C(0, p_k τ_p R_{kl} Ψ_{tl}⁻¹ R_{kl})
+  The covariance of the estimate is:
+
+  E{ĥ_{kl} ĥ_{kl}ᴴ} = p_k τ_p R_{kl} Ψ_{tl}⁻¹ R_{kl}
+  (ii) Estimation error:
+
+  h̃_{kl} = h_{kl} - ĥ_{kl} ~ 𝒩_C(0, C_{kl})
+  where:
+
+  C_{kl} = R_{kl} - p_k τ_p R_{kl} Ψ_{tl}⁻¹ R_{kl}
+  (iii) Orthogonality principle: The MMSE guarantee is:
+
+  E{h̃_{kl} ĥ_{kl}ᴴ} = 0
+  The estimation error is uncorrelated with the estimate. For Gaussian vectors,
+  uncorrelated implies independent. This property is crucial for deriving SE
+  expressions later.
+
+  (iv) Mean Squared Error (MSE):
+
+  MSE = E{‖h̃_{kl}‖²} = tr(C_{kl}) = tr(R_{kl}) - p_k τ_p tr(R_{kl} Ψ_{tl}⁻¹
+  R_{kl})
+  2.10 The Precomputation Insight
+
+  The paper makes an important practical observation. The matrix:
+
+  √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ ∈ ℂᴺˣᴺ
+  in equation (3) depends only on the channel statistics (R_{kl}, Ψ_{tl}, p_k,
+  τ_p), which are fixed throughout the communication (they change on a much
+  slower timescale than the instantaneous channel). Therefore:
+
+  - This matrix can be precomputed once and stored at AP l
+  - The cost of precomputation is O(N³) for the matrix inverse, done once per
+  large-scale coherence interval
+  - In each coherence block, the estimation only requires:
+    - Computing y^{pilot}_{tl}: N τ_p complex multiplications per pilot sequence
+    - Multiplying the precomputed matrix with y^{pilot}_{tl}: N² complex
+  multiplications per UE
+
+  This is a key practical insight — the "expensive" part (matrix inversion) is
+  done rarely, while the per-block computation is cheap.
+
+  2.11 Pilot Contamination — The Two-Headed Problem
+
+  When multiple UEs share pilot t (i.e., |𝒮t| > 1), the MMSE estimate ĥ{kl} is
+  contaminated by the channels of the other pilot-sharing UEs. Looking at
+  equation (3):
+
+  ĥ_{kl} = √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ · [Σ_{i ∈ 𝒮_t} √(τ_p p_i) h_{il} + n_{tl}]
+
+  = p_k τ_p R_{kl} Ψ_{tl}⁻¹ h_{kl}                    ← desired component
+  + √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ Σ_{i ∈ 𝒮_t, i≠k} √(τ_p p_i) h_{il}    ←
+  contamination
+  + √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ n_{tl}                 ← noise
+  Consequence 1 — Reduced estimation quality: The contaminating channels
+  increase the effective noise floor in the estimation. The MSE increases:
+
+  MSE_contaminated > MSE_no_contamination
+  Specifically, without contamination (|𝒮_t| = {k} only):
+
+  Ψ_{tl} = τ_p p_k R_{kl} + σ² I_N
+  With contamination:
+
+  Ψ_{tl} = τ_p p_k R_{kl} + Σ_{i ∈ 𝒮_t, i≠k} τ_p p_i R_{il} + σ² I_N
+  The additional terms make Ψ_{tl} "larger," which makes Ψ_{tl}⁻¹ "smaller,"
+  reducing the estimate quality.
+
+  Consequence 2 — Correlated estimates (coherent interference): The MMSE
+  estimates of pilot-sharing UEs become statistically correlated:
+
+  E{ĥ_{kl} ĥ_{il}ᴴ} ≠ 0    for i, k ∈ 𝒮_t, i ≠ k
+  This correlation means that when AP l beamforms toward UE k using ĥ_{kl}, it
+  inadvertently also beamforms toward UE i. This creates coherent interference
+  that scales with the number of antennas N — at the same rate as the desired
+  signal. This is the phenomenon identified by Marzetta (2010) as the
+  fundamental limitation of Massive MIMO.
+
+  However, Björnson, Hoydis, and Sanguinetti (2018) [41] proved that with
+  spatially correlated fading, MMSE combining can separate pilot-sharing UEs if
+  their spatial correlation matrices R_{kl} and R_{il} are sufficiently
+  different — meaning pilot contamination is NOT a fundamental limit.
+
+  Source: T. L. Marzetta, "Noncooperative Cellular Wireless with Unlimited
+  Numbers of Base Station Antennas," IEEE Trans. Wireless Commun., vol. 9, no.
+  11, 2010.
+
+  ---
+  3. HISTORICAL CONTEXT AND PRIOR DEVELOPMENTS
+
+  3.1 Evolution of Channel Models
+
+  ┌──────┬─────────────────────────────────────────┬────────────────────────┐
+  │ Year │               Development               │       Reference        │
+  ├──────┼─────────────────────────────────────────┼────────────────────────┤
+  │      │ Clarke's statistical model for mobile   │ Clarke, Bell Syst.     │
+  │ 1968 │ radio reception — foundation of         │ Tech. J.               │
+  │      │ Rayleigh fading                         │                        │
+  ├──────┼─────────────────────────────────────────┼────────────────────────┤
+  │ 1974 │ Jakes' book popularizes the model,      │ Jakes, Microwave       │
+  │      │ introduces Jakes' fading simulator      │ Mobile Communications  │
+  ├──────┼─────────────────────────────────────────┼────────────────────────┤
+  │ 2000 │ One-ring spatial correlation model for  │ Shiu et al., IEEE      │
+  │      │ MIMO                                    │ Trans. Commun.         │
+  ├──────┼─────────────────────────────────────────┼────────────────────────┤
+  │ 2003 │ 3GPP Spatial Channel Model (SCM) for    │ 3GPP TR 25.996         │
+  │      │ MIMO evaluation                         │                        │
+  ├──────┼─────────────────────────────────────────┼────────────────────────┤
+  │ 2017 │ 3GPP TR 38.901: 5G channel model        │ 3GPP TR 38.901         │
+  │      │ (0.5–100 GHz) with spatial consistency  │                        │
+  ├──────┼─────────────────────────────────────────┼────────────────────────┤
+  │ 2017 │ Björnson et al. comprehensive treatment │ [2] Foundations and    │
+  │      │  in Massive MIMO context                │ Trends                 │
+  └──────┴─────────────────────────────────────────┴────────────────────────┘
+
+  3.2 Evolution of Channel Estimation in Multi-Antenna Systems
+
+  ┌───────────┬────────────────────────────────┬────────────────────────────┐
+  │   Year    │          Development           │         Reference          │
+  ├───────────┼────────────────────────────────┼────────────────────────────┤
+  │           │ Kay's textbook: MMSE/LMMSE     │ Kay, Fundamentals of       │
+  │ 1993      │ estimation theory              │ Statistical Signal         │
+  │           │                                │ Processing                 │
+  ├───────────┼────────────────────────────────┼────────────────────────────┤
+  │ 1999      │ Training-based channel         │ Negi & Cioffi              │
+  │           │ estimation for MIMO-OFDM       │                            │
+  ├───────────┼────────────────────────────────┼────────────────────────────┤
+  │ 2003      │ How much training is needed in │ IEEE Trans. Inf. Theory    │
+  │           │  MIMO? (Hassibi & Hochwald)    │                            │
+  ├───────────┼────────────────────────────────┼────────────────────────────┤
+  │ 2010      │ Pilot contamination identified │ Marzetta [22]              │
+  │           │  as key challenge              │                            │
+  ├───────────┼────────────────────────────────┼────────────────────────────┤
+  │ 2016–2018 │ Practical correlation matrix   │ [36]–[39]                  │
+  │           │ estimation methods             │                            │
+  ├───────────┼────────────────────────────────┼────────────────────────────┤
+  │ 2018      │ Proof that pilot contamination │ Björnson et al. [41]       │
+  │           │  is not fundamental            │                            │
+  └───────────┴────────────────────────────────┴────────────────────────────┘
+
+  ---
+  4. MATHEMATICAL DEEP DIVE
+
+  4.1 The Circularly Symmetric Complex Gaussian Distribution
+
+  A random vector h ∈ ℂᴺ is circularly symmetric complex Gaussian with
+  covariance R if:
+
+  h ~ 𝒩_C(0, R)
+  This means:
+  - E{h} = 0
+  - E{h hᴴ} = R (covariance matrix)
+  - E{h hᵀ} = 0 (pseudo-covariance is zero — this is the circular symmetry
+  condition)
+
+  Circular symmetry means that h and e^{jθ} h have the same distribution for any
+   θ. Physically, this means the phase of each channel component is uniformly
+  distributed — no preferred direction in the complex plane.
+
+  The probability density function is:
+
+  f(h) = 1/(πᴺ det(R)) · exp(-hᴴ R⁻¹ h)
+  Key properties used throughout the paper:
+
+  (i) Linear transformation: If h ~ 𝒩_C(0, R) and A is a deterministic matrix,
+  then:
+
+  Ah ~ 𝒩_C(0, A R Aᴴ)
+  (ii) Conditional distribution: If [h₁ᵀ h₂ᵀ]ᵀ is jointly Gaussian with
+  covariance blocks R₁₁, R₁₂, R₂₁, R₂₂, then:
+
+  h₁ | h₂ ~ 𝒩_C(R₁₂ R₂₂⁻¹ h₂,  R₁₁ - R₁₂ R₂₂⁻¹ R₂₁)
+  (iii) Independence from uncorrelation: For jointly Gaussian vectors, E{h₁ h₂ᴴ}
+   = 0 implies h₁ and h₂ are independent.
+
+  4.2 Eigendecomposition of R_{kl} — Geometric Interpretation
+
+  Since R_{kl} is Hermitian positive semi-definite, it has an
+  eigendecomposition:
+
+  R_{kl} = U_{kl} Λ_{kl} U_{kl}ᴴ
+  where:
+  - U_{kl} = [u₁ u₂ ... u_N] ∈ ℂᴺˣᴺ is unitary (columns are orthonormal
+  eigenvectors)
+  - Λ_{kl} = diag(λ₁, λ₂, ..., λ_N) with λ₁ ≥ λ₂ ≥ ... ≥ λ_N ≥ 0
+
+  Geometric meaning: The eigenvectors u_n represent the spatial directions from
+  which signal energy arrives at the AP. The eigenvalues λ_n represent the power
+   along each direction.
+
+  - If the channel has rank r < N (only r significant eigenvalues), the channel
+  lives in an r-dimensional subspace. MMSE estimation exploits this by
+  projecting away the noise in the (N-r) noise-only dimensions.
+  - β_{kl} = tr(R_{kl})/N = (Σₙ λ_n)/N is the average channel gain per antenna.
+
+  4.3 Step-by-Step Derivation: MMSE Estimation Quality
+
+  Let's derive the estimate covariance and error covariance explicitly.
+
+  Starting point: ĥ_{kl} = √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ y^{pilot}_{tl}
+
+  Estimate covariance:
+
+  E{ĥ_{kl} ĥ_{kl}ᴴ} = p_k τ_p R_{kl} Ψ_{tl}⁻¹ E{y^{pilot}_{tl}
+  (y^{pilot}_{tl})ᴴ} Ψ_{tl}⁻¹ R_{kl}
+                      = p_k τ_p R_{kl} Ψ_{tl}⁻¹ Ψ_{tl} Ψ_{tl}⁻¹ R_{kl}
+                      = p_k τ_p R_{kl} Ψ_{tl}⁻¹ R_{kl}
+  Let's call this:
+
+  B_{kl} ≜ p_k τ_p R_{kl} Ψ_{tl}⁻¹ R_{kl}          (estimate covariance)
+  Error covariance:
+
+  C_{kl} = R_{kl} - B_{kl} = R_{kl} - p_k τ_p R_{kl} Ψ_{tl}⁻¹ R_{kl}
+  Normalized MSE per antenna:
+
+  NMSE = tr(C_{kl}) / tr(R_{kl}) = 1 - p_k τ_p tr(R_{kl} Ψ_{tl}⁻¹ R_{kl}) /
+  tr(R_{kl})
+  4.4 Special Case: Uncorrelated Fading (N = 1 or R_{kl} = β_{kl} I_N)
+
+  When R_{kl} = β_{kl} I_N (uncorrelated fading) or N = 1 (single antenna),
+  everything simplifies to scalars.
+
+  For N = 1:
+  - h_{kl} ~ 𝒩C(0, β{kl}) is a scalar
+  - Ψ_{tl} = Σ_{i ∈ 𝒮t} τ_p p_i β{il} + σ² is a scalar
+  - ĥ_{kl} = √(p_k τ_p) β_{kl} / Ψ_{tl} · y^{pilot}_{tl}
+
+  The estimate covariance becomes:
+
+  E{|ĥ_{kl}|²} = p_k τ_p β_{kl}² / Ψ_{tl} = p_k τ_p β_{kl}² / (Σ_{i ∈ 𝒮_t} τ_p
+  p_i β_{il} + σ²)
+  And the error variance:
+
+  E{|h̃_{kl}|²} = β_{kl} - p_k τ_p β_{kl}² / Ψ_{tl}
+  This is the classical result from the original Cell-Free Massive MIMO paper
+  [5].
+
+  ---
+  5. NUMERICAL EXAMPLES
+
+  Example 1: MMSE Channel Estimation with Single-Antenna AP
+
+  Setup: N = 1, τ_p = 5, AP l, UE k on pilot t = 1.
+
+  Channel statistics:
+  - β_{kl} = 0.01 (= -20 dB, moderate distance)
+  - β_{il} = 0.001 (= -30 dB, far UE sharing same pilot)
+  - p_k = p_i = 100 mW = 0.1 W
+  - σ² = -94 dBm = 3.98 × 10⁻¹⁰ W (for 20 MHz bandwidth)
+
+  Step 1: Compute Ψ_{tl}:
+
+  Ψ_{tl} = τ_p p_k β_{kl} + τ_p p_i β_{il} + σ²
+         = 5 × 0.1 × 0.01 + 5 × 0.1 × 0.001 + 3.98 × 10⁻¹⁰
+         = 0.005 + 0.0005 + 0.000000000398
+         ≈ 0.0055
+  (Note: the noise term is negligible compared to the pilot signals — the system
+   is interference-limited, not noise-limited.)
+
+  Step 2: Compute estimate quality:
+
+  E{|ĥ_{kl}|²} = p_k τ_p β_{kl}² / Ψ_{tl} = 0.5 × 0.0001 / 0.0055 = 0.00909
+  Step 3: Compute estimation error:
+
+  E{|h̃_{kl}|²} = β_{kl} - E{|ĥ_{kl}|²} = 0.01 - 0.00909 = 0.00091
+  Step 4: Normalized MSE:
+
+  NMSE = 0.00091 / 0.01 = 0.091 = 9.1%
+  Interpretation: Even with pilot contamination from one other UE, the
+  estimation is quite good (91% of the channel energy is captured). This is
+  because the contaminating UE has 10× weaker channel.
+
+  Example 2: Impact of Pilot Contamination Severity
+
+  Same setup, but now vary β_{il} (the contaminator's channel gain):
+
+  ┌───────────────────┬────────┬──────────────┬───────┬─────────────────────┐
+  │      β_{il}       │ Ψ_{tl} │ E{|ĥ_{kl}|²} │ NMSE  │   Interpretation    │
+  ├───────────────────┼────────┼──────────────┼───────┼─────────────────────┤
+  │ 0 (no             │ 0.005  │ 0.01000      │ 0.0%  │ Perfect estimation  │
+  │ contamination)    │        │              │       │ (noise negligible)  │
+  ├───────────────────┼────────┼──────────────┼───────┼─────────────────────┤
+  │ 0.001 (-30 dB)    │ 0.0055 │ 0.00909      │ 9.1%  │ Mild contamination  │
+  ├───────────────────┼────────┼──────────────┼───────┼─────────────────────┤
+  │ 0.005 (-23 dB)    │ 0.0075 │ 0.00667      │ 33.3% │ Moderate            │
+  │                   │        │              │       │ contamination       │
+  ├───────────────────┼────────┼──────────────┼───────┼─────────────────────┤
+  │ 0.01 (-20 dB,     │ 0.0100 │ 0.00500      │ 50.0% │ Severe              │
+  │ same as UE k)     │        │              │       │ contamination       │
+  ├───────────────────┼────────┼──────────────┼───────┼─────────────────────┤
+  │ 0.1 (-10 dB, much │ 0.0550 │ 0.00091      │ 90.9% │ Overwhelming        │
+  │  stronger)        │        │              │       │ contamination       │
+  └───────────────────┴────────┴──────────────┴───────┴─────────────────────┘
+
+  Key insight: Pilot contamination is most severe when the contaminating UE has
+  a comparable or stronger channel to the AP. If the contaminating UE is far
+  away (weak β_{il}), the impact is small. This is why Cell-Free Massive MIMO,
+  with its distributed APs, naturally reduces pilot contamination — each AP
+  mainly "sees" nearby UEs.
+
+  Example 3: Multi-Antenna AP (N = 4)
+
+  Setup: N = 4 antennas, τ_p = 5, 2 UEs sharing pilot t.
+
+  Spatial correlation matrices (using a simplified model):
+
+  R_{kl} = β_{kl} · R_spatial,k    where β_{kl} = 0.01
+
+  R_{il} = β_{il} · R_spatial,i    where β_{il} = 0.008
+  Suppose the UEs have different angular directions:
+
+  R_spatial,k = [1.0  0.8  0.4  0.1;
+                 0.8  1.0  0.8  0.4;
+                 0.4  0.8  1.0  0.8;
+                 0.1  0.4  0.8  1.0]
+
+  R_spatial,i = [1.0  0.3  0.0  -0.1;
+                 0.3  1.0  0.3   0.0;
+                 0.0  0.3  1.0   0.3;
+                -0.1  0.0  0.3   1.0]
+  These represent UEs arriving from different angular directions (different
+  correlation structures).
+
+  Ψ_{tl} = τ_p p_k R_{kl} + τ_p p_i R_{il} + σ² I₄
+         = 0.5 × 0.01 × R_spatial,k + 0.5 × 0.008 × R_spatial,i + σ² I₄
+  The MMSE estimator can exploit the different spatial signatures of the two
+  UEs:
+  - Even though both UEs send the same pilot, their channels arrive from
+  different directions
+  - The MMSE estimator uses the spatial correlation matrix R_{kl} as prior 
+  information to project the received signal onto UE k's subspace
+  - This partially resolves the pilot contamination — something not possible
+  with single-antenna APs!
+
+  This is why the paper considers multi-antenna APs (N > 1) — spatial
+  correlation provides additional degrees of freedom for separating
+  pilot-sharing UEs.
+
+  ---
+  6. PRACTICE PROBLEMS
+
+  Problem 1: Basic MMSE Estimation
+
+  Consider N = 1, τ_p = 10, one AP, one UE (no pilot contamination). β_{kl} =
+  0.005, p_k = 200 mW, σ² = 10⁻⁹ W.
+
+  (a) Compute Ψ_{tl}.
+  (b) Compute E{|ĥ_{kl}|²}.
+  (c) Compute the NMSE.
+  (d) What happens to the NMSE as p_k → ∞?
+
+  Solutions:
+
+  (a) Ψ_{tl} = τ_p p_k β_{kl} + σ² = 10 × 0.2 × 0.005 + 10⁻⁹ = 0.01 + 10⁻⁹ ≈
+  0.01
+
+  (b) E{|ĥ_{kl}|²} = p_k τ_p β_{kl}² / Ψ_{tl} = 0.2 × 10 × 0.000025 / 0.01 =
+  0.005
+
+  (c) NMSE = (β_{kl} - E{|ĥ_{kl}|²}) / β_{kl} = (0.005 - 0.005) / 0.005 ≈ 0
+  (essentially perfect)
+
+  (d) As p_k → ∞: Ψ_{tl} → τ_p p_k β_{kl}, and E{|ĥ_{kl}|²} → p_k τ_p β_{kl}² /
+  (τ_p p_k β_{kl}) = β_{kl}. So NMSE → 0. Without pilot contamination, infinite 
+  SNR gives perfect estimation.
+
+  Problem 2: Pilot Contamination Effect
+
+  Same as Problem 1, but now a second UE i shares the same pilot with β_{il} =
+  0.005 (same channel gain) and p_i = 200 mW.
+
+  (a) Compute the new Ψ_{tl}.
+  (b) Compute E{|ĥ_{kl}|²} and NMSE.
+  (c) What happens to the NMSE as p_k, p_i → ∞ together?
+
+  Solutions:
+
+  (a) Ψ_{tl} = τ_p p_k β_{kl} + τ_p p_i β_{il} + σ² = 0.01 + 0.01 + 10⁻⁹ ≈ 0.02
+
+  (b) E{|ĥ_{kl}|²} = 2 × 0.000025 / 0.02 = 0.0025. NMSE = (0.005 - 0.0025)/0.005
+   = 50%
+
+  (c) As p_k, p_i → ∞: Ψ_{tl} → τ_p(p_k β_{kl} + p_i β_{il}), and:
+
+  E{|ĥ_{kl}|²} → p_k τ_p β_{kl}² / (τ_p(p_k β_{kl} + p_i β_{il}))
+                 = β_{kl}² / (β_{kl} + β_{il})
+                 = β_{kl}/2   (when β_{kl} = β_{il})
+
+  NMSE → 1 - β_{kl}/(2β_{kl}) = 1/2 = **50%**
+  Key insight: With pilot contamination from an equally strong UE, the NMSE
+  saturates at 50% regardless of how much power you use. Pilot contamination is 
+  an interference-limited phenomenon — more power does not help!
+
+  Problem 3: Computational Complexity
+
+  An AP has N = 4 antennas and serves UEs on τ_p = 10 pilots.
+
+  (a) How many complex multiplications are needed per coherence block for the
+  despreading operation (computing y^{pilot}_{tl} for all pilots)?
+  (b) How many for the MMSE estimation of all served UEs (matrix-vector
+  multiplications only, assuming precomputed matrices)?
+  (c) What is the total per AP? How does it scale with K?
+
+  Solutions:
+
+  (a) Despreading: N × τ_p multiplications per pilot × τ_p pilots = N × τ_p² = 4
+   × 100 = 400
+
+  (Actually, more precisely: N τ_p per pilot sequence, and there are τ_p
+  sequences, so total = N τ_p × τ_p = N τ_p². But the paper states N τ_p per
+  pilot sequence.)
+
+  Correct interpretation: y^{pilot}_{tl} = Y_l · φ_t* requires N τ_p
+  multiplications per pilot sequence t. For all τ_p pilots: N τ_p² = 4 × 100 = 
+  400 multiplications.
+
+  (b) Per UE: N² = 16 multiplications (matrix-vector product). Maximum UEs per
+  AP = τ_p = 10. Total: 10 × 16 = 160 multiplications.
+
+  (c) Total per AP: 400 + 160 = 560 complex multiplications per coherence block.
+   This does NOT depend on K — it only depends on τ_p and N, both constants.
+  This is the scalability feature.
+
+  ---
+  7. SECTION SUMMARY
+
+  ┌──────────────────┬──────────────────────────────────────────────────────┐
+  │      Aspect      │                        Detail                        │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ System           │ K single-antenna UEs, L APs with N antennas each, M  │
+  │                  │ = NL total antennas                                  │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Protocol         │ TDD with coherence blocks: τ_c = τ_p + τ_u + τ_d     │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Channel model    │ Correlated Rayleigh fading: h_{kl} ~ 𝒩C(0, R{kl})    │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ R_{kl} encodes   │ Pathloss, shadowing, antenna gains, spatial          │
+  │                  │ correlation                                          │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Key property     │ Channels to different APs are independent → R_k is   │
+  │                  │ block-diagonal                                       │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Pilot structure  │ τ_p orthogonal pilots (constant, independent of K);  │
+  │                  │ set 𝒮_t shares pilot t                               │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ MMSE estimate    │ ĥ_{kl} = √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹ y^{pilot}_{tl}   │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Ψ_{tl}           │ = Σ_{i ∈ 𝒮t} τ_p p_i R{il} + σ² I_N (correlation     │
+  │                  │ matrix of received pilot)                            │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Pilot            │ Pilot sharing → (1) reduced estimation quality, (2)  │
+  │ contamination    │ correlated estimates → coherent interference         │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Precomputation   │ Statistical matrix √(p_k τ_p) R_{kl} Ψ_{tl}⁻¹        │
+  │                  │ computed once; per-block cost: O(N²) per UE          │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Complexity per   │ Nτ_p per pilot + N² per UE — both independent of K   │
+  │ AP               │ (scalable)                                           │
+  └──────────────────┴──────────────────────────────────────────────────────┘
+
+  ---
+  Ready for Section III (Definition of Scalability and Review of Original
+  Cell-Free Massive MIMO) whenever you are. That section formalizes what
+  "scalable" means, shows the UL/DL signal models, and proves the original
+  CF-mMIMO fails all four scalability criteria.
+
+✻ Cooked for 10m 1s

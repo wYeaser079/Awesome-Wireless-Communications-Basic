@@ -1,0 +1,239 @@
+================================================================================
+TECHNICAL AND HISTORICAL BACKGROUND RESEARCH
+for Section V-A: "Algorithm for Joint Initial Access, Pilot Assignment,
+                  and Cluster Formation"
+Paper: "Scalable Cell-Free Massive MIMO Systems" -- Bjornson & Sanguinetti, 2020
+IEEE Trans. Wireless Commun., vol. 19, no. 7, pp. 4526-4541, Jul. 2020.
+================================================================================
+
+
+1. ASSUMPTION 1: ONE UE PER PILOT PER AP
+=========================================
+
+Assumption 1 states that each AP l serves at most one UE per pilot sequence
+and uses all N antennas for those UEs, yielding |D_l| <= tau_p and
+D_{il} = I_N if i in D_l, else 0_N.
+
+(a) Why one UE per pilot avoids intra-AP pilot contamination:
+    The MMSE channel estimate at AP l for UE k on pilot t is (Eq. 3):
+      hat{h}_{kl} = sqrt(p_k tau_p) R_{kl} Psi_{tl}^{-1} y^{pilot}_{tl}
+    where Psi_{tl} = sum_{i in S_t} tau_p p_i R_{il} + sigma^2 I_N.
+    All UEs sharing pilot t contribute to Psi_{tl}. When AP l serves two UEs
+    on the same pilot, both their MMSE estimates are derived from the same
+    received signal y^{pilot}_{tl} and are therefore correlated. This
+    correlation causes "coherent interference" that grows linearly with N,
+    just like the desired signal power [22], [40], [41]. By restricting AP l
+    to serve at most one UE per pilot, the AP never simultaneously precodes
+    toward or combines from two UEs whose estimates are entangled. Interference
+    from pilot-sharing UEs at *other* APs still exists but is attenuated by
+    spatial filtering and the large-scale fading differential.
+
+(b) Guarantee of scalability (connection to Lemma 1):
+    Lemma 1 proves that if |D_l| is constant as K -> infinity for all l,
+    then the first three scalability conditions in Definition 1 hold:
+    channel estimation, signal processing, and fronthaul signaling all have
+    finite complexity per AP. Since tau_p is a fixed system parameter
+    (independent of K), the bound |D_l| <= tau_p is automatically constant
+    as K -> infinity, thereby satisfying Lemma 1. Each AP computes at most
+    tau_p MMSE estimates, tau_p combining/precoding vectors, and exchanges
+    at most tau_p data streams over the fronthaul -- all independent of K.
+
+(c) The coverage-versus-restriction trade-off:
+    Limiting each AP to tau_p UEs means that APs in dense-UE areas may be
+    unable to serve all nearby UEs. The three-step algorithm (Section V-A)
+    resolves this by guaranteeing that every UE is served by at least its
+    Master AP. Additional neighboring APs join the cluster only if they
+    have capacity (i.e., an unused pilot slot). The trade-off is that some
+    UEs in crowded regions may be served by fewer APs than in an unconstrained
+    system, slightly reducing their macro-diversity gain. However, this is
+    the price for provable scalability.
+
+
+2. INITIAL ACCESS IN CELLULAR AND CELL-FREE NETWORKS
+=====================================================
+
+Step 1 of the algorithm requires the UE to measure the large-scale fading
+coefficients beta_l = tr(R_{(K+1)l})/N from broadcast signals and then
+contact its Master AP via a "standard random access procedure" [42]-[44].
+
+(a) 5G NR initial access (3GPP TS 38.213, TS 38.211, TS 38.321):
+    In 5G New Radio, the gNodeB periodically transmits Synchronization
+    Signal / Physical Broadcast Channel (SS/PBCH) blocks. Each block contains:
+    - Primary Synchronization Signal (PSS): a 127-length m-sequence that
+      provides coarse time/frequency synchronization and identifies one of
+      three cell-ID groups.
+    - Secondary Synchronization Signal (SSS): a 127-length Gold sequence
+      that refines synchronization and identifies the physical cell ID
+      within the group, yielding 3 x 336 = 1008 total physical cell IDs.
+    - PBCH: carries the Master Information Block (MIB) with system
+      configuration parameters.
+    Multiple SS/PBCH blocks are beamswept across angular directions within
+    a 5 ms half-frame, enabling the UE to identify the best beam direction
+    as well as the strongest cell/AP.
+
+(b) Random Access Channel (RACH) procedure:
+    After detecting the SS/PBCH block, the UE initiates the 4-step RACH:
+    (i)   Msg1: UE transmits a preamble on the PRACH (selected from a set
+          of Zadoff-Chu sequences) to the gNodeB.
+    (ii)  Msg2: Random Access Response (RAR) from the gNodeB, containing
+          timing advance correction and an uplink grant.
+    (iii) Msg3: UE sends its identity (RRC connection request).
+    (iv)  Msg4: Contention resolution from the gNodeB.
+    5G NR also supports a 2-step RACH (combining Msg1+Msg3 and Msg2+Msg4)
+    for reduced latency.
+
+(c) Adaptation to cell-free networks:
+    In this paper's framework, the UE measures beta_l from *all* nearby APs'
+    broadcast signals (analogous to PSS/SSS) rather than selecting a single
+    cell. The UE then contacts only the strongest AP (Master AP) via RACH.
+    This is a minimal modification of the cellular procedure: the UE still
+    performs standard cell search and random access, but the role of the
+    "serving cell" is replaced by the Master AP. References [42]-[44] are:
+    [42] Sesia, Toufik, Baker, "LTE - The UMTS Long Term Evolution,"
+         2nd ed., Wiley, 2011.
+    [43] Bjornson, Larsson, Marzetta, "Massive MIMO: Ten myths and one
+         critical question," IEEE Commun. Mag., 2016.
+    [44] Interdonato et al., "Ubiquitous cell-free massive MIMO
+         communications," EURASIP J. Wireless Commun., 2019.
+
+
+3. PILOT ASSIGNMENT IN CELL-FREE MASSIVE MIMO
+===============================================
+
+(a) The pilot assignment problem:
+    With tau_p orthogonal pilots and K >> tau_p UEs, multiple UEs must share
+    the same pilot. Pilot-sharing UEs contaminate each other's channel
+    estimates, degrading SE. The combinatorial pilot assignment problem
+    (mapping K UEs to tau_p pilots) is NP-hard in general [NSF PAR:10312911].
+
+(b) Random pilot assignment:
+    The simplest approach assigns pilots uniformly at random. This was used
+    in [5] (Ngo et al., "Cell-free massive MIMO versus small cells," IEEE
+    Trans. Wireless Commun., vol. 16, no. 3, 2017). It is trivially
+    scalable and distributed but ignores channel geometry, causing severe
+    pilot contamination when geographically close UEs share a pilot.
+
+(c) Greedy pilot assignment:
+    Ngo et al. [5] also proposed a greedy scheme: UEs are assigned pilots
+    sequentially, choosing the pilot that maximizes the minimum per-UE rate.
+    Bjornson et al. [2] (Massive MIMO Networks textbook, 2017) analyzed
+    similar greedy schemes for co-located arrays. These centralized methods
+    have complexity growing with K and are therefore unscalable.
+
+(d) The criterion in this paper (Eq. 15):
+    The Master AP assigns pilot tau = argmin_t tr(Psi_{tl}) to the new UE.
+    Since Psi_{tl} = sum_{i in S_t} tau_p p_i R_{il} + sigma^2 I_N, the
+    trace tr(Psi_{tl}) = sum_{i in S_t} tau_p p_i tr(R_{il}) + N sigma^2
+    is the total pilot-domain received power on pilot t at AP l. Minimizing
+    this selects the pilot with the least aggregate interference power as
+    measured at the Master AP. This is a *local* decision -- the Master AP
+    uses only its own statistics -- making it inherently distributed and
+    scalable. Unlike network-wide greedy methods, it does not require
+    knowledge of all K UEs' channels across all L APs.
+
+
+4. THE MASTER AP CONCEPT
+=========================
+
+(a) Definition and selection (Eq. 14):
+    The Master AP for a new UE (K+1) is the AP with index
+      l* = argmax_l beta_l, where beta_l = tr(R_{(K+1)l})/N.
+    The quantity beta_l is the average channel gain (averaged over N
+    antennas), capturing path loss and shadowing. The AP with the largest
+    beta_l has, on average, the strongest physical link to the UE.
+
+(b) Role of the Master AP:
+    The Master AP has three responsibilities:
+    (i)   It is *guaranteed* to serve the UE -- this resolves the service-
+          guarantee gap in [27] (Buzzi & D'Andrea, 2017) and [29] (Nayebi
+          et al., 2017), where distributed clustering could leave some UEs
+          unserved because no AP independently decided to serve them.
+    (ii)  It assigns the pilot (Step 2) and coordinates the cluster by
+          informing neighboring APs (Step 2-3).
+    (iii) In the distributed implementation, it collects the soft estimates
+          from the cooperating APs and forwards them to the CPU.
+
+(c) The service-guarantee problem:
+    In [27] and [29], each AP independently chose which UEs to serve based
+    on channel quality thresholds. If a UE was weak to all nearby APs or
+    if all APs had full schedules, no AP would elect to serve it. The
+    Master AP concept eliminates this failure mode: every UE proactively
+    claims one AP, and that AP must serve it. This is a UE-initiated
+    mechanism, contrasting with the AP-initiated selection in [27], [29].
+
+
+5. THE THREE-STEP CLUSTER FORMATION ALGORITHM
+===============================================
+
+(a) Step 1 -- UE appoints Master AP:
+    The UE measures {beta_l} from broadcast synchronization signals and
+    selects l* = argmax_l beta_l (Eq. 14). It then contacts l* via RACH.
+    This step is fully UE-driven, requires no coordination between APs,
+    and mirrors the standard cell-selection procedure in 5G NR.
+
+(b) Step 2 -- Master AP assigns pilot and invites neighbors:
+    The Master AP computes tau = argmin_t tr(Psi_{tl*}) (Eq. 15). It then
+    informs a limited set of neighboring APs that it will serve UE (K+1)
+    on pilot tau. "Limited set" is key: only nearby APs are contacted,
+    keeping the signaling overhead bounded and independent of K.
+
+(c) Step 3 -- Neighboring APs decide to join the cluster:
+    Each notified AP independently decides whether to serve UE (K+1):
+    - If the AP does not currently serve any UE on pilot tau, it joins.
+    - If it does serve a UE on pilot tau, it joins only if UE (K+1) has a
+      stronger channel (higher beta) than the currently served UE, in which
+      case it switches.
+    This greedy local rule maximizes per-pilot channel quality at each AP.
+
+(d) Why this is distributed and scalable:
+    Each step involves only local information: the UE measures its own
+    channels (Step 1), the Master AP uses its local Psi matrix (Step 2),
+    and each neighbor uses its local channel statistics (Step 3). No step
+    requires global network knowledge. The per-AP computational and
+    signaling costs are bounded by tau_p, satisfying Lemma 1.
+
+(e) Comparison with prior approaches:
+    - [28] (Buzzi & D'Andrea, PIMRC 2018) and [33] (Ngo et al., Asilomar
+      2017): cluster UEs to APs based on large-scale fading thresholds but
+      do *not* limit |D_l|. Hence |D_l| can grow unboundedly as K -> inf,
+      violating scalability.
+    - [27] (Buzzi & D'Andrea, 2017) and [29] (Nayebi et al., 2017):
+      use AP-initiated selection that limits |D_l| but does *not* guarantee
+      that every UE is served. A UE distant from all APs or in a crowded
+      region may be left unserved.
+    The three-step algorithm resolves both deficiencies simultaneously:
+    the Master AP guarantee ensures universal service, while Assumption 1
+    caps |D_l| <= tau_p to ensure scalability.
+
+
+REFERENCES
+==========
+[2]  E. Bjornson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+     Spectral, Energy, and Hardware Efficiency," Found. Trends Signal
+     Process., vol. 11, no. 3-4, pp. 154-655, 2017.
+[5]  H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-free massive MIMO versus small cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834-1850, Mar. 2017.
+[10] E. Bjornson, E. Jorswieck, "Optimal resource allocation in coordinated
+     multi-cell systems," Found. Trends Commun. Inf. Theory, vol. 9,
+     no. 2-3, pp. 113-381, 2013.
+[17] E. Bjornson, N. Jalden, M. Bengtsson, B. Ottersten, "Optimality
+     properties, distributed strategies, and measurement-based evaluation
+     of coordinated multicell OFDMA transmission," IEEE Trans. Signal
+     Process., vol. 59, no. 12, pp. 6086-6101, Dec. 2011.
+[27] S. Buzzi, C. D'Andrea, "Cell-free massive MIMO: User-centric
+     approach," IEEE Wireless Commun. Lett., vol. 6, no. 6, pp. 706-709,
+     Dec. 2017.
+[28] S. Buzzi, C. D'Andrea, "User-centric communications versus cell-free
+     massive MIMO," in Proc. IEEE PIMRC, Sep. 2018.
+[29] E. Nayebi, A. Ashikhmin, T. L. Marzetta, H. Yang, "Precoding and
+     power optimization in cell-free massive MIMO systems," IEEE Trans.
+     Wireless Commun., vol. 16, no. 7, pp. 4445-4459, Jul. 2017.
+[33] H. Q. Ngo, L. Tran, T. Duong, M. Matthaiou, E. Larsson, "On the
+     total energy efficiency of cell-free massive MIMO," IEEE Trans.
+     Green Commun. Netw., vol. 2, no. 1, pp. 25-39, Mar. 2018.
+[42] S. Sesia, I. Toufik, M. Baker, "LTE - The UMTS Long Term
+     Evolution: From Theory to Practice," 2nd ed., Wiley, 2011.
+3GPP TS 38.213, "NR; Physical layer procedures for control," Rel. 15+.
+3GPP TS 38.211, "NR; Physical channels and modulation," Rel. 15+.
+3GPP TS 38.321, "NR; MAC protocol specification," Rel. 15+.
