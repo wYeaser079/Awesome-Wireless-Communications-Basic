@@ -1,0 +1,1154 @@
+================================================================================
+  Making Cell-Free Massive MIMO Competitive With MMSE Processing and
+  Centralized Implementation
+  Authors: Emil Björnson & Luca Sanguinetti
+================================================================================
+
+================================================================================
+  PART 2: SECTION II — CELL-FREE NETWORK MODEL
+================================================================================
+
+This section defines the complete system model: the channel model, pilot
+transmission, channel estimation (MMSE), and uplink data transmission.
+It contains Equations (1)-(7), Remark 1 (alternative estimators), and
+Remark 2 (synchronization).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before the network can do anything useful, it needs to know "how good" the
+wireless path is between each antenna and each phone. This is called the
+"channel" — it describes how your signal gets distorted (weakened, reflected,
+phase-shifted) as it travels through the air.
+
+Think of it like this: Imagine you're shouting to a friend across a canyon.
+The canyon echoes and distorts your voice. Before you can have a conversation,
+your friend needs to understand HOW the canyon distorts sound — so they can
+mentally "undo" the distortion.
+
+In wireless systems, this "understanding the distortion" happens through
+PILOT SIGNALS — known reference signals that phones transmit so the antennas
+can learn the channel.
+
+Here's the process:
+  Step 1: Each phone sends a known "pilot" signal (like shouting a
+          pre-agreed word)
+  Step 2: Each antenna receives a distorted version of this pilot
+  Step 3: By comparing what was sent vs. what was received, the antenna
+          estimates the channel (figures out the distortion pattern)
+  Step 4: Now phones send their actual data, and antennas use the estimated
+          channels to decode the messages
+
+The challenge: there are 40+ phones but only 10 unique pilot signals
+(because there's limited time). So multiple phones must SHARE the same pilot
+— this is like two people shouting the same word simultaneously. The antenna
+can't tell who's who, causing "pilot contamination."
+
+This section sets up all the math for this process.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  THE SYSTEM SETUP
+─────────────────────
+
+The network consists of:
+
+  • L geographically distributed Access Points (APs)
+  • Each AP has N antennas
+  • Total antenna count in the network: LN
+  • K single-antenna UEs (user equipments / phones)
+  • All APs connected to a CPU via fronthaul
+  • The system operates in the uplink (UEs transmit to APs)
+
+The channel between AP l and UE k is:
+
+    hₖₗ ∈ ℂᴺ
+
+This is an N-dimensional complex vector. Each element represents the channel
+coefficient between UE k and one antenna of AP l.
+
+
+2.2  THE BLOCK FADING MODEL
+────────────────────────────
+
+The paper uses the standard BLOCK FADING model.
+
+What is block fading?
+
+  The wireless channel changes over time (due to mobility) and over
+  frequency (due to multipath). But in practice, it stays approximately
+  constant over short time intervals and narrow frequency bands.
+
+  A "coherence block" is the time-frequency region where the channel is
+  approximately constant. It contains τc "channel uses" (symbols).
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │                     ONE COHERENCE BLOCK                         │
+  │                     (τc channel uses)                           │
+  │                                                                 │
+  │  ◄── τₚ pilots ──►◄────── τc - τₚ data symbols ──────────────► │
+  │  ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐  │
+  │  │P│P│P│P│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│D│  │
+  │  └─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘  │
+  │  P = pilot symbols, D = data symbols                            │
+  └──────────────────────────────────────────────────────────────────┘
+
+Historical background:
+
+  The block fading model was formalized by Marzetta & Hochwald (1999) in
+  "Capacity of a Mobile Multiple-Antenna Communication Link in Rayleigh
+  Flat Fading" (IEEE TIT) and by Biglieri, Proakis & Shamai (1998) [46].
+  It is now the standard abstraction for Massive MIMO analysis.
+
+How τc is computed:
+
+  τc = Tc × Bc
+
+  Where:
+    • Tc = coherence time ≈ 1/(4fD), fD = Doppler spread = v·fc/c
+    • Bc = coherence bandwidth ≈ 1/(delay spread)
+
+  For this paper's setup (2 GHz carrier, pedestrian/moderate mobility):
+    • Tc ≈ 2 ms (coherence time)
+    • Bc ≈ 100 kHz (coherence bandwidth)
+    • τc = Tc × Bc = 2×10⁻³ × 100×10³ = 200 channel uses
+
+  Within each block, an INDEPENDENT realization of the channel is drawn.
+  This means channels in different blocks are statistically independent.
+
+
+2.3  THE CHANNEL DISTRIBUTION — EQUATION (1)
+──────────────────────────────────────────────
+
+    hₖₗ ~ 𝒩ℂ(0, Rₖₗ)                                            ... (1)
+
+This is the CORRELATED RAYLEIGH FADING model. Let me unpack every aspect:
+
+2.3.1  What Does 𝒩ℂ(0, Rₖₗ) Mean?
+───────────────────────────────────
+
+  𝒩ℂ = circularly symmetric complex Gaussian distribution
+
+  "Circularly symmetric" means: if you rotate the complex vector by any
+  angle θ (multiply by eʲᶿ), the distribution doesn't change. Formally:
+
+    hₖₗ and eʲᶿhₖₗ have the same distribution for all θ
+
+  This implies:
+    • 𝔼{hₖₗ} = 0 (zero mean — no line-of-sight component)
+    • 𝔼{hₖₗ hₖₗᴴ} = Rₖₗ (covariance is fully described by Rₖₗ)
+    • 𝔼{hₖₗ hₖₗᵀ} = 0 (pseudo-covariance is zero — circular symmetry)
+
+  The zero mean corresponds to Rayleigh fading (no dominant line-of-sight
+  path). If there were a line-of-sight, we'd use Rician fading:
+  hₖₗ ~ 𝒩ℂ(h̄ₖₗ, Rₖₗ) where h̄ₖₗ is the deterministic LoS component.
+
+2.3.2  The Spatial Correlation Matrix Rₖₗ
+──────────────────────────────────────────
+
+  Rₖₗ ∈ ℂᴺˣᴺ is a Hermitian positive semi-definite matrix.
+
+  It describes TWO things simultaneously:
+
+  (a) LARGE-SCALE FADING (pathloss + shadowing):
+      The "average" power of the channel, captured by:
+
+        βₖₗ ≜ tr(Rₖₗ)/N
+
+      Where:
+        • tr(·) = trace (sum of diagonal elements)
+        • βₖₗ is the large-scale fading coefficient
+        • It depends on distance and shadowing, NOT on small-scale fading
+
+  (b) SPATIAL CORRELATION STRUCTURE:
+      How correlated the channel coefficients are across the N antennas
+      of AP l. This depends on:
+        • Antenna spacing (typically λ/2)
+        • Angular spread of scatterers around the AP
+        • Direction of arrival from UE k to AP l
+
+Physical interpretation of Rₖₗ:
+
+  If AP l has N = 4 antennas in a line (ULA), and UE k's signal arrives
+  from a narrow angular range (low angular spread), then:
+    • Adjacent antennas see highly correlated channels
+    • Rₖₗ has large off-diagonal elements
+    • Rₖₗ has a few dominant eigenvalues (low rank)
+
+  If signals arrive from many directions (high angular spread):
+    • Antennas see less correlated channels
+    • Rₖₗ ≈ βₖₗ Iₙ (nearly i.i.d.)
+    • All eigenvalues are similar
+
+2.3.3  The Gaussian Local Scattering Model
+──────────────────────────────────────────
+
+  This paper uses the model from [3, Sec. 2.6] to generate Rₖₗ. For a
+  Uniform Linear Array (ULA) with half-wavelength antenna spacing, the
+  (m,n)-th element of Rₖₗ is:
+
+                  π
+    [Rₖₗ]ₘₙ = βₖₗ ∫ eʲπ⁽ᵐ⁻ⁿ⁾ˢⁱⁿ⁽ᶿ⁾ f(θ) dθ
+                 -π
+
+  Where f(θ) is the angular power spectrum, modeled as a Gaussian
+  distribution centered at the nominal angle of arrival φₖₗ:
+
+                     1           -(θ - φₖₗ)²
+    f(θ) = ────────────── exp( ────────────── )
+           √(2π) σ_φ            2σ_φ²
+
+  With angular standard deviation σ_φ = 15° (as used in this paper).
+
+  What this means physically:
+    • φₖₗ = the average direction from which UE k's signal arrives at AP l
+    • σ_φ = how "spread out" the arriving signal is in angle
+    • Small σ_φ → signal arrives from a narrow direction → high correlation
+    • Large σ_φ → signal arrives from many directions → low correlation
+
+2.3.4  Special Case: N = 1 (Single Antenna)
+───────────────────────────────────────────
+
+  When N = 1, each AP has just one antenna. Then:
+    • hₖₗ is a scalar (1-dimensional complex number)
+    • Rₖₗ = βₖₗ (a scalar — just the large-scale fading)
+    • No spatial correlation (there's only one antenna)
+    • hₖₗ ~ 𝒩ℂ(0, βₖₗ)
+
+  This is the case considered in most early Cell-free mMIMO papers [16].
+
+2.3.5  Why "Correlated" Rayleigh? (vs. i.i.d. Rayleigh)
+────────────────────────────────────────────────────────
+
+  The simpler i.i.d. model assumes Rₖₗ = βₖₗ Iₙ, meaning all antenna
+  elements see independent channel coefficients with equal power.
+
+  This is unrealistic for practical deployments because:
+    1. Antennas are physically close (λ/2 ≈ 7.5 cm at 2 GHz)
+    2. Signal scattering is typically not isotropic
+    3. In urban environments, there are preferred directions of arrival
+
+  The correlated model with general Rₖₗ captures these real-world effects
+  and is essential for accurate SE analysis — especially for MMSE combining,
+  which exploits the spatial structure.
+
+
+2.4  PILOT TRANSMISSION — SUBSECTION II-A
+──────────────────────────────────────────
+
+2.4.1  Orthogonal Pilot Signals
+───────────────────────────────
+
+  We have τₚ mutually orthogonal pilot signals:
+
+    φ₁, φ₂, ..., φ_τₚ ∈ ℂ^τₚ
+
+  with the properties:
+    • ‖φₜ‖² = τₚ  (each pilot has energy τₚ)
+    • φᵢᴴφⱼ = 0 for i ≠ j  (pilots are orthogonal)
+    • φᵢᴴφⱼ = τₚ δᵢⱼ (combining both: Kronecker delta)
+
+  How orthogonal pilots are constructed:
+
+    Method 1: Scaled DFT matrix columns
+      The τₚ columns of √τₚ · F_τₚ (where F_τₚ is the DFT matrix) are
+      orthogonal with the right norm.
+
+    Method 2: Zadoff-Chu sequences (used in LTE/5G NR)
+      These have constant amplitude and zero auto-correlation, plus good
+      cross-correlation properties. Defined as:
+        φₜ[n] = exp(-jπrn(n+1)/τₚ) for root r
+
+  Pilot assignment:
+
+    Each UE k is assigned a pilot index tₖ ∈ {1, ..., τₚ}.
+
+    The critical case: K > τₚ (more UEs than orthogonal pilots).
+
+    Define the "pilot-sharing set" of UE k:
+
+      𝒫ₖ ≜ {i ∈ {1,...,K} : tᵢ = tₖ}
+
+    This is the set of ALL UEs using the same pilot as UE k (including k
+    itself). These UEs will cause pilot contamination at each other.
+
+    Example: If K = 40 and τₚ = 10, then on average each pilot is shared
+    by 40/10 = 4 UEs.
+
+
+2.4.2  Received Pilot Signal — Equation (2)
+────────────────────────────────────────────
+
+  When ALL K UEs simultaneously transmit their pilots, AP l receives:
+
+              K
+    Zₗ =  ∑  √pᵢ hᵢₗ φᵢᵀ + Nₗ                                    ... (2)
+             i=1
+
+  Where:
+    • Zₗ ∈ ℂᴺˣᵗᵖ — the received pilot matrix at AP l
+    • √pᵢ — the transmit amplitude of UE i (pᵢ is the power)
+    • hᵢₗ ∈ ℂᴺ — the channel from UE i to AP l
+    • φᵢᵀ ∈ ℂ¹ˣᵗᵖ — the pilot row vector of UE i (transpose of column)
+    • Nₗ ∈ ℂᴺˣᵗᵖ — receiver noise matrix with i.i.d. 𝒩ℂ(0, σ²) entries
+
+  Dimensions check:
+    hᵢₗ φᵢᵀ : (N×1)(1×τₚ) = N×τₚ  ✓
+    Zₗ : N×τₚ  ✓
+
+  Why is φᵢᵀ a row vector?
+    UE i sends the pilot φᵢ over τₚ time slots. At each time slot n,
+    it sends the scalar φᵢ[n]. The channel hᵢₗ is constant across these
+    τₚ slots (block fading). So the contribution of UE i to the received
+    signal is: hᵢₗ × [φᵢ[1], φᵢ[2], ..., φᵢ[τₚ]] = hᵢₗ φᵢᵀ.
+
+
+2.4.3  Pilot Correlation / Matched Filtering — Equation (3)
+────────────────────────────────────────────────────────────
+
+  To estimate hₖₗ, the AP first correlates Zₗ with UE k's pilot φ_tₖ:
+
+              1
+    z_tₖₗ ≜ ── Zₗ φ_tₖ ∈ ℂᴺ
+              τₚ
+
+  This is called "matched filtering" or "despreading" of the pilot.
+
+  Substituting Equation (2):
+
+              1   K
+    z_tₖₗ = ── ( ∑  √pᵢ hᵢₗ φᵢᵀ + Nₗ ) φ_tₖ
+              τₚ  i=1
+
+  Now use the orthogonality of pilots:
+
+    φᵢᵀ φ_tₖ = φᵢᴴ φ_tₖ* = ... but actually φᵢᵀφ_tₖ:
+
+  Wait — let me be precise. The pilots are column vectors φᵢ ∈ ℂ^τₚ.
+  So φᵢᵀ ∈ ℂ¹ˣᵗᵖ. When we compute φᵢᵀ φ_tₖ:
+
+    φᵢᵀ φ_tₖ = ∑ₙ φᵢ[n] φ_tₖ[n]
+
+  For the inner product to give orthogonality, we need φᵢᴴ φ_tₖ = τₚ δ_{tᵢ,tₖ}.
+
+  The paper actually uses φᵢᵀ φ*_tₖ / τₚ (conjugate pilot correlation).
+
+  After despreading:
+
+                                     1
+    z_tₖₗ = ∑   √pᵢτₚ hᵢₗ  +  ── Nₗ φ_tₖ
+            i∈𝒫ₖ                   τₚ
+
+  Which simplifies to:
+
+    z_tₖₗ = ∑   √pᵢτₚ hᵢₗ  +  n_tₖₗ                             ... (3)
+            i∈𝒫ₖ
+
+  Where:
+    n_tₖₗ = Nₗ φ_tₖ / √τₚ ~ 𝒩ℂ(0, σ²Iₙ)
+
+  CRITICAL OBSERVATION: The sum is over i ∈ 𝒫ₖ (pilot-sharing UEs ONLY).
+
+  Why? Because the orthogonality of pilots eliminates all UEs that use
+  DIFFERENT pilots. But UEs sharing the SAME pilot survive the correlation.
+  This is the origin of PILOT CONTAMINATION.
+
+  Let's trace through the math:
+    For UE i with tᵢ ≠ tₖ: φᵢᵀ φ_tₖ* = 0 (orthogonality) → eliminated
+    For UE i with tᵢ = tₖ:  φᵢᵀ φ_tₖ* = τₚ → contributes √pᵢτₚ hᵢₗ
+
+  So z_tₖₗ contains:
+    • √pₖτₚ hₖₗ — the DESIRED channel (what we want to estimate)
+    • ∑_{i∈𝒫ₖ\{k}} √pᵢτₚ hᵢₗ — CONTAMINATING channels (unwanted)
+    • n_tₖₗ — noise
+
+
+2.4.4  MMSE Channel Estimation — Equations (4), (5), (6)
+─────────────────────────────────────────────────────────
+
+  Now we apply MMSE estimation to extract hₖₗ from z_tₖₗ.
+
+  BACKGROUND: MMSE Estimation Theory
+
+    Given a jointly Gaussian observation model:
+
+      z = Ax + n,  where x ~ 𝒩ℂ(0, Rₓ), n ~ 𝒩ℂ(0, Rₙ)
+
+    The MMSE estimate of x given z is the conditional mean:
+
+      x̂ = 𝔼{x | z} = Rₓ Aᴴ (A Rₓ Aᴴ + Rₙ)⁻¹ z
+
+    This is the Bayesian conditional mean estimator. For Gaussian models,
+    it equals the linear MMSE estimator and the MAP estimator — all three
+    coincide. (See S. M. Kay, "Fundamentals of Statistical Signal
+    Processing: Estimation Theory," Prentice Hall, 1993, Ch. 12.)
+
+    The estimation error covariance is:
+
+      C = Rₓ - Rₓ Aᴴ (A Rₓ Aᴴ + Rₙ)⁻¹ A Rₓ
+
+  Now let's apply this to our problem:
+
+    From Equation (3):
+      z_tₖₗ = √pₖτₚ hₖₗ + ∑_{i∈𝒫ₖ\{k}} √pᵢτₚ hᵢₗ + n_tₖₗ
+
+    The "observation" is z_tₖₗ.
+    The "unknown" is hₖₗ.
+
+    In the MMSE framework:
+      • The "signal" part: √pₖτₚ hₖₗ with "A" = √pₖτₚ Iₙ
+      • The "noise" part: everything else in z_tₖₗ
+
+    The correlation matrix of z_tₖₗ is:
+
+      Ψ_tₖₗ = 𝔼{z_tₖₗ z_tₖₗᴴ}
+
+  ─────────────────────────────────────────────────────────────────────
+
+  ►  Equation (5) — Correlation Matrix of Received Signal:
+
+      Ψ_tₖₗ = ∑   pᵢτₚ Rᵢₗ  +  σ² Iₙ                            ... (5)
+              i∈𝒫ₖ
+
+  Derivation:
+
+    z_tₖₗ = ∑_{i∈𝒫ₖ} √pᵢτₚ hᵢₗ + n_tₖₗ
+
+    Since all channels hᵢₗ are independent (different UEs) and independent
+    of noise:
+
+    Ψ_tₖₗ = 𝔼{z_tₖₗ z_tₖₗᴴ}
+
+           = ∑_{i∈𝒫ₖ} pᵢτₚ 𝔼{hᵢₗ hᵢₗᴴ} + 𝔼{n_tₖₗ n_tₖₗᴴ}
+
+           = ∑_{i∈𝒫ₖ} pᵢτₚ Rᵢₗ + σ² Iₙ     ✓
+
+    The cross terms vanish because:
+      • hᵢₗ and hⱼₗ are independent for i ≠ j (different UEs)
+      • hᵢₗ and n_tₖₗ are independent
+
+  This matrix is N × N and captures:
+    • pₖτₚ Rₖₗ — contribution from the desired UE k
+    • ∑_{i∈𝒫ₖ\{k}} pᵢτₚ Rᵢₗ — pilot contamination from co-pilot UEs
+    • σ² Iₙ — noise contribution
+
+  ─────────────────────────────────────────────────────────────────────
+
+  ►  Equation (4) — The MMSE Channel Estimate:
+
+      ĥₖₗ = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ z_tₖₗ                            ... (4)
+
+  Derivation using MMSE formula:
+
+    The cross-correlation between hₖₗ and z_tₖₗ is:
+
+      𝔼{hₖₗ z_tₖₗᴴ} = √pₖτₚ 𝔼{hₖₗ hₖₗᴴ} = √pₖτₚ Rₖₗ
+
+    (All other terms in z_tₖₗ are independent of hₖₗ, so they vanish.)
+
+    The MMSE estimate is:
+
+      ĥₖₗ = 𝔼{hₖₗ z_tₖₗᴴ} (𝔼{z_tₖₗ z_tₖₗᴴ})⁻¹ z_tₖₗ
+
+           = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ z_tₖₗ                           ✓
+
+  This is the Bayesian optimal linear estimator for Gaussian models.
+
+  Interpretation:
+    • Rₖₗ contains the prior knowledge about hₖₗ's spatial structure
+    • Ψ_tₖₗ⁻¹ "whitens" the received signal (decorrelates it)
+    • √pₖτₚ scales according to the transmit power and pilot length
+    • The product Rₖₗ Ψ_tₖₗ⁻¹ acts as a "Wiener filter" — it extracts
+      the channel of UE k from the contaminated observation
+
+  ─────────────────────────────────────────────────────────────────────
+
+  ►  Distribution of the Estimate:
+
+      ĥₖₗ ~ 𝒩ℂ(0, pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ)
+
+  The covariance of the estimate is:
+
+    𝔼{ĥₖₗ ĥₖₗᴴ} = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ 𝔼{z_tₖₗ z_tₖₗᴴ} Ψ_tₖₗ⁻ᴴ Rₖₗ (√pₖτₚ)
+                  = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Ψ_tₖₗ Ψ_tₖₗ⁻ᴴ Rₖₗ
+                  = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ
+
+    (using the fact that Ψ_tₖₗ is Hermitian, so Ψ_tₖₗ⁻ᴴ = Ψ_tₖₗ⁻¹)
+
+  ─────────────────────────────────────────────────────────────────────
+
+  ►  Equation (6) — Estimation Error Covariance:
+
+      The estimation error is: h̃ₖₗ = hₖₗ - ĥₖₗ
+
+      h̃ₖₗ ~ 𝒩ℂ(0, Cₖₗ)
+
+      Cₖₗ = 𝔼{h̃ₖₗ h̃ₖₗᴴ} = Rₖₗ - pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ          ... (6)
+
+  Derivation:
+
+    Cₖₗ = 𝔼{(hₖₗ - ĥₖₗ)(hₖₗ - ĥₖₗ)ᴴ}
+         = 𝔼{hₖₗ hₖₗᴴ} - 𝔼{ĥₖₗ ĥₖₗᴴ}
+         = Rₖₗ - pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ      ✓
+
+    (using the orthogonality property of MMSE estimation:
+     𝔼{h̃ₖₗ ĥₖₗᴴ} = 0, which means the cross terms cancel)
+
+  KEY PROPERTY: ĥₖₗ and h̃ₖₗ are INDEPENDENT.
+
+    This is a fundamental property of MMSE estimation for Gaussian
+    variables: the estimate and the error are uncorrelated, and since they
+    are jointly Gaussian, uncorrelated implies independent.
+
+    This independence is crucial for the SE analysis in Section III.
+
+
+2.4.5  Understanding Pilot Contamination Mathematically
+────────────────────────────────────────────────────────
+
+  Look at Equation (4) again:
+
+    ĥₖₗ = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ z_tₖₗ
+
+  Substitute z_tₖₗ from Equation (3):
+
+    ĥₖₗ = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ (∑_{i∈𝒫ₖ} √pᵢτₚ hᵢₗ + n_tₖₗ)
+
+         = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ hₖₗ                    ← desired part
+           + ∑_{i∈𝒫ₖ\{k}} √pₖτₚ √pᵢτₚ Rₖₗ Ψ_tₖₗ⁻¹ hᵢₗ  ← contamination
+           + √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ n_tₖₗ               ← noise
+
+  The estimate ĥₖₗ is biased toward the channels of co-pilot UEs!
+
+  This "contamination" means that when the receiver tries to "listen" to
+  UE k using ĥₖₗ, it partially aligns with the channels of co-pilot UEs,
+  creating coherent interference that cannot be suppressed.
+
+  How MMSE estimation mitigates contamination (compared to LS):
+
+    The matrix Rₖₗ Ψ_tₖₗ⁻¹ acts as a spatial filter. If UE k and a
+    co-pilot UE i have DIFFERENT spatial signatures (different Rₖₗ and
+    Rᵢₗ), the MMSE estimator can partially separate them by projecting
+    onto the signal subspace of UE k. This is impossible with the LS
+    estimator, which treats all spatial directions equally.
+
+
+2.5  REMARK 1: ALTERNATIVE CHANNEL ESTIMATORS
+───────────────────────────────────────────────
+
+  The paper notes three options for channel estimation:
+
+  ┌──────────────────┬─────────────────────────┬──────────────────────┐
+  │ Estimator        │ Required Knowledge       │ Performance          │
+  ├──────────────────┼─────────────────────────┼──────────────────────┤
+  │ MMSE             │ Full Rᵢₗ for all i∈𝒫ₖ  │ Optimal (lowest MSE) │
+  │ EW-MMSE          │ Only diag(Rᵢₗ)          │ Near-optimal         │
+  │ (Element-wise)   │ for all i∈𝒫ₖ            │ if Rₖₗ ≈ diagonal   │
+  │ LS               │ Nothing                  │ Highest MSE          │
+  │ (Least Squares)  │                          │ ĥₖₗ = z_tₖₗ/(√pₖτₚ)│
+  └──────────────────┴─────────────────────────┴──────────────────────┘
+
+  LS estimator derivation:
+
+    ĥₖₗ^LS = z_tₖₗ / (√pₖτₚ)
+
+    This ignores all statistical information and just "inverts" the
+    known scaling factor. It's the simplest possible estimator.
+
+    MSE of LS: much higher than MMSE because it amplifies noise and
+    doesn't suppress contamination at all.
+
+  Why MMSE is preferred despite higher complexity:
+
+    The MMSE estimator requires a matrix inversion of size N×N per AP per
+    UE group. For N = 4, this is inverting a 4×4 matrix — trivial. Even
+    for N = 64, modern hardware handles this easily. The performance gain
+    (especially in interference suppression) vastly outweighs the cost.
+
+
+2.6  UPLINK DATA TRANSMISSION — SUBSECTION II-B, EQUATION (7)
+───────────────────────────────────────────────────────────────
+
+  After pilot transmission and channel estimation, the UEs transmit data:
+
+            K
+    yₗ =  ∑  hᵢₗ sᵢ  +  nₗ                                       ... (7)
+           i=1
+
+  Where:
+    • yₗ ∈ ℂᴺ — received signal vector at AP l
+    • sᵢ ~ 𝒩ℂ(0, pᵢ) — transmitted data symbol from UE i
+    • pᵢ — transmit power of UE i
+    • hᵢₗ ∈ ℂᴺ — channel from UE i to AP l (SAME as during pilots)
+    • nₗ ~ 𝒩ℂ(0, σ²Iₙ) — receiver noise at AP l
+
+  This is a simple linear superposition of all UEs' signals plus noise.
+
+  Why hᵢₗ is the same as during pilots:
+    Block fading model — the channel is constant within a coherence block.
+    Pilots and data are in the SAME block, so the channel estimate from
+    the pilot phase is valid for the data phase.
+
+  Dimensions:
+    yₗ : N × 1
+    hᵢₗ : N × 1
+    sᵢ : scalar (1 × 1)
+    nₗ : N × 1
+
+  The signal model applies to BOTH TDD and FDD systems, since the uplink
+  works the same way in both cases.
+
+
+2.7  REMARK 2: SYNCHRONIZATION
+───────────────────────────────
+
+  The signal model in (2) and (7) assumes the network is synchronized.
+  In practice, this is challenging because:
+
+    • A UE transmits a signal that travels to ALL L APs
+    • The propagation delay differs for each AP (different distances)
+    • If AP 1 is 100m away and AP 2 is 500m away, the signal arrives at
+      AP 2 about 1.33 μs later
+
+  Solution: OFDM with cyclic prefix
+
+    In OFDM (Orthogonal Frequency-Division Multiplexing), a cyclic prefix
+    (CP) is added before each symbol. If the CP is longer than the maximum
+    delay spread + timing misalignment, the system remains synchronized.
+
+    In LTE:
+      • Normal CP: accommodates signals within ~1 km radius
+      • Extended CP: accommodates up to ~5 km radius
+
+    Since APs far away receive negligible signal power (due to pathloss),
+    only nearby APs matter. The CP is sufficient for these nearby APs.
+
+  This creates a "quasi-synchronous" system where the signal model (7)
+  is accurate for performance analysis.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  MMSE ESTIMATION THEORY
+────────────────────────────
+
+  The MMSE estimator (conditional mean) is the fundamental Bayesian
+  estimator. Its origins:
+
+  • Norbert Wiener (1940s): Developed the Wiener filter for optimal
+    estimation in stationary stochastic processes.
+  • R. E. Kalman (1960): Extended to state-space models (Kalman filter).
+  • S. M. Kay (1993): Comprehensive textbook treatment in "Fundamentals
+    of Statistical Signal Processing: Estimation Theory," Prentice Hall.
+
+  For Gaussian models, the MMSE, Linear MMSE (LMMSE), and MAP estimators
+  all coincide. This is a unique property of the Gaussian distribution.
+
+  Key reference for the MMSE estimator in Massive MIMO:
+    Björnson, Hoydis, and Sanguinetti, "Massive MIMO Networks: Spectral,
+    Energy, and Hardware Efficiency," Found. Trends Signal Process., 2017
+    [3, Sec. 3]. This provides the definitive treatment of MMSE channel
+    estimation for Massive MIMO systems.
+
+
+3.2  PILOT CONTAMINATION HISTORY
+─────────────────────────────────
+
+  First identified:
+    T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+    numbers of base station antennas," IEEE TWC, 2010 [4].
+
+  Marzetta showed that in a multi-cell system with pilot reuse, the
+  MMSE channel estimate at BS j for UE k in cell j is:
+
+    ĥⱼₖ = √pₖτₚ Rⱼₖ Ψ⁻¹ z  →  contains terms from ALL cells' UEs
+                                   that share the same pilot
+
+  As M → ∞ with MR combining, the interference from co-pilot UEs in
+  OTHER cells does NOT vanish. This was believed to be a fundamental limit.
+
+  The revolution:
+    Björnson, Hoydis, Sanguinetti (2018) [9] showed that with spatially
+    correlated channels and M-MMSE combining, the pilot contamination
+    effect vanishes as M → ∞. The key insight: if co-pilot UEs have
+    different spatial correlation matrices, MMSE combining can exploit
+    this difference to suppress contamination.
+
+  In cell-free mMIMO, pilot contamination differs because:
+    • There are no "cells" — contamination is among ALL co-pilot UEs
+    • Pilot assignment can be optimized network-wide
+    • Distributed APs see different spatial signatures from different UEs,
+      which helps MMSE estimation separate co-pilot channels
+
+
+3.3  SPATIAL CORRELATION MODELS
+────────────────────────────────
+
+  The evolution of channel models in Massive MIMO:
+
+  2010-2014: Most papers used i.i.d. Rayleigh (Rₖₗ = βₖₗ Iₙ)
+    Simple, tractable, but unrealistic.
+
+  2015-2017: Introduction of correlated models
+    • One-ring model (used in [29]): scatterers on a ring around the UE
+    • Gaussian local scattering model (used in [3]): Gaussian angular
+      distribution around nominal AoA — this is what this paper uses
+    • 3GPP spatial channel models: standardized by 3GPP for system-level
+      simulations
+
+  The Gaussian local scattering model parameters:
+    • Nominal angle of arrival φₖₗ (depends on UE-AP geometry)
+    • Angular standard deviation σ_φ (typically 10°-15°)
+    • This paper uses σ_φ = 15°
+
+
+3.4  BLOCK FADING MODEL HISTORY
+────────────────────────────────
+
+  • Biglieri, Proakis & Shamai, "Fading channels: information-theoretic
+    and communications aspects," IEEE TIT, 1998 [46] — foundational
+    information-theoretic treatment of fading channels
+  • Marzetta & Hochwald, "Capacity of a Mobile Multiple-Antenna
+    Communication Link in Rayleigh Flat Fading," IEEE TIT, 1999 —
+    formalized the block fading model for multi-antenna systems
+  • The model is now the standard abstraction for all Massive MIMO analysis
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. COMPLETE MATHEMATICAL DERIVATIONS (Unicode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  COMPLETE DERIVATION OF THE MMSE ESTIMATOR (Eq. 4)
+──────────────────────────────────────────────────────
+
+  SETUP: We want to estimate hₖₗ from the observation z_tₖₗ.
+
+  Step 1: Write the observation model.
+
+    z_tₖₗ = √pₖτₚ hₖₗ + ∑_{i∈𝒫ₖ\{k}} √pᵢτₚ hᵢₗ + n_tₖₗ
+
+    All terms are zero-mean, independent, complex Gaussian.
+
+  Step 2: Compute the cross-covariance between hₖₗ and z_tₖₗ.
+
+    Cₕz ≜ 𝔼{hₖₗ z_tₖₗᴴ}
+
+    Since hₖₗ is independent of hᵢₗ (i ≠ k) and n_tₖₗ:
+
+    Cₕz = √pₖτₚ 𝔼{hₖₗ hₖₗᴴ} + 0 + 0 = √pₖτₚ Rₖₗ
+
+  Step 3: Compute the auto-covariance of z_tₖₗ.
+
+    Ψ_tₖₗ = 𝔼{z_tₖₗ z_tₖₗᴴ} = ∑_{i∈𝒫ₖ} pᵢτₚ Rᵢₗ + σ²Iₙ
+
+  Step 4: Apply the MMSE estimation formula.
+
+    ĥₖₗ = Cₕz Ψ_tₖₗ⁻¹ z_tₖₗ = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ z_tₖₗ          ✓
+
+  Step 5: Covariance of the estimate.
+
+    𝔼{ĥₖₗ ĥₖₗᴴ} = Cₕz Ψ_tₖₗ⁻¹ Ψ_tₖₗ Ψ_tₖₗ⁻¹ Cₕzᴴ
+                  = Cₕz Ψ_tₖₗ⁻¹ Cₕzᴴ
+                  = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ
+
+  Step 6: Error covariance.
+
+    Cₖₗ = Rₖₗ - pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ                             ✓
+
+
+4.2  WHY THE ESTIMATE AND ERROR ARE INDEPENDENT
+────────────────────────────────────────────────
+
+  For jointly Gaussian random vectors, uncorrelated ⟹ independent.
+
+  We show they are uncorrelated:
+
+    𝔼{h̃ₖₗ ĥₖₗᴴ} = 𝔼{(hₖₗ - ĥₖₗ) ĥₖₗᴴ}
+                   = 𝔼{hₖₗ ĥₖₗᴴ} - 𝔼{ĥₖₗ ĥₖₗᴴ}
+
+  Now: 𝔼{hₖₗ ĥₖₗᴴ} = 𝔼{hₖₗ z_tₖₗᴴ} Ψ_tₖₗ⁻¹ √pₖτₚ Rₖₗ
+                      = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ √pₖτₚ Rₖₗ
+                      = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ
+
+  And: 𝔼{ĥₖₗ ĥₖₗᴴ} = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ
+
+  Therefore: 𝔼{h̃ₖₗ ĥₖₗᴴ} = pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ - pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ = 0
+
+  Since they are jointly Gaussian and uncorrelated → INDEPENDENT.
+
+  This is the ORTHOGONALITY PRINCIPLE of MMSE estimation.
+
+
+4.3  SCALAR SPECIAL CASE (N = 1)
+────────────────────────────────
+
+  When N = 1, everything becomes scalar:
+
+    hₖₗ ~ 𝒩ℂ(0, βₖₗ)    (scalar channel)
+    Rₖₗ = βₖₗ             (scalar)
+
+    z_tₖₗ = ∑_{i∈𝒫ₖ} √pᵢτₚ hᵢₗ + n_tₖₗ    (scalar observation)
+
+    Ψ_tₖₗ = ∑_{i∈𝒫ₖ} pᵢτₚ βᵢₗ + σ²          (scalar)
+
+    ĥₖₗ = √pₖτₚ βₖₗ / Ψ_tₖₗ × z_tₖₗ         (scalar estimate)
+
+    Variance of estimate: γₖₗ = pₖτₚ βₖₗ² / Ψ_tₖₗ
+
+    Error variance: Cₖₗ = βₖₗ - γₖₗ = βₖₗ - pₖτₚ βₖₗ² / Ψ_tₖₗ
+
+  This is the form used in Ngo et al. [16] and many subsequent papers.
+
+
+4.4  DECOMPOSITION OF THE CHANNEL
+──────────────────────────────────
+
+  A fundamental identity used throughout the paper:
+
+    hₖₗ = ĥₖₗ + h̃ₖₗ
+
+  Where:
+    • ĥₖₗ ~ 𝒩ℂ(0, pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ) — known to the estimator
+    • h̃ₖₗ ~ 𝒩ℂ(0, Cₖₗ) — unknown estimation error
+    • ĥₖₗ ⊥ h̃ₖₗ (independent)
+
+  This decomposition is key because in the SE expressions:
+    • The known part ĥₖₗ contributes to desired signal + coherent interf.
+    • The unknown part h̃ₖₗ contributes to incoherent interference (noise-like)
+
+  The quality of the estimate determines how much of the channel power
+  goes into the "known" vs. "unknown" parts:
+
+    If estimation is perfect: Cₖₗ = 0, ĥₖₗ = hₖₗ
+    If estimation is terrible: Cₖₗ ≈ Rₖₗ, ĥₖₗ ≈ 0
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. NUMERICAL EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE 1: MMSE Estimation with N = 1 (Scalar Case)
+────────────────────────────────────────────────────
+
+Setup:
+  • 1 AP with N = 1 antenna
+  • K = 3 UEs, τₚ = 2 pilots
+  • UE 1 has pilot 1, UE 2 has pilot 1, UE 3 has pilot 2
+  • So 𝒫₁ = {1, 2} (UEs 1 and 2 share pilot 1), 𝒫₃ = {3}
+  • Large-scale fading: β₁ = 0.5, β₂ = 0.1, β₃ = 0.3
+  • Transmit powers: p₁ = p₂ = p₃ = 100 mW = 0.1 W
+  • τₚ = 2, σ² = 10⁻⁹·⁶ ≈ 2.51 × 10⁻¹⁰ (= -96 dBm)
+
+Step 1 — Compute Ψ for UE 1:
+
+  Ψ_t₁ = ∑_{i∈𝒫₁} pᵢτₚ βᵢ + σ²
+        = p₁τₚβ₁ + p₂τₚβ₂ + σ²
+        = 0.1 × 2 × 0.5 + 0.1 × 2 × 0.1 + 2.51×10⁻¹⁰
+        = 0.1 + 0.02 + 2.51×10⁻¹⁰
+        ≈ 0.12
+
+Step 2 — MMSE estimate coefficient for UE 1:
+
+  The scaling factor: √p₁τₚ β₁ / Ψ_t₁ = √(0.1×2) × 0.5 / 0.12
+                                         = √0.2 × 0.5 / 0.12
+                                         = 0.4472 × 4.167
+                                         = 1.863
+
+  So: ĥ₁ = 1.863 × z_t₁
+
+Step 3 — Variance of estimate:
+
+  γ₁ = p₁τₚ β₁² / Ψ_t₁ = 0.1 × 2 × 0.25 / 0.12 = 0.05/0.12 = 0.4167
+
+Step 4 — Error variance:
+
+  C₁ = β₁ - γ₁ = 0.5 - 0.4167 = 0.0833
+
+Step 5 — Estimation quality:
+
+  Quality ratio = γ₁/β₁ = 0.4167/0.5 = 83.3%
+
+  This means 83.3% of the channel power is "known" after estimation.
+  The remaining 16.7% is estimation error.
+
+Now compare with UE 3 (no pilot contamination):
+
+  Ψ_t₃ = p₃τₚ β₃ + σ² = 0.1 × 2 × 0.3 + 2.51×10⁻¹⁰ ≈ 0.06
+
+  γ₃ = p₃τₚ β₃² / Ψ_t₃ = 0.1 × 2 × 0.09 / 0.06 = 0.018/0.06 = 0.3
+
+  C₃ = β₃ - γ₃ = 0.3 - 0.3 = 0 (approximately!)
+
+  Quality ratio = γ₃/β₃ = 0.3/0.3 = 100%
+
+  UE 3, with no pilot contamination, achieves nearly perfect estimation!
+  (The tiny noise σ² barely affects the result because pτₚβ >> σ².)
+
+  Meanwhile, UE 1's estimate is degraded to 83.3% due to contamination
+  from UE 2.
+
+
+EXAMPLE 2: MMSE Estimation with N = 2 (Vector Case)
+────────────────────────────────────────────────────
+
+Setup:
+  • 1 AP with N = 2 antennas (ULA, half-wavelength spacing)
+  • 2 UEs sharing the same pilot (𝒫₁ = {1, 2})
+  • UE 1 arrives from angle 30°, UE 2 from angle -45°
+  • β₁ = 0.5, β₂ = 0.3
+  • p₁ = p₂ = 0.1 W, τₚ = 2, σ² ≈ 0 (high SNR for simplicity)
+
+Step 1 — Compute spatial correlation matrices (simplified):
+
+  For a 2-element ULA with Gaussian local scattering (σ_φ = 15°):
+
+  R₁ ≈ 0.5 × [   1.0      0.7eʲ⁰·⁸⁵ ]   (φ₁ = 30°)
+               [ 0.7e⁻ʲ⁰·⁸⁵   1.0    ]
+
+  R₂ ≈ 0.3 × [   1.0      0.6e⁻ʲ⁰·⁷¹]   (φ₂ = -45°)
+               [ 0.6eʲ⁰·⁷¹   1.0     ]
+
+  (These are illustrative values; exact computation requires numerical
+   integration of the Gaussian angular spectrum.)
+
+Step 2 — Compute Ψ:
+
+  Ψ = p₁τₚ R₁ + p₂τₚ R₂ + σ²I₂
+    ≈ 0.2 × R₁ + 0.2 × R₂    (ignoring σ² for simplicity)
+
+  This is a 2×2 Hermitian matrix.
+
+Step 3 — MMSE estimate:
+
+  ĥ₁ = √p₁τₚ R₁ Ψ⁻¹ z_t₁
+
+  The matrix product R₁ Ψ⁻¹ acts as a SPATIAL FILTER that:
+    • Emphasizes the direction of UE 1 (30°)
+    • Suppresses the direction of UE 2 (-45°)
+
+  This is WHY correlated fading helps MMSE estimation: the different
+  spatial signatures allow the estimator to partially separate co-pilot
+  UEs. With i.i.d. fading (R₁ = β₁I, R₂ = β₂I), the spatial filter
+  R₁Ψ⁻¹ cannot distinguish directions at all.
+
+
+EXAMPLE 3: Pilot Contamination Impact
+──────────────────────────────────────
+
+Setup:
+  • N = 1, L = 100 APs, K = 40 UEs, τₚ = 10
+  • Average 4 UEs per pilot
+  • UE k at distance dₖₗ from AP l
+
+Consider AP l = 1 estimating UE k = 1's channel:
+
+  If UE 1 is 50m from AP 1 (strong channel, β₁₁ = 0.01 = -20 dB):
+
+  Case A: No contamination (𝒫₁ = {1})
+    Ψ = p₁τₚ β₁₁ + σ² ≈ 0.1 × 10 × 0.01 = 0.01
+    γ₁₁ = p₁τₚ β₁₁² / Ψ = 0.001/0.01 = 0.01 = β₁₁
+    Error: C₁₁ ≈ 0 → perfect estimation!
+
+  Case B: 3 co-pilot UEs, all at 200m from AP 1 (β = 0.0001 = -40 dB)
+    Ψ = 0.01 + 3 × 0.1 × 10 × 0.0001 = 0.01 + 0.0003 = 0.0103
+    γ₁₁ = 0.001/0.0103 = 0.0097
+    Quality = 0.0097/0.01 = 97% → barely affected!
+
+  Case C: 1 co-pilot UE at 50m from AP 1 (β = 0.01 = -20 dB)
+    Ψ = 0.01 + 0.1 × 10 × 0.01 = 0.01 + 0.01 = 0.02
+    γ₁₁ = 0.001/0.02 = 0.005
+    Quality = 0.005/0.01 = 50% → significant degradation!
+
+  KEY INSIGHT: Pilot contamination is harmful when co-pilot UEs are at
+  SIMILAR distances to the AP (similar β values). When co-pilot UEs are
+  far away (low β), their contamination is negligible. This is the
+  advantage of cell-free mMIMO: co-pilot UEs are usually far from most
+  APs, so contamination is "diluted" across many APs.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. PRACTICE PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM 1: Basic MMSE Estimation
+────────────────────────────────
+A cell-free system has N = 1, τₚ = 5. Two UEs share pilot 1: UE A
+(βₐ = 0.2, pₐ = 0.1 W) and UE B (β_B = 0.05, p_B = 0.1 W).
+Noise power σ² = 10⁻⁴.
+
+(a) Compute Ψ for pilot 1.
+(b) Compute the MMSE estimate variance γₐ for UE A.
+(c) Compute the estimation error variance Cₐ for UE A.
+(d) What percentage of UE A's channel power is captured by the estimate?
+(e) Repeat (b)-(d) for UE B.
+(f) Which UE has better estimation quality? Why?
+
+Solution:
+
+(a) Ψ = pₐτₚβₐ + p_Bτₚβ_B + σ²
+      = 0.1×5×0.2 + 0.1×5×0.05 + 10⁻⁴
+      = 0.1 + 0.025 + 0.0001
+      = 0.1251
+
+(b) γₐ = pₐτₚ βₐ² / Ψ = 0.1×5×0.04 / 0.1251 = 0.02/0.1251 = 0.1599
+
+(c) Cₐ = βₐ - γₐ = 0.2 - 0.1599 = 0.0401
+
+(d) Quality = γₐ/βₐ = 0.1599/0.2 = 80.0%
+
+(e) γ_B = p_Bτₚ β_B² / Ψ = 0.1×5×0.0025 / 0.1251 = 0.00125/0.1251 = 0.00999
+    C_B = β_B - γ_B = 0.05 - 0.00999 = 0.04001
+    Quality_B = 0.00999/0.05 = 20.0%
+
+(f) UE A has much better estimation quality (80% vs 20%). This is because
+    UE A has a 4× stronger channel (βₐ = 0.2 vs β_B = 0.05). In the
+    MMSE estimate, the stronger channel "dominates" the observation,
+    leaving less room for the weaker UE B.
+
+    This illustrates the "near-far" effect in pilot contamination: the
+    stronger UE benefits more from the shared pilot.
+
+
+PROBLEM 2: Coherence Block Design
+──────────────────────────────────
+A cell-free network operates at 3.5 GHz carrier frequency. UEs move
+at pedestrian speed (3 km/h). The delay spread is 0.3 μs.
+
+(a) Compute the Doppler spread fD.
+(b) Compute the coherence time Tc.
+(c) Compute the coherence bandwidth Bc.
+(d) Compute the coherence block size τc.
+(e) If τₚ = 10, what fraction of the block is used for pilots?
+(f) What is the pre-log factor (1 - τₚ/τc)?
+
+Solution:
+
+(a) fD = v × fc / c = (3/3.6) × 3.5×10⁹ / (3×10⁸)
+       = 0.833 × 3.5×10⁹ / 3×10⁸
+       = 9.72 Hz
+
+(b) Tc = 1/(4fD) = 1/(4×9.72) = 1/38.89 ≈ 25.7 ms
+    (or using Tc ≈ 0.423/fD = 0.423/9.72 ≈ 43.5 ms for 50% correlation)
+    Using the conservative 1/(4fD): Tc ≈ 25.7 ms
+
+(c) Bc = 1/(delay spread) = 1/(0.3×10⁻⁶) ≈ 3.33 MHz
+
+(d) τc = Tc × Bc = 25.7×10⁻³ × 3.33×10⁶ ≈ 85,581
+    This is very large! In practice, a more conservative estimate is used.
+    Typically for this paper's setup: τc = 200.
+
+    Note: The paper uses τc = 200, which corresponds to roughly
+    Tc ≈ 2 ms and Bc ≈ 100 kHz (a more conservative estimate assuming
+    higher mobility or richer scattering).
+
+(e) Pilot fraction = τₚ/τc = 10/200 = 5%
+
+(f) Pre-log factor = 1 - 10/200 = 1 - 0.05 = 0.95
+    So 95% of the coherence block is available for data — a small overhead.
+
+
+PROBLEM 3: Impact of Number of Pilots
+──────────────────────────────────────
+A system has K = 40 UEs, τc = 200. Consider two pilot configurations:
+
+Config A: τₚ = 10 (each pilot shared by 4 UEs on average)
+Config B: τₚ = 40 (each UE gets a unique pilot — no contamination)
+
+For a single UE-AP link with β = 0.1, p = 0.1 W, σ² ≈ 0:
+
+(a) Compute γ for Config A (assume 3 co-pilot UEs with β' = 0.01 each).
+(b) Compute γ for Config B (no contamination).
+(c) Compute the pre-log factor for each config.
+(d) Which configuration is better? (Consider both estimation quality and
+    pre-log factor.)
+
+Solution:
+
+(a) Config A:
+    Ψ = pτₚβ + 3×pτₚβ' = 0.1×10×0.1 + 3×0.1×10×0.01 = 0.1 + 0.03 = 0.13
+    γₐ = pτₚβ²/Ψ = 0.1×10×0.01/0.13 = 0.01/0.13 = 0.0769
+    Quality = 0.0769/0.1 = 76.9%
+
+(b) Config B:
+    Ψ = pτₚβ = 0.1×40×0.1 = 0.4
+    γ_B = pτₚβ²/Ψ = 0.1×40×0.01/0.4 = 0.04/0.4 = 0.1 = β
+    Quality = 100% (perfect estimation!)
+
+(c) Pre-log factor:
+    Config A: 1 - 10/200 = 0.95
+    Config B: 1 - 40/200 = 0.80
+
+(d) The SE is approximately: (1 - τₚ/τc) × log₂(1 + SINR)
+
+    Config A: more contamination (76.9% quality) BUT more data time (95%)
+    Config B: perfect estimation BUT less data time (80%)
+
+    The optimal τₚ balances these effects. In practice, Config A is often
+    better because the 95% pre-log factor is significantly higher than 80%,
+    and the estimation quality degradation is moderate (76.9%). This is
+    why the paper uses K > τₚ (pilot reuse) as the practical case.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. SUMMARY OF SECTION II
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. SYSTEM MODEL: L APs with N antennas each serve K single-antenna UEs.
+   APs connect to a CPU via fronthaul. Total network antennas: LN.
+
+2. CHANNEL MODEL: Correlated Rayleigh fading hₖₗ ~ 𝒩ℂ(0, Rₖₗ) with
+   block fading (τc = 200 channel uses per block). The correlation matrix
+   Rₖₗ encodes both pathloss/shadowing (via βₖₗ = tr(Rₖₗ)/N) and
+   spatial structure (via the eigenvalue distribution of Rₖₗ).
+
+3. PILOT PHASE: τₚ orthogonal pilots are shared among K > τₚ UEs,
+   causing pilot contamination. Each AP correlates the received pilot
+   signal with each pilot to obtain an N-dimensional observation z_tₖₗ.
+
+4. MMSE ESTIMATION: The optimal Bayesian estimator ĥₖₗ = √pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ z_tₖₗ
+   uses the spatial correlation structure to suppress both noise and
+   pilot contamination. The estimate and error are independent.
+
+5. DATA PHASE: The remaining τc - τₚ channel uses carry data signals.
+   Each AP receives a superposition of ALL K UEs' signals plus noise.
+
+6. KEY PROPERTIES FOR LATER SECTIONS:
+   • hₖₗ = ĥₖₗ + h̃ₖₗ with ĥₖₗ ⊥ h̃ₖₗ (independence)
+   • ĥₖₗ ~ 𝒩ℂ(0, pₖτₚ Rₖₗ Ψ_tₖₗ⁻¹ Rₖₗ)
+   • h̃ₖₗ ~ 𝒩ℂ(0, Cₖₗ)
+   These properties are the foundation for deriving SE expressions
+   at all four cooperation levels in Section III.
+
+7. PRACTICAL NOTES:
+   • The system assumes quasi-synchronization via OFDM cyclic prefix
+   • Results apply to both TDD and FDD (uplink analysis only)
+   • Alternative estimators (EW-MMSE, LS) can replace MMSE if
+     correlation matrices are unavailable
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+     Spectral, Energy, and Hardware Efficiency," Found. Trends Signal
+     Process., vol. 11, no. 3-4, 2017.
+[4]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+     numbers of base station antennas," IEEE TWC, vol. 9, no. 11, 2010.
+[9]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO has unlimited
+     capacity," IEEE TWC, vol. 17, no. 1, 2018.
+[16] H. Q. Ngo et al., "Cell-free Massive MIMO versus small cells,"
+     IEEE TWC, vol. 16, no. 3, 2017.
+[37] W. Fan et al., "Performance analysis of cell-free massive MIMO over
+     spatially correlated fading channels," IEEE ICC, 2019.
+[46] E. Biglieri, J. Proakis, S. Shamai, "Fading channels:
+     information-theoretic and communications aspects," IEEE TIT, 1998.
+     S. M. Kay, "Fundamentals of Statistical Signal Processing: Estimation
+     Theory," Prentice Hall, 1993.

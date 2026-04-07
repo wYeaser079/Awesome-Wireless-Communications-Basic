@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdftotext \"F:/Codes/Awesome-Wireless-Communications-Basic/papers/Cell-Free/001_All Paper\\(without review paper\\)/Making Cell-Free Massive MIMO Competitive With MMSE Processing and Centralized Implementation.pdf\" -)",
+      "WebSearch"
+    ]
+  }
+}

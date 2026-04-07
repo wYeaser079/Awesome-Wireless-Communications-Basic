@@ -1,0 +1,974 @@
+================================================================================
+  Making Cell-Free Massive MIMO Competitive With MMSE Processing and
+  Centralized Implementation
+  Authors: Emil Björnson & Luca Sanguinetti
+================================================================================
+
+================================================================================
+  PART 5: SECTION V — LEVEL 4 WITH NON-LINEAR DECODING
+          SECTION VI — A LOOK AT THE FRONTHAUL SIGNALING LOAD
+          (Equations 41-42, Proposition 4, Figure 5-6, Appendix C)
+================================================================================
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                              ┃
+┃  SECTION V: LEVEL 4 WITH NON-LINEAR DECODING                                ┃
+┃                                                                              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+So far, we've seen that Level 4 with MMSE combining is the best approach.
+But MMSE is a LINEAR method — it uses a simple weighted sum of the received
+signals. Could we do even better with FANCIER, non-linear methods?
+
+Imagine a classroom where 40 students are speaking simultaneously, and a
+teacher (the CPU) is trying to understand all of them:
+
+  LINEAR approach (MMSE): The teacher listens to everyone simultaneously,
+  using spatial hearing (beamforming) to focus on each student one at a
+  time. This works great when students are well-separated.
+
+  NON-LINEAR approach (SIC): The teacher first listens to the LOUDEST
+  student, fully decodes their message, then MENTALLY SUBTRACTS that
+  student's voice from the room noise. Now the room is quieter. The teacher
+  then decodes the next loudest student, subtracts again, and so on.
+
+  In theory, SIC can achieve the MAXIMUM possible total capacity (the
+  "capacity region" of the multiple access channel).
+
+THE PUNCHLINE: In cell-free mMIMO, SIC provides almost NO improvement
+over linear MMSE — only about 1% higher sum SE.
+
+Why? Because the "favorable propagation" property makes all students'
+"voices" (channels) nearly orthogonal. When everyone is already well-
+separated, there's very little interference left to cancel. MMSE already
+captures almost all the available capacity.
+
+This is wonderful news for practical systems: you don't need the
+complexity of SIC. Simple linear MMSE is (almost) optimal.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  BACKGROUND: SUCCESSIVE INTERFERENCE CANCELLATION (SIC)
+────────────────────────────────────────────────────────────
+
+SIC is a NON-LINEAR multi-user detection scheme. It works as follows:
+
+  Step 1: Decode UE π(1) treating all other UEs as noise.
+          Use MMSE combining optimized for UE π(1).
+
+  Step 2: Reconstruct UE π(1)'s signal contribution: ĥ_π(1) × ŝ_π(1)
+
+  Step 3: SUBTRACT this contribution from the received signal:
+          y' = y - ĥ_π(1) × ŝ_π(1)
+
+  Step 4: Decode UE π(2) from the "cleaned" signal y'.
+          Now UE π(2) sees LESS interference.
+
+  Step 5: Continue for UEs π(3), ..., π(K).
+
+  Where π is the decoding ORDER (a permutation of {1, ..., K}).
+
+WHY SIC IS CAPACITY-ACHIEVING:
+
+  For the Gaussian Multiple Access Channel (MAC), MMSE-SIC achieves
+  EVERY point on the boundary of the capacity region [52, Sec. 8.3.4].
+  Different decoding orders achieve different points on the boundary,
+  but the SUM RATE is the same for all orders.
+
+  This is a fundamental result from information theory:
+
+    • Cover & Thomas (1991): "Elements of Information Theory" — MAC
+      capacity region and corner points
+    • Tse & Viswanath (2005) [52]: "Fundamentals of Wireless
+      Communications" — MMSE-SIC for MIMO MAC
+
+WHY SIC IS NOT PERFECT WITH IMPERFECT CSI:
+
+  When subtracting UE π(1)'s signal, we use the ESTIMATED channel:
+
+    y' = y - ĥ_π(1) × ŝ_π(1)
+
+  The estimation error h̃_π(1) means the subtraction is IMPERFECT:
+
+    y' = y - (h_π(1) - h̃_π(1)) × ŝ_π(1) = y - h_π(1)×ŝ_π(1) + h̃_π(1)×ŝ_π(1)
+
+  The residual h̃_π(1) × ŝ_π(1) remains as interference. This is why
+  SIC doesn't achieve the perfect-CSI capacity, but it still provides
+  gains over linear combining.
+
+
+2.2  PROPOSITION 4: ACHIEVABLE SUM SE WITH MMSE-SIC
+────────────────────────────────────────────────────
+
+  ►  Proposition 4. At Level 4, with MMSE estimation and MMSE-SIC
+     decoding, for ANY decoding order, the achievable SUM SE is:
+
+                     ⎛    τₚ ⎞
+    SSE⁽ˢⁱᶜ⁾  = ⎜1 - ──⎟ 𝔼{log₂ det(Iₖ + P Ĥᴴ E⁻¹ Ĥ)}        ... (41)
+                     ⎝    τc ⎠
+
+  Where:
+    • P = diag(p₁, ..., pₖ) ∈ ℝᴷˣᴷ  — diagonal power matrix
+    • Ĥ = [ĥ₁, ..., ĥₖ] ∈ ℂᴸᴺˣᴷ    — matrix of all channel estimates
+    • E = ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²Iₗₙ ∈ ℂᴸᴺˣᴸᴺ — estimation error + noise covariance
+    • The expectation is over the channel estimates
+
+IMPORTANT NOTES:
+
+  (a) This gives the SUM SE, not individual per-user SEs. The per-user
+      SE depends on the decoding order (later-decoded users benefit more).
+
+  (b) The SUM SE is INDEPENDENT of the decoding order. This is because
+      log₂ det(·) is the same regardless of which corner of the MAC
+      capacity region we operate at.
+
+  (c) For any decoding order, EACH UE gets at least as high SE with
+      MMSE-SIC as with linear MMSE. So MMSE-SIC is strictly better
+      (or equal) per-user.
+
+
+2.3  PROOF OF PROPOSITION 4 (FROM APPENDIX C)
+──────────────────────────────────────────────
+
+Step 1: Rewrite the received signal using estimate + error decomposition:
+
+             K
+    y  =  ∑  ĥᵢ sᵢ  +  e                                        ... (49)
+            i=1
+
+  Where: e = n + ∑ᵢ₌₁ᴷ h̃ᵢ sᵢ  (noise + estimation errors)
+
+  Properties of e:
+    • 𝔼{e} = 0
+    • 𝔼{eeᴴ} = E = ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²Iₗₙ
+    • e is uncorrelated with ĥᵢsᵢ for all i  (MMSE orthogonality)
+
+Step 2: Treat (49) as a MULTIPLE ACCESS CHANNEL (MAC):
+
+    y = Ĥ s + e
+
+  Where: s = [s₁, ..., sₖ]ᵀ ~ 𝒩ℂ(0, P) and e ~ (0, E)
+
+  The "channels" are the KNOWN estimates {ĥᵢ}. The "noise" is e,
+  which includes estimation errors — this is the "worst case" treatment.
+
+Step 3: Apply pre-whitening:
+
+  Multiply both sides by E⁻¹/²:
+
+    E⁻¹/² y = E⁻¹/² Ĥ s + E⁻¹/² e
+                ⏟              ⏟
+               ≜ H̃ₑ           ≜ ñ ~ 𝒩ℂ(0, I)
+
+  Now ñ is WHITE (identity covariance). This is a standard MIMO MAC.
+
+Step 4: Apply the MIMO MAC sum-capacity formula:
+
+  For a K-user MAC with channel matrix H̃ₑ and white noise:
+
+    C_sum = log₂ det(Iₗₙ + H̃ₑ P H̃ₑᴴ)
+
+          = log₂ det(Iₗₙ + E⁻¹/² Ĥ P Ĥᴴ E⁻¹/²)
+
+Step 5: Apply the identity det(I + AB) = det(I + BA):
+
+  Let A = E⁻¹/² Ĥ P¹/² (size LN × K)
+      B = P¹/² Ĥᴴ E⁻¹/² (size K × LN)
+
+  Then: det(Iₗₙ + ABᴴ) = det(Iₖ + BᴴA) ... wait, let me be precise.
+
+  Actually: det(Iₗₙ + E⁻¹/² Ĥ P Ĥᴴ E⁻¹/²)
+
+  Let C = E⁻¹/² Ĥ P¹/² (LN × K) and D = (E⁻¹/² Ĥ P¹/²)ᴴ = P¹/² Ĥᴴ E⁻¹/² (K × LN)
+
+  det(Iₗₙ + CDᴴ) is not quite right. Let me use the identity directly:
+
+    det(Iₗₙ + XY) = det(Iₖ + YX)
+
+  Where X = E⁻¹/² Ĥ (LN × K) and Y = P Ĥᴴ E⁻¹/² (K × LN)
+
+  Then: YX = P Ĥᴴ E⁻¹/² E⁻¹/² Ĥ = P Ĥᴴ E⁻¹ Ĥ  (K × K)
+
+  So: det(Iₗₙ + E⁻¹/² Ĥ P Ĥᴴ E⁻¹/²) = det(Iₖ + P Ĥᴴ E⁻¹ Ĥ)
+
+  This converts the determinant from LN × LN to K × K — much more
+  efficient to compute since K = 40 << LN = 400.
+
+Step 6: Add the pre-log factor and expectation:
+
+    SSE⁽ˢⁱᶜ⁾ = (1 - τₚ/τc) × 𝔼{log₂ det(Iₖ + P Ĥᴴ E⁻¹ Ĥ)}    ✓
+
+Step 7: Order independence:
+
+  The sum capacity of a MAC is achieved at EVERY corner point of the
+  capacity region. Different decoding orders access different corner
+  points, but the sum ∑ₖ Rₖ is the same for all corners. This is a
+  fundamental property of the MAC capacity region polytope.
+
+
+2.4  FIGURE 5: MMSE-SIC vs LINEAR COMBINING
+─────────────────────────────────────────────
+
+Setup: L = 400, N = 1, K = 40, τₚ = 10 (same as Fig. 2(a))
+
+Figure 5 shows the CDF of SUM SE (not per-user SE) over random UE
+locations. The curves show:
+
+  ┌───────────────────────────┬─────────────────────────────────┐
+  │ Scheme                    │ Average Sum SE (approx.)        │
+  ├───────────────────────────┼─────────────────────────────────┤
+  │ L4 (MMSE-SIC)             │ ~280 bit/s/Hz                   │
+  │ L4 (MMSE)                 │ ~277 bit/s/Hz  (only 1% less!)  │
+  │ L3 (L-MMSE + LSFD)       │ ~180 bit/s/Hz                   │
+  │ L1 (L-MMSE, small cells) │ ~175 bit/s/Hz                   │
+  │ L2 (L-MMSE + average)    │ ~130 bit/s/Hz                   │
+  └───────────────────────────┴─────────────────────────────────┘
+
+KEY OBSERVATIONS:
+
+  (a) MMSE-SIC improves sum SE by only ~1% over linear MMSE at Level 4.
+
+      This is a NEGLIGIBLE gain considering the MASSIVE increase in
+      complexity (SIC requires K sequential decoding steps instead of
+      K parallel MMSE combinings).
+
+  (b) The reason: FAVORABLE PROPAGATION.
+
+      In cell-free mMIMO with L = 400 distributed APs, the collective
+      channels of different UEs become nearly orthogonal:
+
+        |ĥᵢᴴ ĥⱼ| / (‖ĥᵢ‖ ‖ĥⱼ‖) ≈ 0   for i ≠ j
+
+      When channels are orthogonal, MMSE combining ALREADY cancels
+      inter-user interference almost perfectly. There's nothing left
+      for SIC to improve.
+
+  (c) Level 1 and Level 3 provide roughly the SAME sum SE (~175-180),
+      while Level 2 is far behind (~130).
+
+      This is interesting: Level 3 (LSFD) doesn't provide much gain
+      over Level 1 (small cells) in terms of total throughput. The
+      cooperative processing mostly helps redistribute SE from strong
+      to weak UEs (fairness), not increase the total.
+
+  (d) The gap between Level 4 and Levels 1/3 (about 100 bit/s/Hz
+      or ~55%) further reinforces that centralized processing is
+      strongly preferred.
+
+
+2.5  FAVORABLE PROPAGATION — THE PHYSICS BEHIND THE RESULT
+───────────────────────────────────────────────────────────
+
+Favorable propagation means: ĥᵢᴴĥⱼ → 0 as LN → ∞ for i ≠ j.
+
+WHY IT OCCURS IN CELL-FREE mMIMO:
+
+  Each UE k has a unique "spatial signature" defined by its large-scale
+  fading profile: [βₖ₁, βₖ₂, ..., βₖₗ].
+
+  UE k is close to some APs (large βₖₗ) and far from others (small βₖₗ).
+  Two different UEs k and j almost certainly have DIFFERENT sets of
+  "close" APs (different spatial signatures).
+
+  The inner product ĥₖᴴĥⱼ is approximately:
+
+    ĥₖᴴĥⱼ ≈ ∑ₗ₌₁ᴸ ĥₖₗ* ĥⱼₗ
+
+  Each term ĥₖₗ*ĥⱼₗ is a product of independent random variables
+  (for non-co-pilot UEs). By the law of large numbers, the sum converges
+  to zero as L → ∞.
+
+  For co-pilot UEs, the estimates are correlated, which prevents perfect
+  orthogonality. But with good pilot assignment, the correlation is
+  manageable.
+
+WHY IT'S STRONGER IN CELL-FREE THAN CELLULAR:
+
+  In cellular mMIMO (co-located array): favorable propagation comes from
+  the large number of antenna elements M creating angular diversity.
+  But all UEs in the same cell may arrive from similar directions.
+
+  In cell-free mMIMO (distributed APs): favorable propagation comes from
+  the GEOGRAPHIC diversity — UEs have different distances to different
+  APs. This is a much more robust source of orthogonality.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. HISTORICAL AND PRIOR DEVELOPMENTS (Section V)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  SIC IN INFORMATION THEORY
+───────────────────────────────
+
+  • Cover (1972): First introduced the concept of successive decoding
+    for the multiple access channel
+  • Cover & Thomas (1991): "Elements of Information Theory" — rigorous
+    treatment of the MAC capacity region and SIC
+  • Tse & Viswanath (2005) [52]: "Fundamentals of Wireless Communications"
+    — Chapter 8 covers MMSE-SIC for MIMO systems
+
+3.2  SIC IN MASSIVE MIMO
+──────────────────────────
+
+  • In Massive MIMO, SIC was shown to provide diminishing returns as M
+    grows, because favorable propagation makes linear combining nearly
+    optimal.
+  • Björnson et al. (2017) [3]: Showed that MMSE combining in Massive
+    MIMO already achieves near-capacity performance.
+  • This paper extends the same conclusion to Cell-free mMIMO.
+
+3.3  FAVORABLE PROPAGATION IN CELL-FREE
+────────────────────────────────────────
+
+  • Chen & Björnson (2018) [27]: "Channel hardening and favorable
+    propagation in cell-free massive MIMO with stochastic geometry"
+    — Formal analysis showing favorable propagation is strong in
+    cell-free but channel hardening is weak.
+  • Ngo et al. (2017) [16]: Conjectured favorable propagation in
+    cell-free but didn't rigorously quantify it.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. MATHEMATICAL DETAILS (Section V, Unicode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  THE det(I + AB) = det(I + BA) IDENTITY
+────────────────────────────────────────────
+
+This is Sylvester's determinant identity. For A ∈ ℂᵐˣⁿ, B ∈ ℂⁿˣᵐ:
+
+    det(Iₘ + AB) = det(Iₙ + BA)
+
+Proof sketch: Consider the block matrix:
+
+    ⎡ Iₘ   A ⎤
+    ⎣ B    Iₙ ⎦
+
+Compute its determinant two ways using Schur complements:
+  • Eliminate lower-left: det(Iₘ + AB) × det(Iₙ)
+  • Eliminate upper-right: det(Iₘ) × det(Iₙ + BA)
+
+Both give the same determinant → det(Iₘ + AB) = det(Iₙ + BA).  ✓
+
+Application in Proposition 4:
+  Converts det(Iₗₙ + E⁻¹/²Ĥ P Ĥᴴ E⁻¹/²) to det(Iₖ + P Ĥᴴ E⁻¹ Ĥ)
+  This saves computation: K×K determinant instead of LN×LN.
+
+
+4.2  CONNECTION BETWEEN LINEAR MMSE AND SIC
+────────────────────────────────────────────
+
+For linear MMSE: Sum SE = ∑ₖ₌₁ᴷ (1-τₚ/τc) 𝔼{log₂(1+SINR⁽⁴⁾ₖ)}
+
+For MMSE-SIC: Sum SE = (1-τₚ/τc) 𝔼{log₂ det(Iₖ + P Ĥᴴ E⁻¹ Ĥ)}
+
+The connection via the matrix determinant lemma:
+
+  det(Iₖ + P Ĥᴴ E⁻¹ Ĥ) = ∏ₖ₌₁ᴷ (1 + SINR⁽ˢⁱᶜ⁾_π(k))
+
+Where SINR⁽ˢⁱᶜ⁾_π(k) is the SINR of UE π(k) after canceling UEs
+π(1), ..., π(k-1). We always have:
+
+  SINR⁽ˢⁱᶜ⁾_π(k) ≥ SINR⁽⁴⁾_π(k)  (SIC removes some interference)
+
+But when channels are nearly orthogonal (favorable propagation):
+
+  SINR⁽ˢⁱᶜ⁾_π(k) ≈ SINR⁽⁴⁾_π(k)  (almost no interference to cancel)
+
+Hence: Sum SE (SIC) ≈ Sum SE (MMSE) when favorable propagation holds.
+
+
+4.3  NUMERICAL EXAMPLE: WHY SIC GAIN IS TINY
+──────────────────────────────────────────────
+
+Consider K = 2 UEs at Level 4 with LN = 400.
+
+Suppose: ĥ₁ᴴĥ₂ / (‖ĥ₁‖‖ĥ₂‖) = 0.05  (nearly orthogonal)
+
+  ‖ĥ₁‖² = 50, ‖ĥ₂‖² = 40, |ĥ₁ᴴĥ₂|² = 0.05² × 50 × 40 = 5
+
+  With σ² = 0.1, p₁ = p₂ = 1 (simplified):
+
+  SINR_MMSE for UE 1 ≈ 50 / (5/40 × 40 + noise) ≈ 50 / (5 + noise)
+  (interference from UE 2 through the combiner is proportional to
+   |ĥ₁ᴴĥ₂|²/‖ĥ₂‖² = 5/40 after normalization)
+
+  After SIC cancels UE 2: interference term 5 drops to ~0 (residual
+  from imperfect cancellation). So SINR improves from ~50/5 = 10 to
+  ~50/0.1 = 500. But in log scale: log₂(11) vs log₂(501) isn't the
+  right comparison because the original interference was already small.
+
+  Actually with proper MMSE combining, the interference is already
+  very well suppressed. The MMSE combiner for UE 1 "points away" from
+  ĥ₂, making the effective interference much smaller than |ĥ₁ᴴĥ₂|².
+
+  With favorable propagation (0.05 correlation), MMSE already achieves
+  >99% of the SIC capacity.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                                              ┃
+┃  SECTION VI: A LOOK AT THE FRONTHAUL SIGNALING LOAD                          ┃
+┃                                                                              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The "fronthaul" is the data connection between each AP and the central
+computer (CPU). Think of it as the "pipes" through which information flows.
+
+A natural worry about Level 4 (centralized): "If every AP sends its raw
+signals to the CPU, won't the pipes need to be HUGE?"
+
+This section shows the counterintuitive answer: Level 4 actually needs
+SMALLER pipes than Levels 2/3!
+
+Here's the intuition:
+
+  Level 4: Each AP sends its raw received signal. This is an N-dimensional
+  vector (N = number of antennas at the AP). For a typical AP with 1-4
+  antennas, that's 1-4 numbers per time slot.
+
+  Levels 2/3: Each AP first processes the signal locally and sends K
+  estimated data symbols (one per UE). For K = 40 UEs, that's 40 numbers
+  per time slot.
+
+  Since K >> N (many more users than antennas per AP), Levels 2/3 EXPAND
+  the data! The AP takes a small signal (N dimensions) and blows it up
+  into a big report (K dimensions). Level 4 just sends the small signal.
+
+It's like the difference between:
+  • Level 4: Sending the raw security camera footage (small file)
+  • Level 2/3: Having each camera write a separate report about each of
+    the 40 suspects (40 reports per camera — much more data!)
+
+But there's a twist: if APs are connected in a CHAIN (serial fronthaul),
+Levels 2/3 can aggregate results along the chain, reducing their fronthaul
+dramatically. Level 4 cannot benefit from this.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. DETAILED TECHNICAL EXPLANATION (PhD Level) — SECTION VI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6.1  FRONTHAUL SIGNALING TABLE (TABLE I REVISITED)
+───────────────────────────────────────────────────
+
+From Table I in the paper:
+
+  ┌─────────┬───────────────────────────┬───────────────────────────────┐
+  │ Level   │ Per Coherence Block       │ Statistical Parameters        │
+  │         │ (complex scalars)         │ (complex scalars, one-time)   │
+  ├─────────┼───────────────────────────┼───────────────────────────────┤
+  │ Level 4 │ τc N L                    │ KLN²/2                        │
+  │ Level 3 │ (τc - τₚ) K L            │ KL + (L²K² + KL)/2           │
+  │ Level 2 │ (τc - τₚ) K L            │ —                             │
+  │ Level 1 │ —                         │ —                             │
+  └─────────┴───────────────────────────┴───────────────────────────────┘
+
+BREAKDOWN OF LEVEL 4 FRONTHAUL:
+
+  Each AP l sends per coherence block:
+    • τₚ × N complex scalars for pilot signals (z_tₗ for each pilot t)
+    • (τc - τₚ) × N complex scalars for data signals (yₗ per data slot)
+    • Total: τc × N per AP
+
+  Across all L APs: τc × N × L total
+
+  ADDITIONALLY, correlation matrices {Rₖₗ} must be shared:
+    • Each Rₖₗ is N×N Hermitian: N²/2 complex scalars (exploiting symmetry)
+    • K UEs × L APs: K × L × N²/2 total
+    • But these change SLOWLY (only with UE mobility/statistics change)
+
+BREAKDOWN OF LEVELS 2/3 FRONTHAUL:
+
+  Each AP l sends per coherence block:
+    • K complex scalars per data time slot (ŝₖₗ for each UE k)
+    • Over (τc - τₚ) data time slots: (τc - τₚ) × K per AP
+
+  No pilot signals are sent (estimation is done locally).
+
+  Across all L APs: (τc - τₚ) × K × L total
+
+  Level 3 ADDITIONALLY needs statistical parameters for LSFD:
+    • 𝔼{gₖₖ}: KL complex scalars
+    • 𝔼{gₖᵢgₖᵢᴴ}: K²L²/2 complex scalars (dominant term!)
+    • Dₖ: KL/2 real scalars
+    • Total: KL + (L²K² + KL)/2
+
+
+6.2  THE KEY COMPARISON — EQUATION (42)
+────────────────────────────────────────
+
+Level 4 requires LESS fronthaul per coherence block than Levels 2/3 when:
+
+    τc N L  <  (τc - τₚ) K L
+
+  Dividing both sides by L:
+
+    τc N  <  (τc - τₚ) K
+
+  Rearranging:
+
+        τc       N
+    ─────────  ×  ─  <  1                                         ... (42)
+     τc - τₚ     K
+
+  Since τc/(τc - τₚ) is slightly > 1 (because τₚ is small relative to τc),
+  the condition simplifies to approximately:
+
+    N/K  <  1     (i.e., N < K)
+
+  This is ALMOST ALWAYS TRUE in cell-free mMIMO:
+    • N = 1, K = 40 → N/K = 0.025 << 1  ✓
+    • N = 4, K = 40 → N/K = 0.10 << 1   ✓
+    • Even N = 16, K = 40 → N/K = 0.40 < 1  ✓
+
+  The ONLY exception would be if K < N (fewer users than antennas per AP),
+  which never happens in cell-free mMIMO's operating regime.
+
+
+6.3  FIGURE 6: FRONTHAUL PER CHANNEL USE vs τc
+────────────────────────────────────────────────
+
+Setup: L = 100, N = 4, K = 40, τₚ = 10
+
+Per AP, per channel use:
+
+  Level 4: τc × N / τc = N = 4 scalars/channel use
+
+  Wait, the figure shows scalars per channel use, so:
+
+    Level 4: N = 4 scalars per channel use (constant, independent of τc)
+
+    Levels 2/3: (τc - τₚ)/τc × K = (1 - τₚ/τc) × K scalars/channel use
+
+    As τc → ∞: Levels 2/3 → K = 40 scalars/channel use
+    At τc = 200: Levels 2/3 = (190/200) × 40 = 38 scalars/channel use
+
+  ┌──────────┬──────────┬──────────────┬───────────────────┐
+  │ τc       │ Level 4  │ Level 2/3    │ Ratio (L2/3 : L4) │
+  ├──────────┼──────────┼──────────────┼───────────────────┤
+  │ 11       │ 4        │ (1/11)×40=3.6│ 0.91 (L4 costs more)│
+  │ 20       │ 4        │ (10/20)×40=20│ 5.0               │
+  │ 100      │ 4        │ (90/100)×40=36│ 9.0              │
+  │ 200      │ 4        │ 38           │ 9.5               │
+  │ ∞        │ 4        │ 40           │ 10.0 = K/N        │
+  └──────────┴──────────┴──────────────┴───────────────────┘
+
+  Level 4 requires MORE fronthaul ONLY when τc ≤ 11.
+  For any practical τc (≥100), Level 4 requires ~10× LESS fronthaul!
+
+  As τc → ∞, the ratio approaches K/N = 40/4 = 10.
+
+  PHYSICAL EXPLANATION: The fronthaul is dominated by DATA signals
+  (τc - τₚ data symbols >> τₚ pilot symbols). Level 4 sends N scalars
+  per data symbol while Levels 2/3 send K scalars. Since K >> N, Level 4
+  wins for any reasonably long coherence block.
+
+
+6.4  WHY LEVELS 2/3 EXPAND THE DATA
+─────────────────────────────────────
+
+At each AP l, the received signal per data time slot is:
+
+    yₗ ∈ ℂᴺ   (N-dimensional)
+
+Level 4 sends yₗ as-is: N complex scalars.
+
+Levels 2/3 process yₗ into {ŝ₁ₗ, ŝ₂ₗ, ..., ŝₖₗ}: K complex scalars.
+
+The processing EXPANDS the data from N to K dimensions!
+
+  N-dim input ──→ [AP local processing] ──→ K-dim output
+
+  This expansion ratio K/N is the fundamental reason Level 4 is
+  fronthaul-efficient. The AP is doing a "lossy expansion" that
+  increases the data volume without adding information (in fact, losing
+  information compared to the raw signal).
+
+
+6.5  SECTION VI-A: SERIAL FRONTHAUL
+─────────────────────────────────────
+
+When APs share a wired connection (daisy chain / serial fronthaul):
+
+  ┌──────────────────────────────────────────────────────────┐
+  │            SERIAL FRONTHAUL ARCHITECTURE                  │
+  │                                                           │
+  │  AP₁ ──wire──→ AP₂ ──wire──→ AP₃ ──wire──→ ... ──→ CPU  │
+  │                                                           │
+  └──────────────────────────────────────────────────────────┘
+
+At Level 2 (simple averaging):
+
+  AP₁ computes ŝₖ₁ for each UE k, sends over wire to AP₂.
+  AP₂ computes ŝₖ₂, ADDS to received ŝₖ₁ → sends ŝₖ₁ + ŝₖ₂ to AP₃.
+  AP₃ adds ŝₖ₃ → sends ŝₖ₁ + ŝₖ₂ + ŝₖ₃ to AP₄.
+  ...
+  CPU receives ∑ₗ₌₁ᴸ ŝₖₗ = L × ŝₖ (the Level 2 estimate, up to 1/L)
+
+  On each wire segment, only K scalars are transmitted per data slot
+  (regardless of how many APs have already contributed!).
+
+  Total fronthaul per coherence block:
+    WITHOUT serial: (τc - τₚ) × K × L
+    WITH serial:    (τc - τₚ) × K        (L factor vanishes!)
+
+At Level 3 (LSFD):
+
+  Instead of ŝₖₗ, each AP sends the weighted estimate aₖₗ ŝₖₗ.
+  AP₂ adds: aₖ₁ŝₖ₁ + aₖ₂ŝₖ₂ → sends to AP₃.
+  CPU receives ∑ₗ aₖₗ ŝₖₗ = ŝₖ (the Level 3 estimate).
+
+  Requires each AP to know its own LSFD weight aₖₗ locally.
+  Same K scalars per wire segment.
+
+Level 4 CANNOT use serial aggregation:
+
+  Level 4 needs the RAW signal yₗ from each AP. These are different at
+  each AP and cannot be meaningfully summed along the wire.
+  Each AP's yₗ must reach the CPU individually.
+
+  With serial fronthaul, Level 4 needs L × N scalars per data slot
+  on the LAST wire segment (near the CPU), growing linearly with L.
+
+  Levels 2/3 need only K scalars on every segment — CONSTANT in L.
+
+This changes the comparison for serial fronthaul:
+
+  ┌───────────────┬───────────────────────┬────────────────────┐
+  │               │ Star Fronthaul        │ Serial Fronthaul   │
+  │               │ (each AP to CPU)      │ (daisy chain)      │
+  ├───────────────┼───────────────────────┼────────────────────┤
+  │ Level 4 total │ τcNL                  │ N×L (per segment,  │
+  │               │                       │ growing near CPU)  │
+  │ Level 2/3 per │ (τc-τₚ)KL            │ (τc-τₚ)K (constant)│
+  │ segment       │                       │                    │
+  └───────────────┴───────────────────────┴────────────────────┘
+
+  With serial fronthaul, Levels 2/3 become much more competitive.
+  This is why the RADIO STRIPES concept [43] adopts serial fronthaul.
+
+RADIO STRIPES CONCEPT:
+
+  Proposed by Interdonato, Björnson, Ngo, Frenger, and Larsson (2019) [43]:
+  "Ubiquitous cell-free massive MIMO communications," EURASIP JWCN.
+
+  APs are physically embedded in a cable strip (like LED strips), which
+  serves as both the physical mounting and the fronthaul connection.
+
+  Benefits:
+    • Easy deployment (just unroll the strip along walls/ceilings)
+    • Natural serial fronthaul topology
+    • Each AP adds its contribution sequentially
+    • Fronthaul capacity requirement is constant per segment
+
+  This makes Levels 2/3 practically viable for large-scale cell-free
+  deployments, despite their lower SE compared to Level 4.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. HISTORICAL AND PRIOR DEVELOPMENTS (Section VI)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7.1  FRONTHAUL IN C-RAN
+────────────────────────
+
+  Cloud Radio Access Networks (C-RAN) pioneered the fronthaul concept:
+
+  • China Mobile Research Institute (2011): Proposed C-RAN architecture
+    with centralized baseband processing.
+  • The CPRI (Common Public Radio Interface) standard defines fronthaul
+    data formats and rates for connecting Remote Radio Heads to BBUs.
+
+  Key challenge: CPRI requires sending raw I/Q samples, which demands
+  very high fronthaul bandwidth (e.g., 10 Gbps for a 20 MHz LTE system
+  with 100 antennas). This is the same challenge Level 4 faces.
+
+  Compression techniques:
+    • Bashar et al. (2018) [32]: Showed that channel estimates can be
+      compressed well for backhaul-constrained cell-free systems.
+    • Maryopi & Burr (2019) [53]: "Few-bit CSI acquisition for
+      centralized cell-free massive MIMO with spatial correlation"
+
+7.2  FRONTHAUL QUANTIZATION
+────────────────────────────
+
+  The paper acknowledges that its comparison assumes INFINITE PRECISION
+  (all scalars shared with perfect accuracy). In practice:
+
+    • Pilot signals may need higher resolution (to preserve estimation
+      quality)
+    • Data signals may tolerate lower resolution (MMSE combining is
+      somewhat robust to quantization)
+    • Pilots are a SMALL fraction of total signaling (τₚ/τc ≈ 5%)
+
+  This is an area where Level 4 may lose some advantage in practice,
+  but the paper argues the impact is modest.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  8. NUMERICAL EXAMPLES (Both Sections)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE 1: Fronthaul Comparison
+────────────────────────────────
+
+Setup: L = 200, N = 2, K = 50, τc = 200, τₚ = 10, 20 MHz bandwidth
+
+Level 4 per coherence block:
+  Total scalars = τcNL = 200 × 2 × 200 = 80,000
+
+Level 2/3 per coherence block:
+  Total scalars = (τc-τₚ)KL = 190 × 50 × 200 = 1,900,000
+
+Ratio: 1,900,000 / 80,000 = 23.75
+
+Level 4 requires 23.75× LESS fronthaul!
+
+Converting to bits (assuming 16-bit complex scalars = 32 bits each):
+  Level 4: 80,000 × 32 = 2,560,000 bits per coherence block
+  Level 2/3: 1,900,000 × 32 = 60,800,000 bits per coherence block
+
+  Coherence block duration: 200 symbols / 20 MHz ≈ 10 μs (rough estimate)
+  → actually τc/bandwidth = 200/(20×10⁶) is not quite right.
+
+  Better: If Tc = 2 ms and Bc = 100 kHz:
+    One coherence block = 2 ms
+    Fronthaul rate for Level 4: 2.56 Mbit / 2 ms = 1.28 Gbps total
+    Fronthaul rate for Level 2/3: 60.8 Mbit / 2 ms = 30.4 Gbps total
+
+  Per AP:
+    Level 4: 1.28 Gbps / 200 APs = 6.4 Mbps per AP
+    Level 2/3: 30.4 Gbps / 200 APs = 152 Mbps per AP
+
+
+EXAMPLE 2: Serial Fronthaul Advantage
+───────────────────────────────────────
+
+Same setup, but APs connected in a serial chain.
+
+Level 2/3 with serial fronthaul:
+  Per wire segment: (τc-τₚ) × K = 190 × 50 = 9,500 scalars per block
+  This is CONSTANT regardless of how many APs are upstream!
+
+Level 4 with serial fronthaul:
+  The last segment (nearest CPU) must carry ALL APs' signals:
+  200 × τcN = 200 × 400 = 80,000 scalars per block  (same as star!)
+
+  In fact, the m-th segment carries m APs' data:
+  Segment 200 (last): 200 × 400 = 80,000 scalars
+  Segment 100 (middle): 100 × 400 = 40,000 scalars
+  Segment 1 (first): 1 × 400 = 400 scalars
+
+Comparison at the BOTTLENECK (last segment):
+  Level 4: 80,000 scalars
+  Level 2/3: 9,500 scalars
+
+  Now Levels 2/3 require 80,000/9,500 = 8.4× LESS at the bottleneck!
+
+This reversal shows that serial fronthaul fundamentally changes the
+comparison. With serial fronthaul, Levels 2/3 are fronthaul-efficient.
+
+
+EXAMPLE 3: Sum SE Gap Between Levels
+──────────────────────────────────────
+
+From Figure 5 (approximate average values):
+
+  ┌───────────────────────────┬──────────────┬──────────────────┐
+  │ Scheme                    │ Sum SE       │ Per-UE average SE│
+  │                           │ (bit/s/Hz)   │ (bit/s/Hz)       │
+  ├───────────────────────────┼──────────────┼──────────────────┤
+  │ L4 (MMSE-SIC)             │ ~280         │ ~7.0             │
+  │ L4 (MMSE)                 │ ~277         │ ~6.9             │
+  │ L3 (L-MMSE + LSFD)       │ ~180         │ ~4.5             │
+  │ L1 (L-MMSE, small cells) │ ~175         │ ~4.4             │
+  │ L2 (L-MMSE + average)    │ ~130         │ ~3.3             │
+  └───────────────────────────┴──────────────┴──────────────────┘
+
+  With 20 MHz bandwidth, throughput = SE × 20 MHz:
+    Level 4 MMSE: 277 × 20 = 5.54 Gbps total network throughput
+    Level 2:      130 × 20 = 2.60 Gbps total
+
+  Level 4 achieves 2.13× higher total throughput than Level 2.
+
+  Throughput per unit fronthaul (efficiency):
+    Level 4: 5.54 Gbps / 1.28 Gbps fronthaul = 4.33 bit/fronthaul-bit
+    Level 2: 2.60 Gbps / 30.4 Gbps fronthaul = 0.086 bit/fronthaul-bit
+
+  Level 4 is 50× more efficient in throughput-per-fronthaul-bit!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  9. PRACTICE PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM 1: Fronthaul Crossover Point
+──────────────────────────────────────
+For L = 100, N = 8, K = 20, τₚ = 10:
+
+(a) At what value of τc does Level 4 begin to require LESS fronthaul
+    than Levels 2/3?
+(b) For τc = 200, compute the fronthaul ratio.
+(c) As τc → ∞, what is the asymptotic fronthaul ratio?
+
+Solution:
+
+(a) Level 4 = Level 2/3 when: τcN = (τc - τₚ)K
+    τc × 8 = (τc - 10) × 20
+    8τc = 20τc - 200
+    200 = 12τc
+    τc = 200/12 = 16.67
+
+    So for τc ≥ 17 (any practical value), Level 4 requires less.
+
+(b) At τc = 200:
+    Level 4: τcNL = 200×8×100 = 160,000
+    Level 2/3: (τc-τₚ)KL = 190×20×100 = 380,000
+    Ratio: 380,000/160,000 = 2.375  (Level 4 needs 2.4× less)
+
+(c) As τc → ∞: ratio → K/N = 20/8 = 2.5
+
+
+PROBLEM 2: Serial vs Star Fronthaul
+─────────────────────────────────────
+L = 50 APs in a chain, N = 1, K = 30, τc = 200, τₚ = 5.
+
+(a) Star fronthaul: compute total fronthaul for Level 4 and Level 2.
+(b) Serial fronthaul: compute the bottleneck (maximum) capacity per
+    wire segment for Level 4 and Level 2.
+(c) Which level is better with star? With serial?
+
+Solution:
+
+(a) Star:
+    Level 4: τcNL = 200×1×50 = 10,000 scalars
+    Level 2: (τc-τₚ)KL = 195×30×50 = 292,500 scalars
+    → Level 4 wins (29× less)
+
+(b) Serial bottleneck (last segment):
+    Level 4: Must carry all 50 APs' raw signals per time slot
+             = L × N = 50 × 1 = 50 scalars per time slot
+             × τc = 200 time slots → 10,000 per block (same as star)
+    Level 2: K = 30 scalars per time slot (constant)
+             × (τc-τₚ) = 195 time slots → 5,850 per block
+
+    → Level 2 wins at bottleneck! (10,000 vs 5,850)
+
+(c) Star: Level 4 wins
+    Serial: Level 2 wins at the bottleneck
+
+    This shows the topology determines the preferred implementation.
+
+
+PROBLEM 3: SIC Gain Estimation
+───────────────────────────────
+At Level 4 with K = 3 UEs, suppose the per-user MMSE SINRs are:
+  SINR₁ = 10 (10 dB), SINR₂ = 8 (9 dB), SINR₃ = 5 (7 dB)
+
+The sum SE with linear MMSE:
+  SE_linear = log₂(1+10) + log₂(1+8) + log₂(1+5)
+            = 3.459 + 3.170 + 2.585 = 9.214 bit/s/Hz
+
+If SIC provides a 1% improvement (as observed in Fig. 5):
+  SE_SIC ≈ 9.214 × 1.01 = 9.306 bit/s/Hz
+
+The gain: 0.092 bit/s/Hz.
+
+With 20 MHz bandwidth: 0.092 × 20 = 1.84 Mbps extra throughput.
+This is negligible compared to the total 9.214 × 20 = 184 Mbps.
+
+Is SIC worth the complexity? NO. SIC requires:
+  • K = 3 sequential decoding steps (instead of 3 parallel)
+  • Signal reconstruction and subtraction at each step
+  • Error propagation risk (if one UE is decoded wrong, it corrupts
+    all subsequent UEs)
+
+For a 1% gain, the added complexity is not justified.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  10. SUMMARY OF SECTIONS V AND VI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SECTION V — NON-LINEAR DECODING:
+
+1. MMSE-SIC (successive interference cancellation) is the capacity-
+   achieving scheme for the MAC. It decodes users sequentially, subtracting
+   each decoded signal before processing the next.
+
+2. The achievable sum SE is: (1-τₚ/τc) 𝔼{log₂ det(Iₖ + P Ĥᴴ E⁻¹ Ĥ)},
+   which is INDEPENDENT of the decoding order.
+
+3. The gain over linear MMSE is only ~1%. This is because favorable
+   propagation in cell-free mMIMO makes channels nearly orthogonal,
+   so MMSE already cancels most inter-user interference.
+
+4. CONCLUSION: Non-linear processing is NOT needed in cell-free mMIMO.
+   Linear MMSE at Level 4 is sufficient.
+
+5. Level 1 ≈ Level 3 in sum SE, while Level 2 is far behind. The gap
+   to Level 4 (~55%) reinforces centralized processing is preferred.
+
+
+SECTION VI — FRONTHAUL SIGNALING:
+
+6. With star fronthaul (each AP connected individually to CPU):
+   Level 4 requires LESS fronthaul than Levels 2/3 when N < K (typical).
+   The ratio approaches K/N as τc → ∞.
+   For N=1, K=40: Level 4 needs 40× less fronthaul!
+
+7. The counterintuitive reason: Levels 2/3 EXPAND N-dimensional signals
+   into K-dimensional estimates. When K >> N, this expansion dramatically
+   increases fronthaul requirements.
+
+8. With serial fronthaul (daisy-chain topology): Levels 2/3 can aggregate
+   estimates along the wire, reducing fronthaul from (τc-τₚ)KL to
+   (τc-τₚ)K. Level 4 cannot benefit from this, so the comparison REVERSES.
+
+9. The RADIO STRIPES concept [43] leverages serial fronthaul to make
+   distributed implementations (Levels 2/3) practically viable.
+
+10. OVERALL: Level 4 with star fronthaul is the clear winner in BOTH SE
+    and fronthaul. Serial fronthaul is the only scenario where Levels 2/3
+    become competitive, and is needed for their practical viability.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks,"
+     Found. Trends Signal Process., 2017.
+[19] S. Perlman and A. Forenza, "An introduction to pCell," Artemis
+     Networks LLC, White paper, 2015.
+[27] Z. Chen and E. Björnson, "Channel hardening and favorable propagation
+     in cell-free massive MIMO with stochastic geometry," IEEE TCOM, 2018.
+[32] M. Bashar et al., "On the performance of backhaul constrained cell-free
+     massive MIMO with linear receivers," Asilomar, 2018.
+[43] G. Interdonato et al., "Ubiquitous cell-free massive MIMO
+     communications," EURASIP JWCN, 2019.
+[47] S. Park et al., "Robust and efficient distributed compression for
+     cloud radio access networks," IEEE TVT, 2013.
+[52] D. Tse and P. Viswanath, "Fundamentals of Wireless Communications,"
+     Cambridge University Press, 2005.
+[53] D. Maryopi and A. G. Burr, "Few-bit CSI acquisition for centralized
+     cell-free massive MIMO with spatial correlation," IEEE WCNC, 2019.
+[54] B. Nazer and M. Gastpar, "Compute-and-forward: Harnessing interference
+     through structured codes," IEEE TIT, 2011.

@@ -1,0 +1,948 @@
+================================================================================
+  Making Cell-Free Massive MIMO Competitive With MMSE Processing and
+  Centralized Implementation
+  Authors: Emil Björnson & Luca Sanguinetti
+================================================================================
+
+================================================================================
+  PART 4: SECTION IV — CELL-FREE VERSUS CELLULAR MASSIVE MIMO
+          (Equations 31-40, Figures 2-4, Remark 4)
+================================================================================
+
+This is the NUMERICAL RESULTS section — where the theoretical framework
+from Sections II-III is put to the test through Monte Carlo simulations.
+This section contains the paper's most impactful findings.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Imagine you're a judge comparing two sports teams:
+  • Team Cellular: 4 powerful players (BSs with 100 antennas each), each
+    controlling their own zone
+  • Team Cell-free: 400 small players (APs with 1 antenna each) OR 100
+    medium players (4 antennas each), all working together
+
+The question: Which team wins?
+
+The answer depends on HOW Team Cell-free plays:
+
+  With DUMB strategy (MR combining):
+    Team Cell-free LOSES. The 400 small players all try to help everyone
+    but end up getting in each other's way. They'd be better off as
+    400 independent small players (small cells), or not playing at all!
+    Team Cellular with its 4 powerful coordinated players wins easily.
+
+  With SMART strategy (MMSE combining):
+    Team Cell-free WINS DECISIVELY. When all 400 players coordinate
+    intelligently, they surround every "customer" and provide excellent
+    service. No one is left behind. Even the worst-served customer in
+    Team Cell-free beats the worst-served customer in Team Cellular.
+
+But here's the catch: the previous papers about Cell-free mMIMO only
+studied the DUMB strategy and claimed Cell-free was great! This paper
+shows those claims were misleading because:
+  1. They used the wrong playing field (macro-cell propagation model)
+  2. They compared against a weak opponent (suboptimal small cells)
+  3. They didn't even try the SMART strategy (MMSE)
+
+This section provides the definitive, fair comparison.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════════════════════════════════════════════════
+  SECTION IV-A: CELLULAR MASSIVE MIMO SETUP
+═══════════════════════════════════════════════════════════════════════════════
+
+2.1  CELLULAR NETWORK PARAMETERS
+──────────────────────────────────
+
+The cellular baseline is designed to be the STRONGEST POSSIBLE competitor:
+
+  ┌────────────────────────────────────────────────────┐
+  │  Cellular mMIMO Setup                              │
+  ├────────────────────────────────────────────────────┤
+  │  Number of cells: Lc = 4                           │
+  │  Antennas per BS: Mc = 100                         │
+  │  UEs per cell: Kc = 10                             │
+  │  Total antennas: Lc × Mc = 400                     │
+  │  Total UEs: Lc × Kc = K = 40                       │
+  │  Pilots per cell: τₚ = Kc = 10 (unique within cell)│
+  │  Pilot reuse: Factor 1 (same pilots in all cells)  │
+  │  Combining: M-MMSE (strongest possible)            │
+  └────────────────────────────────────────────────────┘
+
+
+2.2  CELLULAR CHANNEL MODEL — EQUATIONS (31)-(34)
+──────────────────────────────────────────────────
+
+The channel from BS j to UE k in cell l:
+
+    hₗⱼₖ ~ 𝒩ℂ(0, Rₗⱼₖ)                                          ... (31)
+
+Where Rₗⱼₖ ∈ ℂᴹᶜˣᴹᶜ is the spatial correlation matrix and
+βₗⱼₖ = tr(Rₗⱼₖ)/Mc is the large-scale fading.
+
+MMSE channel estimation (same as Section II but for cellular):
+
+  Estimate: ĥₗⱼᵢ ~ 𝒩ℂ(0, Rₗⱼᵢ - Cₗⱼᵢ)                         ... (32)
+
+  Error: h̃ₗⱼᵢ ~ 𝒩ℂ(0, Cₗⱼᵢ)                                    ... (33)
+
+                                 ⎛ Lc                    ⎞⁻¹
+  Cₗⱼᵢ = Rₗⱼᵢ - pₗᵢτₚ Rₗⱼᵢ   ⎜ ∑ pₗ'ᵢτₚ Rₗ'ⱼᵢ + σ²Iₘc⎟  Rₗⱼᵢ
+                                 ⎝l'=1                   ⎠        ... (34)
+
+KEY: In cellular, pilot contamination comes from UEs in OTHER cells
+using the same pilot. With pilot reuse factor 1, UE k in cell l
+contaminates UE k in all other cells.
+
+
+2.3  MULTI-CELL MMSE (M-MMSE) COMBINING — EQUATIONS (35)-(36)
+───────────────────────────────────────────────────────────────
+
+The achievable SE of UE k in cell j:
+
+               ⎛    τₚ ⎞
+  SE^(c)ⱼₖ = ⎜1 - ──⎟ 𝔼{log₂(1 + SINR^(c)ⱼₖ)}                ... (35)
+               ⎝    τc ⎠
+
+Maximized by M-MMSE combining:
+
+                            ⎛ Lc  Kc                      Lc Kc           ⎞⁻¹
+  SINR^(c)ⱼₖ = pⱼₖ ĥⱼⱼₖᴴ  ⎜ ∑   ∑ pₗᵢĥₗⱼᵢĥₗⱼᵢᴴ + ∑  ∑ pₗᵢCₗⱼᵢ + σ²I⎟  ĥⱼⱼₖ
+                            ⎝l=1 i=1                     l=1 i=1          ⎠
+                             (l,i)≠(j,k)                                  ... (36)
+
+This is the CELLULAR counterpart of Eq. (14) for Cell-free Level 4.
+
+WHY M-MMSE (not just MMSE)?
+
+  Standard single-cell MMSE at BS j would only suppress interference from
+  UEs WITHIN cell j. M-MMSE also accounts for interference from UEs in
+  OTHER cells. Specifically:
+
+  • Single-cell MMSE: The matrix includes only {ĥⱼⱼᵢ : i = 1,...,Kc}
+    (estimates of UEs in cell j's own channels to BS j)
+
+  • M-MMSE: The matrix includes {ĥₗⱼᵢ : l = 1,...,Lc, i = 1,...,Kc}
+    (estimates of ALL UEs in ALL cells as seen by BS j)
+
+  M-MMSE requires BS j to estimate channels from UEs in OTHER cells —
+  which it CAN do from pilot observations (since pilots are reused).
+
+  M-MMSE is the strongest linear combiner for cellular mMIMO. By using
+  it, the paper ensures any cell-free advantage is genuine.
+
+  Reference: Björnson, Hoydis, Sanguinetti (2018) [9] proved M-MMSE
+  achieves unlimited capacity as Mc → ∞ with spatially correlated channels.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  SECTION IV-B: SIMULATION SETUP AND PROPAGATION MODEL
+═══════════════════════════════════════════════════════════════════════════════
+
+2.4  FAIR COMPARISON DESIGN
+────────────────────────────
+
+The paper carefully ensures fairness:
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │           FAIR COMPARISON: SAME TOTAL RESOURCES                 │
+  ├──────────────────┬──────────────┬───────────────┬──────────────┤
+  │                  │ Cellular     │ Cell-free #1  │ Cell-free #2 │
+  ├──────────────────┼──────────────┼───────────────┼──────────────┤
+  │ Total antennas   │ 400          │ 400           │ 400          │
+  │ APs/BSs          │ 4 BSs        │ 400 APs       │ 100 APs      │
+  │ Antennas per     │ 100          │ 1             │ 4            │
+  │ Area             │ 1×1 km       │ 1×1 km        │ 1×1 km       │
+  │ Total UEs        │ 40           │ 40            │ 40           │
+  │ Pilots           │ 10/cell      │ 10            │ 10           │
+  │ UE power         │ 100 mW       │ 100 mW        │ 100 mW       │
+  │ Bandwidth        │ 20 MHz       │ 20 MHz        │ 20 MHz       │
+  │ Noise power      │ -96 dBm      │ -96 dBm       │ -96 dBm      │
+  │ Coherence block  │ τc = 200     │ τc = 200      │ τc = 200     │
+  └──────────────────┴──────────────┴───────────────┴──────────────┘
+
+  ALL configurations have 400 total antennas, 40 UEs, same area, same
+  power. The only difference is HOW the antennas are distributed and
+  HOW the signals are processed.
+
+
+2.5  THE 3GPP URBAN MICROCELL PROPAGATION MODEL — EQUATIONS (37)-(38)
+──────────────────────────────────────────────────────────────────────
+
+  βₖₗ [dB] = -30.5 - 36.7 log₁₀(dₖₗ / 1m) + Fₖₗ                ... (37)
+
+Where:
+  • dₖₗ = distance between UE k and AP l (3D, including 10m height)
+  • Fₖₗ ~ 𝒩(0, 4²) = shadow fading with 4 dB standard deviation
+  • The model is from 3GPP TR 36.814, Table B.1.2.1-1
+
+UNDERSTANDING THE PATH LOSS FORMULA:
+
+  The term -36.7 log₁₀(dₖₗ) corresponds to a path loss exponent of:
+
+    n = 36.7/10 = 3.67
+
+  Physical meaning of different path loss exponents:
+
+    n = 2.0: Free-space propagation (no obstructions)
+    n = 2.5: Suburban environments with light clutter
+    n = 3.0: Urban environments with moderate obstructions
+    n = 3.67: Dense urban microcell (this paper's model)
+    n = 4.0: Dense urban / indoor (COST-Hata for d > 50m)
+
+  The value 3.67 is appropriate for micro-cell APs deployed at ~10m
+  height on lamp posts in urban environments.
+
+  The intercept -30.5 dB accounts for:
+    • Antenna gains
+    • Carrier frequency effects (2 GHz)
+    • Constant propagation factors
+
+SHADOW FADING:
+
+  Fₖₗ ~ 𝒩(0, 16) represents log-normal shadow fading with σ = 4 dB.
+
+  Shadow fading models large-scale random variations due to buildings,
+  terrain, and other obstacles. The 4 dB standard deviation is typical
+  for urban micro-cells (lower than macro-cells which have 7-10 dB).
+
+  Shadowing correlation between UEs:
+
+    𝔼{Fₖₗ Fᵢⱼ} = ⎧ 4² × 2^(-δₖᵢ / 9m)   if l = j (same AP)
+                   ⎨                                              ... (38)
+                   ⎩ 0                      if l ≠ j (diff. APs)
+
+  Where δₖᵢ is the distance between UE k and UE i.
+
+  Interpretation:
+    • Two UEs close together (δₖᵢ ≈ 0) see nearly the same shadowing
+      from the same AP (correlation ≈ 1)
+    • UEs 9m apart have correlation 2⁻¹ = 0.5
+    • UEs 30m apart have correlation 2⁻³·³ ≈ 0.1 (nearly independent)
+    • Shadowing from DIFFERENT APs is independent (l ≠ j):
+      justified because APs are ≥50m apart, and 2⁻⁵⁰/⁹ ≈ 0.02 ≈ 0
+
+DISTANCE COMPUTATION:
+
+  The distance dₖₗ includes the 10m height difference:
+
+    dₖₗ = √(d²_horizontal + 10²)
+
+  And is computed as the MINIMUM over wrap-around cases (to simulate
+  an infinite network without edge effects).
+
+
+2.6  SPATIAL CORRELATION MODEL
+───────────────────────────────
+
+Both cellular BSs and multi-antenna APs use:
+  • Half-wavelength-spaced Uniform Linear Array (ULA)
+  • Gaussian local scattering model with σ_φ = 15° angular spread
+  • Model from [3, Sec. 2.6]
+
+For single-antenna APs (N = 1): Rₖₗ = βₖₗ (scalar, no spatial structure)
+
+
+2.7  REMARK 4: WHY THE PREVIOUS PROPAGATION MODEL WAS WRONG
+─────────────────────────────────────────────────────────────
+
+The COST-Hata model used in [16] (Eq. 39):
+
+              ⎧ -81.2                                    dₖₗ < 10m
+  βₖₗ [dB] = ⎨ -61.2 - 20 log₁₀(dₖₗ/1m)       10m ≤ dₖₗ < 50m
+              ⎩ -35.7 - 35 log₁₀(dₖₗ/1m) + Fₖₗ        dₖₗ ≥ 50m  ... (39)
+
+PROBLEMS with this model for cell-free mMIMO:
+
+  1. DESIGNED FOR MACRO-CELLS: The COST 231 / Hata model was developed
+     for BSs at 30m+ height, with UEs at least 1 km away. The model
+     creators themselves stated: "must not be used for micro-cells"
+     [51, Ch. 4].
+
+  2. NO SHADOWING FOR d < 50m: In cell-free mMIMO, many UEs are within
+     50m of an AP. The absence of shadowing in this range creates
+     unrealistically stable channels and inflates performance.
+
+  3. FLAT PATH LOSS FOR d < 10m: The model gives -81.2 dB for ANY
+     distance less than 10m. This means a UE 1m from an AP has the same
+     path loss as one 10m away — physically unreasonable.
+
+  4. SHADOWING DECORRELATION: The decorrelation distance in [16] is 100m,
+     which is 10× larger than the 3GPP model's 9m. This means shadowing
+     varies much more slowly, making the comparison less realistic.
+
+  5. IMPACT ON RESULTS: The favorable near-field model artificially
+     boosts cell-free performance because APs close to UEs get
+     unrealistically good channels. This contributed to the overly
+     optimistic conclusions in [16].
+
+This is a critical methodological point. By switching to the 3GPP model,
+this paper provides a MUCH more realistic evaluation of cell-free mMIMO.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  SECTION IV-C: NUMERICAL COMPARISONS (THE MAIN RESULTS)
+═══════════════════════════════════════════════════════════════════════════════
+
+2.8  FIGURE 2: MMSE/L-MMSE COMBINING (THE POSITIVE STORY)
+───────────────────────────────────────────────────────────
+
+Figure 2 shows CDF of per-user SE with MMSE/L-MMSE combining.
+
+FIGURE 2(a): L = 400, N = 1 (many single-antenna APs)
+
+  Results (approximate values from CDF curves):
+
+  ┌────────────────────┬─────────────┬───────────────┐
+  │ Scheme             │ 95%-likely  │ Median SE     │
+  │                    │ SE (bit/s/Hz│ (bit/s/Hz)    │
+  ├────────────────────┼─────────────┼───────────────┤
+  │ L4 (MMSE)          │ ~3.5        │ ~6.0          │
+  │ L3 (L-MMSE+LSFD)  │ ~1.5        │ ~4.5          │
+  │ L2 (L-MMSE+avg)   │ ~1.0        │ ~3.5          │
+  │ L1 (L-MMSE, small) │ ~1.2        │ ~5.0          │
+  │ Cellular M-MMSE    │ ~1.0        │ ~4.0          │
+  └────────────────────┴─────────────┴───────────────┘
+
+  Key observations:
+
+  (a) Level 4 DOMINATES everything — by a huge margin.
+      At the 95%-likely point: Level 4 gives ~3.5× the SE of Cellular.
+      Even at the median: Level 4 gives ~1.5× the SE of Cellular.
+      Level 4 outperforms Cellular for EVERY SINGLE UE.
+
+  (b) Level 1 (small cells) with L-MMSE beats Cellular at the 95%-likely
+      point. This is remarkable: even WITHOUT cooperation, just having
+      400 distributed APs with smart local processing outperforms 4 BSs
+      with 100 antennas each for the weakest UEs.
+
+  (c) Levels 2 and 3 have a COMPLEX relationship with Cellular:
+      • They're better for weak UEs (lower CDF values)
+      • But worse for strong UEs (higher CDF values)
+      • The curves cross the Cellular CDF!
+
+      This happens because Levels 2/3 sacrifice peak rates (for UEs with
+      great channels) to improve worst-case rates (for UEs with bad
+      channels) — the cooperative processing "averages" performance.
+
+  (d) Level 1 and Cellular curves cross Levels 2/3 at higher CDF values.
+      Strong UEs prefer Level 1 or Cellular because these schemes don't
+      "waste" resources helping other UEs.
+
+
+FIGURE 2(b): L = 100, N = 4 (fewer APs, more antennas each)
+
+  Same total antennas (400) but distributed differently.
+
+  Key differences from Fig. 2(a):
+
+  (a) Level 4 performance DECREASES:
+      With only 100 APs, the average distance from a UE to its nearest AP
+      increases. Less macro diversity = lower SE.
+      This shows that MORE APs (even with fewer antennas each) is better
+      for Level 4.
+
+  (b) Level 1 performance INCREASES:
+      With N = 4 antennas, each AP can now do spatial interference
+      suppression locally. The L-MMSE combiner at each AP inverts a 4×4
+      matrix and can null up to 3 interferers.
+      Level 1 is now comparable to Level 2 for weak UEs and MUCH better
+      for strong UEs.
+
+  DESIGN INSIGHT: The optimal (L, N) tradeoff depends on the level:
+    • Level 4 prefers many single-antenna APs (maximizes macro diversity)
+    • Level 1 prefers fewer multi-antenna APs (enables local interference
+      suppression)
+    • Levels 2/3 fall in between
+
+
+2.9  FIGURE 3: MR COMBINING (THE DEVASTATING FINDING)
+──────────────────────────────────────────────────────
+
+Figure 3 shows CDF with MR combining (L = 400, N = 1).
+
+THIS IS THE PAPER'S MOST SHOCKING RESULT:
+
+  ┌────────────────────┬─────────────┬───────────────┐
+  │ Scheme             │ 95%-likely  │ Median SE     │
+  │                    │ SE (bit/s/Hz│ (bit/s/Hz)    │
+  ├────────────────────┼─────────────┼───────────────┤
+  │ L4 (MR)            │ ~0.5        │ ~2.0          │
+  │ L3 (MR+LSFD)      │ ~0.4        │ ~1.5          │
+  │ L2 (MR+avg)        │ ~0.2        │ ~0.8          │
+  │ L1 (MR, small)     │ ~0.5        │ ~2.5          │
+  │ Cellular M-MMSE    │ ~1.0        │ ~4.0          │
+  └────────────────────┴─────────────┴───────────────┘
+
+  DEVASTATING observations:
+
+  (a) Level 2 with MR (the scheme from [16]) is outperformed by BOTH
+      small cells (Level 1) AND Cellular mMIMO FOR EVERY SINGLE UE.
+
+      This means: the original Cell-free mMIMO proposal LOSES to both
+      of its competitors. The proclaimed advantage was an illusion created
+      by the unfair comparison in [16].
+
+  (b) Level 3 with MR (the LSFD scheme from [24]) also loses to Cellular
+      mMIMO. LSFD cannot compensate for MR's fundamental weakness.
+
+  (c) Even Level 4 with MR is worse than or comparable to Cellular mMIMO.
+      Having access to ALL signals at the CPU doesn't help if you process
+      them with MR — the interference overwhelms the desired signal.
+
+  (d) Level 1 with MR actually outperforms Level 2 and Level 3 with MR!
+      This is because at Level 1, each AP only serves one UE, so MR's
+      inability to suppress interference doesn't matter as much (there's
+      only local interference, not network-wide).
+
+  WHY MR FAILS SO BADLY:
+
+  With N = 1, the L-MMSE combiner at AP l is:
+    v_LMMSE = ĥₖₗ / (∑ᵢ pᵢ|ĥᵢₗ|² + ∑ᵢ pᵢCᵢₗ + σ²)
+
+  The MR combiner is: v_MR = ĥₖₗ*  (just the conjugate)
+
+  They differ by: 1 / (∑ᵢ pᵢ|ĥᵢₗ|² + ∑ᵢ pᵢCᵢₗ + σ²)
+
+  This is a NON-DETERMINISTIC scalar (depends on instantaneous |ĥᵢₗ|²).
+
+  MR gives EQUAL WEIGHT to the local estimate from every AP, regardless
+  of the local interference level. An AP with massive interference
+  contributes just as much as an AP with no interference.
+
+  L-MMSE automatically DOWN-WEIGHTS estimates from high-interference APs.
+  This per-realization adaptation is the critical difference.
+
+  LSFD (Level 3) cannot fix this because it uses DETERMINISTIC weights
+  based on channel STATISTICS. The per-realization interference variations
+  are invisible to LSFD.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  SECTION IV-D: REVISITING "CELL-FREE mMIMO vs SMALL CELLS"
+═══════════════════════════════════════════════════════════════════════════════
+
+2.10  REPRODUCING AND CORRECTING [16]'S RESULTS — FIGURE 4
+───────────────────────────────────────────────────────────
+
+This subsection is a masterful piece of scientific detective work. The
+authors reproduce the exact setup from [16] and systematically show why
+[16]'s conclusions were misleading.
+
+Setup (matching [16]):
+  • L = 100, N = 1, K = 40, τₚ = 20
+  • COST-Hata propagation model (Eq. 39)
+  • Pilot assignment: greedy algorithm from [16, Sec. IV.A]
+
+The "thick lines" in Fig. 4 are the ORIGINAL curves from [16]:
+  • Level 2 with MR ("Ref. [15] (L2 MR)" in paper's notation)
+  • Small cells ("Ref. [15] (Small cells)" — with [16]'s suboptimal
+    AP assignment)
+
+FIGURE 4(a): FULL POWER TRANSMISSION
+
+  The paper adds three new curves to [16]'s original two:
+
+  1. "Ref. [15] (Improved)": Same as [16]'s small cells, but with the
+     improved AP selection (max-SE instead of max-β, multiple UEs per AP).
+
+     Result: The gap between Cell-free and small cells SHRINKS
+     significantly. About 40% of UEs prefer a different AP than the one
+     [16] assigned them to.
+
+  2. "L1 (Small cells)": Using the corrected SE expression from
+     Proposition 3 (which properly accounts for pilot contamination
+     conditioning) AND the improved AP assignment.
+
+     Result: ALL UEs get HIGHER SE with small cells than with
+     Level 2 MR! This completely reverses [16]'s conclusion.
+
+  3. "L2 (L-MMSE)": Level 2 with L-MMSE combining instead of MR.
+
+     Result: This curve is to the RIGHT of everything else — uniformly
+     better SE for ALL UEs than both Level 2 MR and small cells.
+
+  The progression tells a clear story:
+    [16]'s Cell-free > [16]'s small cells  (original claim)
+    → BUT: improved small cells > [16]'s Cell-free  (after fixing AP selection)
+    → AND: L2 (L-MMSE) > improved small cells  (after fixing combining)
+
+  The REAL conclusion: Cell-free mMIMO IS better than small cells, but
+  ONLY if you use L-MMSE (or better) combining. With MR, the advantage
+  disappears.
+
+
+FIGURE 4(b): MAX-MIN POWER CONTROL
+
+  When max-min fairness power control is applied:
+
+  • The lower tails of all CDF curves shift RIGHT (better worst-case SE)
+  • Level 2 MR with power control does outperform small cells — consistent
+    with [16]'s original claim with power control
+
+  BUT: Level 2 with L-MMSE and FULL POWER (no optimization) gives:
+    • Same 95%-likely SE as Level 2 MR with max-min power control
+    • 40% higher median SE than Level 2 MR with max-min
+    • 3× higher median SE overall
+
+  PROFOUND IMPLICATION: Using L-MMSE combining with simple equal power
+  allocation is MORE EFFECTIVE than using MR combining with optimized
+  power control.
+
+  In other words: it's better to invest in SMARTER SIGNAL PROCESSING
+  than in OPTIMIZED POWER ALLOCATION (when using a weak combiner).
+
+  This has enormous practical implications:
+    • Power control requires optimization algorithms (complex, iterative)
+    • L-MMSE requires a matrix inversion (one-shot, deterministic)
+    • L-MMSE is both simpler to implement AND more effective
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  3GPP PROPAGATION MODELS
+──────────────────────────────
+
+The 3GPP has standardized propagation models for system-level simulations:
+
+  • 3GPP TR 36.814 (Release 9, 2017) [50]: "Further advancements for
+    E-UTRA physical layer aspects" — contains the Urban Microcell (UMi)
+    and Urban Macrocell (UMa) models used for LTE-Advanced evaluation.
+
+  • The UMi model targets BSs at 10m height, inter-site distances of
+    200m, and carrier frequencies of 2-6 GHz. This closely matches
+    the anticipated cell-free mMIMO deployment.
+
+  • The key parameters:
+    - Path loss exponent: 3.67 (moderate urban propagation)
+    - Shadow fading: 4 dB std (lower than macro-cell's 7-10 dB)
+    - Decorrelation distance: 9m (short — typical for dense urban)
+
+
+3.2  THE COST 231 / HATA MODEL
+───────────────────────────────
+
+  • COST Action 231 (1999) [51]: "Digital Mobile Radio Towards Future
+    Generation Systems: Final Report" — developed path loss models for
+    GSM/2G/3G evaluation.
+
+  • Based on Hata's empirical model (1980) which itself was based on
+    Okumura's measurements (1968) in Tokyo.
+
+  • Designed for:
+    - BS height: 30-200m (macro-cell towers)
+    - UE distance: 1-20 km
+    - Carrier frequency: 150-2000 MHz
+
+  • The model creators' warning in [51, Ch. 4]: "must not be used for
+    micro-cells" — yet it was adopted by [16] and became the de facto
+    standard in the cell-free mMIMO literature until this paper.
+
+
+3.3  CDF ANALYSIS IN WIRELESS RESEARCH
+────────────────────────────────────────
+
+The CDF of per-user SE is the standard performance metric in Massive MIMO:
+
+  F(x) = Pr(SEₖ ≤ x)
+
+Computed over random UE locations, channel realizations, and shadow fading.
+
+Key percentile points:
+
+  • 95%-likely SE (5th percentile): F(x) = 0.05
+    The rate exceeded by 95% of all UEs. Represents the WORST-CASE
+    performance guarantee. This is the most important metric for
+    cell-free mMIMO, which aims to eliminate "dead spots."
+
+  • 90%-likely SE (10th percentile): F(x) = 0.10
+    Slightly less conservative worst-case metric.
+
+  • Median SE (50th percentile): F(x) = 0.50
+    The "typical" user experience. Important for overall throughput.
+
+  • 5%-likely SE (95th percentile): F(x) = 0.95
+    The rate achieved only by the BEST 5% of UEs. Shows peak performance.
+
+The SHAPE of the CDF tells you about fairness:
+  • Steep CDF = all UEs get similar rates = high fairness
+  • Flat CDF = large variation between best and worst UEs = low fairness
+
+Cell-free mMIMO aims for a STEEPER CDF than cellular (more uniform service).
+
+
+3.4  MAX-MIN FAIRNESS
+──────────────────────
+
+Max-min fairness power control solves:
+
+    max  min  SEₖ(p₁, ..., pₖ)
+    {pₖ}  k
+
+Subject to power constraints: 0 ≤ pₖ ≤ p_max
+
+This is typically solved by bisection + second-order cone programming
+(SOCP) or by geometric programming, as described in [16].
+
+Effect on CDF: The CDF becomes nearly VERTICAL — all UEs get approximately
+the same SE. The lower tail improves (higher guaranteed rate) but the
+upper tail worsens (reduced peak rates).
+
+This paper's argument: L-MMSE processing is a BETTER way to help weak UEs
+than max-min power control. Power control with MR merely redistributes a
+limited resource. L-MMSE INCREASES the total available resource by better
+interference management.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. MATHEMATICAL DETAILS (Unicode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  PATH LOSS COMPUTATION EXAMPLE
+────────────────────────────────────
+
+Using the 3GPP UMi model (Eq. 37):
+
+  βₖₗ [dB] = -30.5 - 36.7 log₁₀(dₖₗ) + Fₖₗ
+
+For a UE at horizontal distance 50m from an AP at 10m height:
+
+  dₖₗ = √(50² + 10²) = √2600 = 50.99m
+
+  βₖₗ [dB] = -30.5 - 36.7 × log₁₀(50.99) + Fₖₗ
+            = -30.5 - 36.7 × 1.7076 + Fₖₗ
+            = -30.5 - 62.67 + Fₖₗ
+            = -93.17 + Fₖₗ  [dB]
+
+  Without shadowing: βₖₗ = -93.17 dB = 10⁻⁹·³¹⁷ ≈ 4.82 × 10⁻¹⁰
+
+  SNR at this AP (p = 100mW = 20dBm, σ² = -96dBm):
+    SNR = p × βₖₗ / σ² = 20 - 93.17 - (-96) = 22.83 dB ≈ 192
+
+Compare with the COST-Hata model for the same distance:
+  β [dB] = -35.7 - 35 log₁₀(50.99) + Fₖₗ
+          = -35.7 - 59.77 + Fₖₗ = -95.47 + Fₖₗ [dB]
+
+  Difference: 2.3 dB weaker with COST-Hata at 50m, BUT for d < 50m:
+  COST-Hata gives -61.2-20log₁₀(d), which at d = 20m gives:
+    β = -61.2 - 20×1.301 = -87.22 dB
+
+  3GPP UMi at d = 20m (+ 10m height → d₃D = 22.36m):
+    β = -30.5 - 36.7×1.3495 = -30.5 - 49.53 = -80.03 dB
+
+  COST-Hata is 7 dB weaker at 20m! The 3GPP model predicts a STRONGER
+  near-field channel, but with 4 dB shadow fading that adds variability.
+
+
+4.2  M-MMSE vs CELL-FREE MMSE: STRUCTURAL COMPARISON
+──────────────────────────────────────────────────────
+
+Cellular M-MMSE (Eq. 36) at BS j for UE k in cell j:
+
+  SINR = pⱼₖ ĥⱼⱼₖᴴ (Σⱼ - pⱼₖĥⱼⱼₖĥⱼⱼₖᴴ)⁻¹ ĥⱼⱼₖ
+
+  Where Σⱼ = ∑ₗ₌₁ᴸᶜ ∑ᵢ₌₁ᴷᶜ pₗᵢ(ĥₗⱼᵢĥₗⱼᵢᴴ + Cₗⱼᵢ) + σ²I_{Mc}
+
+  Matrix size: Mc × Mc = 100 × 100
+
+Cell-free MMSE (Eq. 14) at the CPU for UE k:
+
+  SINR = pₖ ĥₖᴴ (Σ - pₖĥₖĥₖᴴ)⁻¹ ĥₖ
+
+  Where Σ = ∑ᵢ₌₁ᴷ pᵢ(ĥᵢĥᵢᴴ + Cᵢ) + σ²I_{LN}
+
+  Matrix size: LN × LN = 400 × 400
+
+The structural difference:
+  • Cellular: BS j only sees channels TO ITSELF. Its 100 antennas provide
+    angular resolution to separate UEs arriving from different directions.
+  • Cell-free: CPU sees channels to ALL APs. The spatial diversity comes
+    from the GEOGRAPHIC spread of APs, not from angular resolution.
+
+  Cell-free's advantage: A UE at a cell edge in cellular is far from its
+  BS. In cell-free, it's always near SOME AP. The "cell-edge" problem
+  is eliminated.
+
+  Cell-free's challenge: Each AP has few antennas (N = 1 or 4), so local
+  angular resolution is poor. The power comes from combining across APs.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. NUMERICAL EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE 1: Path Loss Comparison (3GPP UMi vs COST-Hata)
+────────────────────────────────────────────────────────
+
+Compute the path loss at distances 10m, 50m, 200m, 500m for both models.
+(Ignoring height difference for simplicity, no shadowing)
+
+3GPP UMi: β[dB] = -30.5 - 36.7 log₁₀(d)
+
+  d = 10m:  β = -30.5 - 36.7×1.0 = -67.2 dB
+  d = 50m:  β = -30.5 - 36.7×1.699 = -92.8 dB
+  d = 200m: β = -30.5 - 36.7×2.301 = -114.9 dB
+  d = 500m: β = -30.5 - 36.7×2.699 = -129.6 dB
+
+COST-Hata (Eq. 39):
+
+  d = 10m:  β = -81.2 dB (flat region)
+  d = 50m:  β = -35.7 - 35×1.699 = -95.2 dB
+  d = 200m: β = -35.7 - 35×2.301 = -116.2 dB
+  d = 500m: β = -35.7 - 35×2.699 = -130.2 dB
+
+  ┌────────┬────────────┬────────────┬────────────┐
+  │ d (m)  │ 3GPP UMi   │ COST-Hata  │ Difference │
+  ├────────┼────────────┼────────────┼────────────┤
+  │ 10     │ -67.2 dB   │ -81.2 dB   │ +14.0 dB   │
+  │ 50     │ -92.8 dB   │ -95.2 dB   │ +2.4 dB    │
+  │ 200    │ -114.9 dB  │ -116.2 dB  │ +1.3 dB    │
+  │ 500    │ -129.6 dB  │ -130.2 dB  │ +0.6 dB    │
+  └────────┴────────────┴────────────┴────────────┘
+
+  At short distances (d < 50m), the models differ dramatically:
+    • At 10m: 14 dB difference! 3GPP gives 25× more power.
+    • COST-Hata's flat -81.2 dB for d < 10m is especially problematic.
+
+  Since cell-free mMIMO has many nearby APs, the near-field model
+  matters enormously. The 3GPP model gives MORE power at short range
+  (good), but ALSO adds 4dB shadow fading (adds uncertainty). The
+  COST-Hata model's artificial suppression of near-field effects
+  distorted earlier comparisons.
+
+
+EXAMPLE 2: SNR at Different Network Points
+────────────────────────────────────────────
+
+Setup: p = 100 mW = 20 dBm, σ² = -96 dBm, 3GPP UMi model
+
+Cell-free mMIMO (nearest AP typically at ~25-50m):
+  At 25m: β = -30.5 - 36.7×log₁₀(26.9) = -30.5 - 52.5 = -83.0 dB
+          (including 10m height: d₃D = √(625+100) = 26.9m)
+  SNR = 20 - (-83.0) - (-96) = 20 + 83 + 96 = -96 + 103 = 7 dB ??
+
+  Wait, let me recalculate:
+  SNR [dB] = p[dBm] + β[dB] - σ²[dBm]
+           = 20 + (-83.0) - (-96) = 20 - 83 + 96 = 33 dB
+
+  So SNR ≈ 33 dB at the nearest AP — excellent!
+
+Cellular mMIMO (BS is ~200-350m away for a cell-edge UE in a 500×500m cell):
+  At 300m: β = -30.5 - 36.7×log₁₀(300.2) = -30.5 - 90.9 = -121.4 dB
+  SNR per antenna = 20 + (-121.4) - (-96) = 20 - 121.4 + 96 = -5.4 dB
+
+  But with 100 antennas and MR combining, the beamforming gain is ~20 dB:
+  Effective SNR ≈ -5.4 + 20 = 14.6 dB
+
+Cell-free advantage for cell-edge UEs:
+  The nearest AP gives 33 dB SNR (before combining across APs).
+  The cellular BS gives only 14.6 dB effective SNR.
+  That's an ~18 dB advantage for cell-free — almost 100× more signal power!
+
+
+EXAMPLE 3: Understanding the CDF Crossing Phenomenon
+──────────────────────────────────────────────────────
+
+Why do Level 1/Cellular curves cross Level 2/3 curves?
+
+Consider two UEs in a cell-free network with L = 400, N = 1:
+
+  UE A (weak UE): Located in a "gap" between APs. Nearest AP is 75m away.
+    • Level 1: SE ≈ 1.5 bit/s/Hz (served by ONE nearby AP)
+    • Level 4: SE ≈ 4.0 bit/s/Hz (all 400 APs contribute)
+    • Level 2: SE ≈ 2.0 bit/s/Hz (average of all APs — many contribute 0)
+    • Cellular: SE ≈ 1.0 bit/s/Hz (far from BS, cell-edge)
+
+    Ranking: L4 > L2 > L1 > Cellular
+
+  UE B (strong UE): Right next to AP #7, which has a great channel.
+    • Level 1: SE ≈ 6.0 bit/s/Hz (AP #7 decodes independently, high SNR)
+    • Level 4: SE ≈ 8.0 bit/s/Hz (still the best)
+    • Level 2: SE ≈ 3.5 bit/s/Hz (averaging DILUTES the strong AP's info
+                with noise from far APs)
+    • Cellular: SE ≈ 5.0 bit/s/Hz (close to BS, array gain compensates)
+
+    Ranking: L4 > L1 > Cellular > L2
+
+  For UE B, Level 2's simple averaging HURTS — it mixes a great local
+  estimate with 399 noisy estimates. Level 1 and Cellular, which use
+  concentrated processing, do better for strong UEs.
+
+  This is why the CDF curves cross: Level 2/3 help weak UEs but hurt
+  strong UEs compared to Level 1/Cellular.
+
+  Level 4 avoids this problem because MMSE combining OPTIMALLY weights
+  each AP's contribution — far APs contribute near-zero weight naturally.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. PRACTICE PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM 1: Path Loss and SNR
+─────────────────────────────
+A cell-free mMIMO system uses the 3GPP UMi model. An AP is at height 10m.
+A UE is at horizontal distance 80m.
+
+(a) Compute the 3D distance dₖₗ.
+(b) Compute the path loss βₖₗ in dB (without shadowing).
+(c) Compute the received SNR if p = 100 mW and σ² = -96 dBm.
+(d) If shadow fading Fₖₗ = +6 dB, what is the new path loss?
+(e) If Fₖₗ = -6 dB?
+
+Solution:
+
+(a) dₖₗ = √(80² + 10²) = √6500 = 80.62m
+
+(b) β = -30.5 - 36.7×log₁₀(80.62) = -30.5 - 36.7×1.9064 = -30.5 - 69.96
+    β = -100.46 dB
+
+(c) SNR = p[dBm] + β[dB] - σ²[dBm] = 20 + (-100.46) - (-96)
+        = 20 - 100.46 + 96 = 15.54 dB ≈ 35.9 (linear)
+
+(d) β = -100.46 + 6 = -94.46 dB → SNR = 21.54 dB (good shadowing helps)
+
+(e) β = -100.46 - 6 = -106.46 dB → SNR = 9.54 dB (bad shadowing hurts)
+
+  The 4 dB std shadow fading creates a ±6 dB range at 1.5σ, which
+  corresponds to a 4× variation in received power. This is why having
+  many distributed APs helps — even if one AP has bad shadowing, a
+  nearby AP likely has better conditions.
+
+
+PROBLEM 2: Why L-MMSE > Max-Min Power Control + MR
+───────────────────────────────────────────────────
+Consider a simple 2-UE, 2-AP system with N = 1.
+
+UE 1: β₁₁ = 0.5, β₁₂ = 0.1   (close to AP 1)
+UE 2: β₂₁ = 0.1, β₂₂ = 0.5   (close to AP 2)
+
+No pilot contamination (unique pilots), σ² negligible.
+
+(a) With MR and equal power (p₁ = p₂ = 1), which UE has lower SE?
+(b) How does max-min power control adjust powers?
+(c) With L-MMSE and equal power, how does the SE compare?
+
+Solution:
+
+(a) Both UEs are in symmetric positions, so they have the same SE
+    with MR and equal power. But if there's any asymmetry (e.g., one
+    UE is slightly closer to both APs), that UE gets higher SE.
+
+    The problem with MR: at AP 1, MR for UE 1 gives v₁₁ = ĥ₁₁*.
+    But UE 2 also contributes interference: ĥ₁₁* h₂₁ s₂.
+    MR does nothing to suppress this.
+
+(b) Max-min power control adjusts p₁ and p₂ to equalize SE.
+    In the symmetric case, p₁ = p₂ already achieves this.
+    In asymmetric cases, the stronger UE reduces power, which
+    LOWERS total throughput but RAISES the minimum SE.
+
+(c) L-MMSE at AP 1:
+    v₁₁ = ĥ₁₁ / (|ĥ₁₁|² + |ĥ₂₁|² + σ²)
+
+    The denominator is large when |ĥ₂₁|² is large (strong interference
+    from UE 2). This automatically reduces the contribution from AP 1
+    when interference is high.
+
+    This provides per-realization interference management that MR + power
+    control cannot achieve. The SE improvement comes "for free" — no
+    iterative optimization needed.
+
+
+PROBLEM 3: Interpreting CDF Curves
+───────────────────────────────────
+A CDF plot shows that at x = 2 bit/s/Hz:
+  Level 4: F(2) = 0.05
+  Level 2: F(2) = 0.30
+  Cellular: F(2) = 0.15
+
+(a) What fraction of UEs get less than 2 bit/s/Hz with each scheme?
+(b) Which scheme has the best 95%-likely SE if the 95%-likely point is at
+    F(x) = 0.05?
+(c) If "fairness" means minimizing the gap between the 5th and 95th
+    percentile users, which scheme is likely the fairest?
+
+Solution:
+
+(a) Level 4: 5% of UEs get < 2 bit/s/Hz
+    Level 2: 30% of UEs get < 2 bit/s/Hz
+    Cellular: 15% of UEs get < 2 bit/s/Hz
+
+(b) Level 4 has the best 95%-likely SE. At F = 0.05, Level 4 is at
+    x = 2 bit/s/Hz. The other schemes would have their 5th percentile
+    at lower x values (since their CDF reaches 0.05 earlier).
+
+(c) Level 2 is likely the fairest — its CDF curve is typically steeper
+    (more vertical), meaning less variation between the best and worst
+    UEs. However, this "fairness" comes at the cost of lower SE for
+    ALL UEs compared to Level 4.
+
+    Level 4 achieves both HIGH SE and GOOD FAIRNESS — the best of both.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. SUMMARY OF SECTION IV
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. FAIR COMPARISON DESIGN: Same total antennas (400), same area (1×1 km),
+   same UE power (100 mW), same propagation model (3GPP UMi), same number
+   of UEs (40). Only the antenna distribution and processing differ.
+
+2. WITH MMSE/L-MMSE (Fig. 2):
+   • Level 4 dominates EVERYTHING for every single UE
+   • Level 1 (small cells) with L-MMSE beats Cellular at 95%-likely point
+   • More APs (L=400, N=1) is better for Level 4 (macro diversity)
+   • More antennas per AP (L=100, N=4) is better for Level 1 (local
+     interference suppression)
+
+3. WITH MR (Fig. 3): THE DEVASTATING FINDING
+   • Level 2 (MR) — the original cell-free proposal — LOSES to both
+     small cells AND Cellular mMIMO for every UE
+   • Even Level 4 with MR doesn't beat Cellular mMIMO
+   • LSFD (Level 3) cannot compensate for MR's weakness
+   → Cell-free mMIMO should NEVER use MR combining
+
+4. REVISITING [16] (Fig. 4): The original comparison was misleading due to:
+   • Suboptimal AP assignment in small cells
+   • Inappropriate COST-Hata propagation model
+   • Only MR combining was considered
+   When these issues are fixed, L2 (L-MMSE) with full power outperforms
+   L2 (MR) with max-min power control.
+
+5. KEY INSIGHT: L-MMSE with equal power > MR with optimized power control.
+   Smart signal processing beats smart power allocation. This has
+   transformative practical implications for cell-free system design.
+
+6. PROPAGATION MODEL MATTERS: The 3GPP UMi model (appropriate for micro-
+   cells) gives substantially different results than the COST-Hata model
+   (designed for macro-cells). The cell-free mMIMO community should adopt
+   the 3GPP model as the standard baseline.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks,"
+     Found. Trends Signal Process., 2017.
+[9]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO has unlimited
+     capacity," IEEE TWC, vol. 17, no. 1, 2018.
+[16] H. Q. Ngo et al., "Cell-free Massive MIMO versus small cells,"
+     IEEE TWC, vol. 16, no. 3, 2017.
+[24] E. Nayebi et al., "Performance of cell-free massive MIMO systems
+     with MMSE and LSFD receivers," Asilomar, 2016.
+[50] 3GPP, "Further advancements for E-UTRA physical layer aspects
+     (Release 9)," 3GPP TS 36.814, Mar. 2017.
+[51] E. Damosso and L. M. Correia, "COST Action 231: Digital Mobile
+     Radio Towards Future Generation Systems: Final Report," European
+     Commission, 1999.

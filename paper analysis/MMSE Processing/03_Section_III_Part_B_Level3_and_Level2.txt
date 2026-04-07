@@ -1,0 +1,922 @@
+================================================================================
+  Making Cell-Free Massive MIMO Competitive With MMSE Processing and
+  Centralized Implementation
+  Authors: Emil Björnson & Luca Sanguinetti
+================================================================================
+
+================================================================================
+  PART 3B: SECTION III — FOUR LEVELS OF RECEIVER COOPERATION
+           LEVEL 3: LOCAL PROCESSING & LSFD
+           LEVEL 2: LOCAL PROCESSING & SIMPLE CENTRALIZED DECODING
+           (Equations 15-25, Proposition 2, Corollaries 2-3)
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Going back to our surveillance camera analogy:
+
+LEVEL 3 (Local Processing + Smart Weighting):
+  Each camera operator first processes their own footage and makes a "local
+  guess" about the suspect. They send their guess (not the raw video) to
+  the command center. The command center then combines all guesses using
+  SMART WEIGHTS — it gives more weight to cameras that historically provide
+  better information and less weight to cameras that are unreliable.
+
+  The key constraint: The command center doesn't see the raw footage, so
+  its weighting can only be based on LONG-TERM STATISTICS (which cameras
+  are usually reliable), not on the CURRENT situation.
+
+LEVEL 2 (Local Processing + Simple Average):
+  Same as Level 3, but instead of smart weighting, the command center just
+  takes a SIMPLE AVERAGE of all guesses. This is like treating all cameras
+  as equally reliable — obviously suboptimal, but much simpler.
+
+The difference between Level 3 and Level 4 is fundamental:
+
+  Level 4: CPU sees raw signals → can do ANYTHING optimal
+  Level 3: CPU sees only processed summaries → limited to statistical
+           weighting (LSFD)
+
+Level 2 is what the original cell-free papers [16], [17] proposed. This
+paper shows it performs terribly with MR combining and is always outperformed
+by Level 4.
+
+The crucial technical insight of this section: Even with a SINGLE antenna
+per AP (N=1), the L-MMSE combiner at each AP differs from MR by a
+channel-dependent scaling factor. This scaling factor cannot be recovered
+by the LSFD weights (which are deterministic). This is why Level 3 with
+MR combining cannot match Level 3 with L-MMSE, and ultimately why Level 4
+is far superior.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+═══════════════════════════════════════════════════════════════════════════════
+  LEVEL 3: LOCAL PROCESSING & LARGE-SCALE FADING DECODING (LSFD)
+═══════════════════════════════════════════════════════════════════════════════
+
+2.1  THE TWO-STAGE PROCESSING ARCHITECTURE
+───────────────────────────────────────────
+
+Level 3 has TWO processing stages:
+
+  STAGE 1 (at each AP l):
+    • AP l receives yₗ ∈ ℂᴺ
+    • AP l has local channel estimates {ĥᵢₗ : i = 1,...,K}
+    • AP l applies a LOCAL combining vector vₖₗ ∈ ℂᴺ for each UE k
+    • AP l computes K scalar local estimates: ŝₖₗ = vₖₗᴴ yₗ
+    • AP l sends {ŝₖₗ : k = 1,...,K} to the CPU
+
+  STAGE 2 (at CPU):
+    • CPU receives {ŝₖₗ : l = 1,...,L} for each UE k
+    • CPU applies deterministic LSFD weights {aₖₗ : l = 1,...,L}
+    • CPU forms: ŝₖ = ∑ₗ₌₁ᴸ aₖₗ ŝₖₗ
+    • CPU decodes sₖ from ŝₖ
+
+  ┌───────────────────────────────────────────────────────────────┐
+  │                   LEVEL 3 DATA FLOW                          │
+  │                                                               │
+  │  AP 1: yₗ → vₖ₁ᴴyₗ = ŝₖ₁ ──→ ┐                            │
+  │  AP 2: y₂ → vₖ₂ᴴy₂ = ŝₖ₂ ──→ ├──→ CPU: ŝₖ = ∑ aₖₗ ŝₖₗ  │
+  │  ...                            │         ↓                   │
+  │  AP L: yₗ → vₖₗᴴyₗ = ŝₖₗ ──→ ┘    decode sₖ               │
+  │                                                               │
+  │  ◄──── Stage 1 (local) ────►  ◄──── Stage 2 (CPU) ────►     │
+  └───────────────────────────────────────────────────────────────┘
+
+
+2.2  LOCAL ESTIMATE — EQUATION (15)
+────────────────────────────────────
+
+The local estimate of sₖ at AP l is:
+
+                        K
+    ŝₖₗ ≜ vₖₗᴴ yₗ = vₖₗᴴhₖₗ sₖ + ∑  vₖₗᴴhᵢₗ sᵢ + vₖₗᴴnₗ    ... (15)
+                                    i=1
+                                    i≠k
+
+Where:
+  • vₖₗᴴhₖₗ sₖ — desired signal (UE k's contribution at AP l)
+  • ∑_{i≠k} vₖₗᴴhᵢₗ sᵢ — inter-user interference at AP l
+  • vₖₗᴴnₗ — noise after combining
+
+KEY DIFFERENCE FROM LEVEL 4:
+  At Level 4, the CPU combines ALL yₗ vectors jointly (LN dimensions).
+  At Level 3, each AP combines yₗ LOCALLY (N dimensions), then sends
+  the scalar result. Information is LOST in this compression from N
+  dimensions to 1 scalar per UE.
+
+
+2.3  LOCAL MMSE (L-MMSE) COMBINING — EQUATION (16)
+────────────────────────────────────────────────────
+
+The combining vector that minimizes the LOCAL MSE:
+
+    MSEₖₗ = 𝔼{|sₖ - vₖₗᴴyₗ|² | {ĥᵢₗ}}
+
+is:
+                   ⎛ K                            ⎞⁻¹
+    vₖₗ = pₖ      ⎜ ∑  pᵢ(ĥᵢₗĥᵢₗᴴ + Cᵢₗ) + σ²Iₙ⎟   ĥₖₗ     ... (16)
+                   ⎝i=1                           ⎠
+
+DERIVATION:
+
+  The local MSE:
+
+    MSEₖₗ = 𝔼{|sₖ - vₖₗᴴyₗ|² | {ĥᵢₗ}}
+           = pₖ - 2pₖ Re{vₖₗᴴ ĥₖₗ} + vₖₗᴴ Σₗ vₖₗ
+
+  Where the local signal covariance:
+                K
+    Σₗ = 𝔼{yₗyₗᴴ | {ĥᵢₗ}} = ∑  pᵢ(ĥᵢₗĥᵢₗᴴ + Cᵢₗ) + σ²Iₙ
+                               i=1
+
+  Setting ∂MSEₖₗ/∂vₖₗ* = 0:
+
+    Σₗ vₖₗ = pₖ ĥₖₗ
+
+    vₖₗ = pₖ Σₗ⁻¹ ĥₖₗ                                          ✓
+
+  This is the SAME structure as the global MMSE in (13), but using
+  ONLY the local information at AP l:
+    • N×N matrix inversion instead of LN×LN
+    • Only local channel estimates {ĥᵢₗ} instead of all estimates
+
+COMPARISON: L-MMSE vs MMSE
+
+  ┌─────────────┬────────────────────────┬──────────────────────────┐
+  │             │ MMSE (Level 4)         │ L-MMSE (Level 3)         │
+  ├─────────────┼────────────────────────┼──────────────────────────┤
+  │ Applied at  │ CPU (centralized)      │ Each AP (distributed)    │
+  │ Uses CSI    │ All {ĥᵢₗ} for all l  │ Only {ĥᵢₗ} for local l │
+  │ Matrix size │ LN × LN               │ N × N                    │
+  │ Suppresses  │ Network-wide interf.   │ Only local interference  │
+  │ Can null    │ K-1 interferers (if    │ N-1 interferers (limited │
+  │             │ LN > K)               │ by local antennas)       │
+  └─────────────┴────────────────────────┴──────────────────────────┘
+
+
+2.3.1  THE CRITICAL CASE: L-MMSE with N = 1
+─────────────────────────────────────────────
+
+When N = 1, the matrix inversion becomes scalar division:
+
+    vₖₗ = pₖ ĥₖₗ / (∑ᵢ₌₁ᴷ pᵢ(|ĥᵢₗ|² + Cᵢₗ) + σ²)
+
+Compare with MR: vₖₗ = ĥₖₗ* = ĥₖₗ (since N=1, scalar, conjugate)
+
+The L-MMSE combiner differs from MR by the factor:
+
+    αₖₗ = pₖ / (∑ᵢ₌₁ᴷ pᵢ(|ĥᵢₗ|² + Cᵢₗ) + σ²)
+
+This factor αₖₗ is:
+  • RANDOM (depends on instantaneous channel estimates |ĥᵢₗ|²)
+  • Different for every coherence block
+  • Different at every AP l
+  • Adapts to the LOCAL interference environment
+
+WHY THIS MATTERS ENORMOUSLY:
+
+  MR: ŝₖₗ = |ĥₖₗ|² sₖ + ∑_{i≠k} ĥₖₗ* hᵢₗ sᵢ + ĥₖₗ* nₗ
+
+  L-MMSE: ŝₖₗ = αₖₗ|ĥₖₗ|² sₖ + αₖₗ ∑_{i≠k} ĥₖₗ* hᵢₗ sᵢ + αₖₗ ĥₖₗ* nₗ
+
+  The factor αₖₗ is SMALL when interference is strong (denominator is
+  large) and LARGE when interference is weak. This means:
+
+    • At APs with heavy interference → αₖₗ is small → the AP's
+      contribution is automatically downweighted
+    • At APs with light interference → αₖₗ is large → the AP contributes
+      more
+
+  This is IMPLICIT INTERFERENCE-AWARE WEIGHTING that MR completely lacks.
+
+  The LSFD weights aₖₗ at the CPU are DETERMINISTIC — they cannot do
+  this per-realization adaptation. So LSFD can NEVER recover what L-MMSE
+  does locally. This is the paper's key insight about why MR + LSFD
+  performs poorly.
+
+
+2.4  CPU PROCESSING — EQUATIONS (17) AND (18)
+──────────────────────────────────────────────
+
+The CPU combines local estimates using weights aₖ = [aₖ₁, ..., aₖₗ]ᵀ:
+
+    ŝₖ = ∑ₗ₌₁ᴸ aₖₗ ŝₖₗ = aₖᴴ gₖₖ sₖ + ∑_{i≠k} aₖᴴ gₖᵢ sᵢ + ñₖ ... (17-18)
+
+Where the EFFECTIVE CHANNEL vector gₖᵢ ∈ ℂᴸ is defined as:
+
+    gₖᵢ = [vₖ₁ᴴhᵢ₁, vₖ₂ᴴhᵢ₂, ..., vₖₗᴴhᵢₗ]ᵀ
+
+The l-th element of gₖᵢ is the "receive-combined channel" between UE i
+and AP l, using UE k's combiner.
+
+This gₖᵢ is a RANDOM vector (depends on channel realizations and the
+combining vectors). The CPU does NOT observe gₖᵢ directly — it only
+knows statistical properties 𝔼{gₖᵢ}, 𝔼{gₖᵢgₖᵢᴴ}, etc.
+
+After this reformulation, (18) has the structure:
+
+    ŝₖ = aₖᴴ gₖₖ sₖ  +  ∑_{i≠k} aₖᴴ gₖᵢ sᵢ  +  ñₖ
+          ⏟                ⏟                        ⏟
+       desired signal    inter-user interference   noise
+
+This looks like a VIRTUAL single-antenna system where:
+  • The "channel" is gₖₖ (L-dimensional)
+  • The "interference channels" are gₖᵢ
+  • The "receiver" selects weights aₖ
+
+The key constraint: the CPU only knows STATISTICS of gₖₖ, not its
+instantaneous realization.
+
+
+2.5  PROPOSITION 2: ACHIEVABLE SE AT LEVEL 3
+──────────────────────────────────────────────
+
+Since the CPU doesn't know the instantaneous effective channel aₖᴴgₖₖ,
+it must treat the channel as a deterministic quantity plus fluctuations.
+
+The best deterministic "channel" is its MEAN: aₖᴴ𝔼{gₖₖ}.
+
+  ►  Proposition 2. At Level 3, an achievable SE of UE k is:
+
+                ⎛    τₚ ⎞
+    SE⁽³⁾ₖ = ⎜1 - ──⎟ log₂(1 + SINR⁽³⁾ₖ)                     ... (19)
+                ⎝    τc ⎠
+
+                         pₖ |aₖᴴ 𝔼{gₖₖ}|²
+    SINR⁽³⁾ₖ = ────────────────────────────────────────────────── ... (20)
+                 K
+                 ∑ pᵢ 𝔼{|aₖᴴgₖᵢ|²} - pₖ|aₖᴴ𝔼{gₖₖ}|² + σ²aₖᴴDₖaₖ
+                i=1
+
+  Where:
+    Dₖ = diag(𝔼{‖vₖ₁‖²}, ..., 𝔼{‖vₖₗ‖²}) ∈ ℝᴸˣᴸ
+
+KEY DIFFERENCES FROM LEVEL 4 SE:
+
+  1. NO EXPECTATION OUTSIDE THE LOG:
+
+     Level 4: SE = (1-τₚ/τc) × 𝔼{log₂(1+SINR)}     ← expectation outside
+     Level 3: SE = (1-τₚ/τc) × log₂(1+SINR)          ← no expectation
+
+     Why? Because SINR⁽³⁾ₖ is already DETERMINISTIC — it depends only on
+     statistical quantities (𝔼{gₖᵢ}, 𝔼{gₖᵢgₖᵢᴴ}, Dₖ), not on
+     instantaneous channel estimates. The randomness has been averaged out.
+
+  2. THE DENOMINATOR STRUCTURE:
+
+     The denominator has the term:
+       ∑ᵢ₌₁ᴷ pᵢ𝔼{|aₖᴴgₖᵢ|²} - pₖ|aₖᴴ𝔼{gₖₖ}|²
+
+     This can be rewritten as:
+       ∑_{i≠k} pᵢ𝔼{|aₖᴴgₖᵢ|²} + pₖ(𝔼{|aₖᴴgₖₖ|²} - |aₖᴴ𝔼{gₖₖ}|²)
+                                      ⏟
+                                   = Var{aₖᴴgₖₖ}  ≥ 0
+
+     The Var{aₖᴴgₖₖ} term represents the CHANNEL HARDENING PENALTY.
+     If the channel hardens perfectly: Var{aₖᴴgₖₖ} → 0, and the
+     denominator only contains true interference. If hardening is poor
+     (which is typical for cell-free with N=1), this variance adds an
+     extra "self-interference" term that degrades the SINR.
+
+  3. NOISE TERM σ²aₖᴴDₖaₖ:
+
+     Dₖ = diag(𝔼{‖vₖ₁‖²}, ..., 𝔼{‖vₖₗ‖²})
+
+     This captures the noise amplification at each AP due to the
+     combining vectors. If ‖vₖₗ‖² is large (the combiner has high gain),
+     it amplifies both signal and noise.
+
+
+2.5.1  PROOF SKETCH (Appendix A)
+─────────────────────────────────
+
+The proof uses [3, Corollary 1.3], which states:
+
+  For a "deterministic channel" model:
+    ŝₖ = μₖ sₖ + εₖ
+
+  where μₖ is deterministic (known) and εₖ is zero-mean noise uncorrelated
+  with sₖ, the achievable SE is:
+
+    SE = log₂(1 + pₖ|μₖ|² / 𝔼{|εₖ|²})
+
+  Steps:
+  1. Write ŝₖ = aₖᴴ𝔼{gₖₖ} sₖ + (aₖᴴgₖₖ - aₖᴴ𝔼{gₖₖ}) sₖ + ∑_{i≠k} aₖᴴgₖᵢ sᵢ + ñₖ
+                  ⏟                ⏟                              ⏟
+               "known channel"    channel uncertainty              interference
+
+  2. The "known channel" is μₖ = aₖᴴ𝔼{gₖₖ} (deterministic).
+
+  3. The effective noise includes:
+     • (aₖᴴgₖₖ - aₖᴴ𝔼{gₖₖ}) sₖ — channel estimation uncertainty
+     • ∑_{i≠k} aₖᴴgₖᵢ sᵢ — interference
+     • ñₖ — thermal noise
+
+  4. Verify uncorrelatedness:
+     𝔼{(aₖᴴgₖₖ - aₖᴴ𝔼{gₖₖ}) × sₖ*} = 0 (since gₖₖ - 𝔼{gₖₖ} has
+     zero mean, and sₖ is independent of gₖₖ).
+
+  5. Apply [3, Cor. 1.3] to get (19)-(20).  ✓
+
+  KEY ASSUMPTION: The achievable SE requires that aₖᴴ𝔼{gₖₖ} is a good
+  approximation of the actual channel. This is related to CHANNEL HARDENING.
+  When channel hardening is poor (e.g., N=1), the bound in (20) may be
+  loose — it UNDERESTIMATES the true achievable SE.
+
+
+2.6  COROLLARY 2: OPTIMAL LSFD WEIGHTS
+────────────────────────────────────────
+
+The SINR⁽³⁾ₖ in (20) is AGAIN a generalized Rayleigh quotient, but now
+in the LSFD weight vector aₖ ∈ ℂᴸ.
+
+  ►  Corollary 2. The SINR is maximized by:
+
+              ⎛ K                           ⎞⁻¹
+    aₖ =     ⎜ ∑  pᵢ 𝔼{gₖᵢgₖᵢᴴ} + σ²Dₖ ⎟   𝔼{gₖₖ}           ... (21)
+              ⎝i=1                          ⎠
+
+  Leading to maximum SINR:
+
+                            ⎛ K                                               ⎞⁻¹
+    SINR⁽³⁾ₖ = pₖ𝔼{gₖₖᴴ} ⎜ ∑ pᵢ𝔼{gₖᵢgₖᵢᴴ}+σ²Dₖ-pₖ𝔼{gₖₖ}𝔼{gₖₖᴴ}⎟  𝔼{gₖₖ}
+                            ⎝i=1                                              ⎠
+                                                                        ... (22)
+
+DERIVATION:
+
+  SINR⁽³⁾ₖ = (pₖ aₖᴴ 𝔼{gₖₖ} 𝔼{gₖₖᴴ} aₖ) / (aₖᴴ Bₖ aₖ)
+
+  Where:
+    Bₖ = ∑ᵢ₌₁ᴷ pᵢ 𝔼{gₖᵢgₖᵢᴴ} + σ²Dₖ - pₖ 𝔼{gₖₖ}𝔼{gₖₖᴴ}
+
+  The numerator is rank-1: A = pₖ 𝔼{gₖₖ}𝔼{gₖₖᴴ}
+
+  By Lemma B.10 of [3]: aₖ = Bₖ⁻¹ 𝔼{gₖₖ}, with max value 𝔼{gₖₖᴴ}Bₖ⁻¹𝔼{gₖₖ}.
+
+  But we can also write aₖ = (Bₖ + pₖ𝔼{gₖₖ}𝔼{gₖₖᴴ})⁻¹ 𝔼{gₖₖ}
+  = (∑ᵢ₌₁ᴷ pᵢ 𝔼{gₖᵢgₖᵢᴴ} + σ²Dₖ)⁻¹ 𝔼{gₖₖ}, which is Eq. (21).  ✓
+
+INTERPRETATION OF LSFD:
+
+  The LSFD weight vector aₖ is the STATISTICAL Wiener filter:
+    • (∑ pᵢ 𝔼{gₖᵢgₖᵢᴴ} + σ²Dₖ)⁻¹ whitens the statistical interference
+    • 𝔼{gₖₖ} is the "average effective channel" direction
+    • The combination points the second-stage combiner toward the average
+      desired signal while suppressing average interference
+
+  Unlike Level 4's MMSE (which adapts to EACH channel realization), LSFD
+  only adapts to STATISTICS — it's optimal given the CPU's limited info.
+
+REQUIRED STATISTICAL PARAMETERS:
+
+  Computing aₖ in (21) requires:
+    • 𝔼{gₖₖ} ∈ ℂᴸ — L complex numbers per UE → KL total
+    • 𝔼{gₖᵢgₖᵢᴴ} ∈ ℂᴸˣᴸ — L² complex numbers per UE pair → K²L²/2
+    • Dₖ ∈ ℝᴸˣᴸ — L real numbers per UE → KL
+
+  Total: KL + (L²K² + KL)/2 complex scalars
+
+  For L = 400, K = 40: this is ~128 million complex numbers!
+  These change when user statistics change, which may be often.
+  This is a significant practical burden.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  LEVEL 2: LOCAL PROCESSING & SIMPLE CENTRALIZED DECODING
+═══════════════════════════════════════════════════════════════════════════════
+
+2.7  LEVEL 2: THE SIMPLE AVERAGE
+──────────────────────────────────
+
+Level 2 simplifies Level 3 by setting:
+
+    aₖ = [1/L, 1/L, ..., 1/L]ᵀ                                  ... (23)
+
+So the CPU estimate is:
+
+              1  L
+    ŝₖ  =  ── ∑  ŝₖₗ                                            ... (23)
+              L l=1
+
+This is a simple UNWEIGHTED AVERAGE of local estimates — the approach
+originally proposed in [16], [17].
+
+  ►  Corollary 3. At Level 2, an achievable SE of UE k is:
+
+                 ⎛    τₚ ⎞
+    SE⁽²⁾ₖ  = ⎜1 - ──⎟ log₂(1 + SINR⁽²⁾ₖ)                    ... (24)
+                 ⎝    τc ⎠
+
+                                        L
+                          pₖ | ∑  𝔼{vₖₗᴴhₖₗ} |²
+                                l=1
+    SINR⁽²⁾ₖ = ────────────────────────────────────────────────── ... (25)
+                 K      L                        L                    L
+                 ∑ pᵢ ∑ 𝔼{|vₖₗᴴhᵢₗ|²} - pₖ |∑ 𝔼{vₖₗᴴhₖₗ}|² + σ²∑ 𝔼{‖vₖₗ‖²}
+                i=1   l=1                       l=1                  l=1
+
+This is obtained by substituting aₖ = [1/L,...,1/L]ᵀ into Proposition 2.
+
+Note: The L² factors cancel because:
+  aₖᴴ X aₖ = (1/L²) ∑ₗ ∑ₘ Xₗₘ  (for matrix X)
+  aₖᴴ x = (1/L) ∑ₗ xₗ  (for vector x)
+
+And the 1/L² in both numerator and denominator cancels.
+
+
+2.7.1  WHY LEVEL 2 IS SUBOPTIMAL
+──────────────────────────────────
+
+The simple average treats all APs EQUALLY. But in cell-free mMIMO:
+  • Some APs are close to UE k (strong channel, high quality estimate)
+  • Some APs are far away (weak channel, mostly noise)
+
+Giving equal weight to a far-away AP (dominated by noise) and a nearby AP
+(dominated by signal) DEGRADES the overall quality.
+
+Level 3 fixes this with optimized aₖ — the LSFD weights automatically
+assign large aₖₗ to APs with good channels and small aₖₗ to weak APs.
+
+Level 2's advantage: NO statistical parameters needed at the CPU. This is
+a significant practical benefit when statistics change frequently.
+
+
+2.7.2  CONNECTION TO [16]: MR + LEVEL 2 + N = 1
+─────────────────────────────────────────────────
+
+When N = 1 and MR combining (vₖₗ = ĥₖₗ*):
+
+  vₖₗᴴhₖₗ = ĥₖₗ* hₖₗ = |ĥₖₗ|² + ĥₖₗ* h̃ₖₗ
+
+  𝔼{vₖₗᴴhₖₗ} = 𝔼{|ĥₖₗ|²} = γₖₗ  (variance of the estimate)
+
+  𝔼{|vₖₗᴴhᵢₗ|²} = 𝔼{|ĥₖₗ|²|hᵢₗ|²} = ...
+
+This is the case analyzed in [16] and yields closed-form expressions.
+The paper shows this performs TERRIBLY — see Section IV.
+
+
+2.8  COMPARISON OF INFORMATION AVAILABLE AT EACH LEVEL
+───────────────────────────────────────────────────────
+
+  ┌─────────┬──────────────────────────┬────────────────────────────┐
+  │ Level   │ CPU knows                │ CPU doesn't know           │
+  ├─────────┼──────────────────────────┼────────────────────────────┤
+  │ Level 4 │ Raw yₗ, all ĥₖₗ, all Rₖₗ│ True channels hₖₗ          │
+  │ Level 3 │ Local estimates ŝₖₗ,     │ Raw yₗ, channel estimates, │
+  │         │ channel statistics        │ instantaneous CSI          │
+  │ Level 2 │ Local estimates ŝₖₗ only │ Everything else             │
+  │ Level 1 │ Nothing                  │ Everything                  │
+  └─────────┴──────────────────────────┴────────────────────────────┘
+
+Each step down the hierarchy loses information → lower SE.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  LARGE-SCALE FADING DECODING (LSFD)
+────────────────────────────────────────
+
+LSFD was originally proposed for CELLULAR Massive MIMO:
+
+  • Ashikhmin & Marzetta (2012) [28]: "Pilot contamination precoding in
+    multi-cell large scale antenna systems," IEEE ISIT. First proposal of
+    using large-scale fading coefficients for multi-cell coordination.
+
+  • Adhikary, Ashikhmin & Marzetta (2017) [29]: "Uplink interference
+    reduction in large-scale antenna systems," IEEE TCOM. Developed the
+    two-stage processing framework for cellular mMIMO.
+
+  • Van Chien, Mollén & Björnson (2019) [48]: "Large-scale-fading decoding
+    in cellular massive MIMO systems with spatially correlated channels,"
+    IEEE TCOM. Extended LSFD to spatially correlated channels.
+
+The application of LSFD to Cell-free mMIMO:
+
+  • Nayebi et al. (2016) [24]: "Performance of cell-free massive MIMO
+    systems with MMSE and LSFD receivers," Asilomar. First to apply LSFD
+    to cell-free systems, but only with MR combining and N=1.
+
+  • Ngo et al. (2018) [33]: Applied LSFD to cell-free with Rician fading.
+
+This paper's contribution: Extending LSFD to arbitrary combining (not just
+MR) — Proposition 2 is the first SE expression for Level 3 valid with
+L-MMSE combining.
+
+
+3.2  THE "CHANNEL HARDENING" DEBATE
+────────────────────────────────────
+
+Channel hardening means: the effective channel gain approaches a
+deterministic quantity as the number of antennas grows.
+
+  In cellular mMIMO: ‖hₖ‖² / 𝔼{‖hₖ‖²} → 1 as M → ∞
+  This means the channel is "hard" — it barely fluctuates.
+
+  In cell-free mMIMO with N = 1: The situation is different.
+    • Each AP contributes one scalar channel hₖₗ
+    • The "effective channel" after MR is ∑ₗ |ĥₖₗ|²
+    • This sum involves terms with VERY DIFFERENT magnitudes (nearby vs
+      far APs)
+    • The variance doesn't shrink as fast as in co-located arrays
+
+  Chen & Björnson (2018) [27] showed that channel hardening is WEAK in
+  cell-free mMIMO, especially with single-antenna APs. This makes the
+  capacity bound in Proposition 2 potentially loose.
+
+
+3.3  THE ORIGINAL CELL-FREE PROPOSAL (Ngo et al., 2017)
+────────────────────────────────────────────────────────
+
+Ngo et al. [16] proposed what this paper calls Level 2 with MR:
+  • Each AP applies MR: vₖₗ = ĥₖₗ*
+  • CPU takes simple average: ŝₖ = (1/L) ∑ₗ ŝₖₗ
+  • Reported 5-10× improvement over small cells
+
+This paper reveals that Level 2 with MR:
+  • LOSES to Cellular mMIMO for many UEs
+  • LOSES to small cells (Level 1 with L-MMSE) for ALL UEs
+  • Is outperformed by Level 2 with L-MMSE by a wide margin
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. COMPLETE MATHEMATICAL DERIVATIONS (Unicode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  DERIVATION OF THE L-MMSE COMBINER (Eq. 16)
+─────────────────────────────────────────────────
+
+The local MSE at AP l for UE k is:
+
+  MSEₖₗ = 𝔼{|sₖ - vₖₗᴴyₗ|² | {ĥᵢₗ}}
+
+Expand:
+
+  = 𝔼{sₖsₖ*} - vₖₗᴴ 𝔼{yₗsₖ*|{ĥᵢₗ}} - 𝔼{sₖyₗᴴ|{ĥᵢₗ}}vₖₗ
+    + vₖₗᴴ 𝔼{yₗyₗᴴ|{ĥᵢₗ}} vₖₗ
+
+Now compute each term:
+
+  𝔼{sₖsₖ*} = pₖ
+
+  𝔼{yₗsₖ*|{ĥᵢₗ}} = 𝔼{(∑ᵢ hᵢₗsᵢ + nₗ)sₖ*|{ĥᵢₗ}}
+                    = hₖₗ 𝔼{|sₖ|²} = ... wait, hₖₗ is random.
+
+  Actually, conditioned on {ĥᵢₗ}, we use hₖₗ = ĥₖₗ + h̃ₖₗ:
+
+  𝔼{yₗsₖ*|{ĥᵢₗ}} = (ĥₖₗ + 𝔼{h̃ₖₗ|{ĥᵢₗ}}) pₖ = ĥₖₗ pₖ
+
+  (since 𝔼{h̃ₖₗ} = 0 and h̃ₖₗ is independent of ĥᵢₗ)
+
+  𝔼{yₗyₗᴴ|{ĥᵢₗ}} = ∑ᵢ₌₁ᴷ pᵢ 𝔼{hᵢₗhᵢₗᴴ|ĥᵢₗ} + σ²Iₙ
+
+  Now: 𝔼{hᵢₗhᵢₗᴴ|ĥᵢₗ} = 𝔼{(ĥᵢₗ+h̃ᵢₗ)(ĥᵢₗ+h̃ᵢₗ)ᴴ|ĥᵢₗ}
+                         = ĥᵢₗĥᵢₗᴴ + Cᵢₗ
+
+  So: Σₗ = 𝔼{yₗyₗᴴ|{ĥᵢₗ}} = ∑ᵢ₌₁ᴷ pᵢ(ĥᵢₗĥᵢₗᴴ + Cᵢₗ) + σ²Iₙ
+
+  Putting it all together:
+
+    MSEₖₗ = pₖ - 2pₖ Re{vₖₗᴴĥₖₗ} + vₖₗᴴ Σₗ vₖₗ
+
+  Setting ∂MSEₖₗ/∂vₖₗ* = 0:
+
+    -pₖĥₖₗ + Σₗvₖₗ = 0  →  vₖₗ = pₖΣₗ⁻¹ĥₖₗ                  ✓
+
+
+4.2  DERIVATION OF THE EFFECTIVE CHANNEL gₖᵢ
+──────────────────────────────────────────────
+
+  From (15): ŝₖₗ = vₖₗᴴhₖₗ sₖ + ∑_{i≠k} vₖₗᴴhᵢₗ sᵢ + vₖₗᴴnₗ
+
+  The CPU forms: ŝₖ = ∑ₗ aₖₗ ŝₖₗ
+
+  = ∑ₗ aₖₗ vₖₗᴴhₖₗ sₖ + ∑ₗ aₖₗ ∑_{i≠k} vₖₗᴴhᵢₗ sᵢ + ∑ₗ aₖₗ vₖₗᴴnₗ
+
+  Define: gₖᵢ = [vₖ₁ᴴhᵢ₁, vₖ₂ᴴhᵢ₂, ..., vₖₗᴴhᵢₗ]ᵀ ∈ ℂᴸ
+
+  Then: ∑ₗ aₖₗ vₖₗᴴhᵢₗ = aₖᴴgₖᵢ
+
+  So: ŝₖ = aₖᴴgₖₖ sₖ + ∑_{i≠k} aₖᴴgₖᵢ sᵢ + ñₖ               ✓
+
+  Where ñₖ = ∑ₗ aₖₗ vₖₗᴴnₗ with power:
+    𝔼{|ñₖ|²} = σ² ∑ₗ |aₖₗ|² 𝔼{‖vₖₗ‖²} = σ² aₖᴴDₖaₖ
+
+
+4.3  PROOF OF PROPOSITION 2 (FROM APPENDIX A)
+──────────────────────────────────────────────
+
+The CPU treats the average effective channel as the true channel:
+
+  ŝₖ = aₖᴴ𝔼{gₖₖ} sₖ  +  εₖ                                     ... (43)
+
+Where the "noise" εₖ is:
+
+  εₖ = (aₖᴴgₖₖ - aₖᴴ𝔼{gₖₖ}) sₖ + ∑_{i≠k} aₖᴴgₖᵢ sᵢ + ñₖ    ... (44)
+
+Verify zero mean:
+
+  𝔼{εₖ} = 𝔼{aₖᴴgₖₖ - aₖᴴ𝔼{gₖₖ}} × 0 + 0 + 0 = 0  ✓
+                    ⏟
+                    = 0
+
+Verify uncorrelatedness with signal:
+
+  𝔼{εₖ sₖ*} = 𝔼{(aₖᴴgₖₖ - aₖᴴ𝔼{gₖₖ})|sₖ|²} + 0 + 0
+             = pₖ(aₖᴴ𝔼{gₖₖ} - aₖᴴ𝔼{gₖₖ}) = 0                  ... (45) ✓
+
+Apply [3, Corollary 1.3]:
+
+  SE = log₂(1 + pₖ|aₖᴴ𝔼{gₖₖ}|² / 𝔼{|εₖ|²})
+
+  Noise power:
+  𝔼{|εₖ|²} = pₖ Var{aₖᴴgₖₖ} + ∑_{i≠k} pᵢ 𝔼{|aₖᴴgₖᵢ|²} + σ²aₖᴴDₖaₖ
+            = pₖ(𝔼{|aₖᴴgₖₖ|²} - |aₖᴴ𝔼{gₖₖ}|²)
+              + ∑_{i≠k} pᵢ 𝔼{|aₖᴴgₖᵢ|²} + σ²aₖᴴDₖaₖ
+            = ∑ᵢ₌₁ᴷ pᵢ 𝔼{|aₖᴴgₖᵢ|²} - pₖ|aₖᴴ𝔼{gₖₖ}|² + σ²aₖᴴDₖaₖ
+
+  This gives the denominator in (20).  ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. NUMERICAL EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE 1: L-MMSE vs MR with N = 1 (Scalar Case)
+──────────────────────────────────────────────────
+
+Setup: L = 3 APs, N = 1, K = 2 UEs at AP l = 1.
+
+Channel estimates: ĥ₁₁ = 0.8, ĥ₂₁ = 0.6
+Error variances: C₁₁ = 0.05, C₂₁ = 0.04
+Powers: p₁ = p₂ = 1, σ² = 0.01
+
+MR combining for UE 1: v₁₁ = ĥ₁₁* = 0.8
+
+  ŝ₁₁ = 0.8 × y₁ = 0.8 × (h₁₁s₁ + h₂₁s₂ + n₁)
+
+L-MMSE combining for UE 1:
+
+  Σ₁ = p₁(|ĥ₁₁|² + C₁₁) + p₂(|ĥ₂₁|² + C₂₁) + σ²
+     = 1×(0.64+0.05) + 1×(0.36+0.04) + 0.01
+     = 0.69 + 0.40 + 0.01 = 1.10
+
+  v₁₁ = p₁ × ĥ₁₁ / Σ₁ = 1 × 0.8 / 1.10 = 0.727
+
+Compare:
+  MR weight: 0.8
+  L-MMSE weight: 0.727
+
+  The L-MMSE weight is SMALLER because the denominator Σ₁ accounts for
+  the strong interference from UE 2 (|ĥ₂₁|² = 0.36). The L-MMSE combiner
+  "scales down" the local estimate when interference is strong.
+
+Now consider AP l = 2 where UE 2 is far away:
+
+  Channel estimates: ĥ₁₂ = 0.3, ĥ₂₂ = 0.05
+  Error variances: C₁₂ = 0.02, C₂₂ = 0.01
+
+  Σ₂ = 1×(0.09+0.02) + 1×(0.0025+0.01) + 0.01 = 0.1325
+
+  v₁₂ = 1 × 0.3 / 0.1325 = 2.264
+
+  MR weight: 0.3
+  L-MMSE weight: 2.264
+
+  Here L-MMSE gives a LARGER weight because interference is weak.
+
+KEY: L-MMSE adapts per-AP, per-realization. MR does not.
+
+
+EXAMPLE 2: LSFD Weight Computation
+────────────────────────────────────
+
+Setup: L = 2 APs, K = 2 UEs, using L-MMSE combining.
+
+Suppose (from Monte Carlo averaging or analytical computation):
+
+  𝔼{gₖₖ} = [0.5, 0.2]ᵀ  (effective channel of UE 1)
+
+  𝔼{g₁₁g₁₁ᴴ} = [0.30  0.10]   𝔼{g₁₂g₁₂ᴴ} = [0.05  0.02]
+                 [0.10  0.06]                    [0.02  0.03]
+
+  D₁ = diag(0.8, 0.5)
+  σ² = 0.01, p₁ = p₂ = 1
+
+Step 1: Compute the matrix to invert:
+
+  Γ = ∑ᵢ₌₁² pᵢ 𝔼{g₁ᵢg₁ᵢᴴ} + σ²D₁
+    = [0.30  0.10] + [0.05  0.02] + 0.01×[0.8  0  ]
+      [0.10  0.06]   [0.02  0.03]        [0    0.5]
+
+    = [0.358  0.12 ]
+      [0.12   0.095]
+
+Step 2: Invert Γ (2×2 matrix):
+
+  det(Γ) = 0.358×0.095 - 0.12×0.12 = 0.03401 - 0.0144 = 0.01961
+
+  Γ⁻¹ = (1/0.01961) × [ 0.095  -0.12 ] = [ 4.844  -6.119]
+                        [-0.12    0.358]   [-6.119  18.257]
+
+Step 3: Compute LSFD weights:
+
+  a₁ = Γ⁻¹ 𝔼{g₁₁} = [4.844  -6.119] × [0.5] = [4.844×0.5 - 6.119×0.2]
+                       [-6.119  18.257]   [0.2]   [-6.119×0.5 + 18.257×0.2]
+
+     = [2.422 - 1.224]   = [1.198]
+      [-3.060 + 3.651]     [0.591]
+
+  So: a₁₁ = 1.198, a₁₂ = 0.591
+
+  AP 1 gets about 2× the weight of AP 2 — it has a stronger effective
+  channel (0.5 vs 0.2 in 𝔼{g₁₁}).
+
+
+EXAMPLE 3: Level 2 vs Level 3 Comparison
+──────────────────────────────────────────
+
+Using the same setup as Example 2:
+
+Level 2: a₁ = [0.5, 0.5]ᵀ  (simple average)
+
+  aᴴ𝔼{g₁₁} = 0.5×0.5 + 0.5×0.2 = 0.35
+
+Level 3: a₁ = [1.198, 0.591]ᵀ  (LSFD optimal)
+
+  aᴴ𝔼{g₁₁} = 1.198×0.5 + 0.591×0.2 = 0.599 + 0.118 = 0.717
+
+The desired signal strength at Level 3 is |0.717|²/|0.35|² = 4.2× larger!
+(Of course, interference is also scaled, but LSFD optimizes the RATIO.)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. PRACTICE PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM 1: L-MMSE Combining for N = 1
+───────────────────────────────────────
+At AP l with N = 1, K = 3 UEs:
+  ĥ₁ₗ = 0.7, ĥ₂ₗ = 0.4, ĥ₃ₗ = 0.1
+  C₁ₗ = 0.03, C₂ₗ = 0.05, C₃ₗ = 0.02
+  p₁ = p₂ = p₃ = 1, σ² = 0.05
+
+(a) Compute the L-MMSE combining weight for UE 1.
+(b) Compute the MR combining weight for UE 1.
+(c) By what factor do they differ?
+(d) Is this factor deterministic or random?
+
+Solution:
+
+(a) Σₗ = ∑ᵢ₌₁³ pᵢ(|ĥᵢₗ|² + Cᵢₗ) + σ²
+       = (0.49+0.03) + (0.16+0.05) + (0.01+0.02) + 0.05
+       = 0.52 + 0.21 + 0.03 + 0.05 = 0.81
+
+    v₁ₗ = p₁ × ĥ₁ₗ / Σₗ = 1 × 0.7 / 0.81 = 0.864
+
+(b) v₁ₗ^MR = ĥ₁ₗ* = 0.7
+
+(c) Factor = 0.864 / 0.7 = 1.234
+
+    Or equivalently: αₖₗ = pₖ/Σₗ = 1/0.81 = 1.234
+
+(d) This factor is RANDOM because Σₗ depends on |ĥᵢₗ|² which are
+    random (they change every coherence block). Different channel
+    realizations give different αₖₗ values.
+
+    This is the key insight: LSFD can only apply DETERMINISTIC weights
+    but L-MMSE applies a RANDOM weight that adapts per-realization.
+
+
+PROBLEM 2: Statistical Parameters for LSFD
+────────────────────────────────────────────
+A network has L = 200 APs and K = 50 UEs.
+
+(a) How many complex scalars does the CPU need for optimal LSFD weights?
+(b) Compare with Level 4's statistical requirements.
+(c) If statistics change every 100 coherence blocks, how much fronthaul
+    bandwidth does Level 3 need for statistics alone?
+
+Solution:
+
+(a) KL + (L²K² + KL)/2
+    = 50×200 + (200²×50² + 50×200)/2
+    = 10,000 + (40,000×2,500 + 10,000)/2
+    = 10,000 + (100,000,000 + 10,000)/2
+    = 10,000 + 50,005,000
+    = 50,015,000 complex scalars ≈ 50 million!
+
+(b) Level 4 needs: KLN²/2 complex scalars for correlation matrices.
+    With N = 1: 50×200×1/2 = 5,000 complex scalars — 10,000× less!
+
+(c) If statistics update every 100 blocks:
+    50 million scalars / 100 blocks = 500,000 scalars per block
+    Compare with data: (τc-τₚ)×K×L = 190×50×200 = 1,900,000 per block
+    So statistics add ~26% overhead on top of data. Significant!
+
+
+PROBLEM 3: Channel Hardening Penalty
+─────────────────────────────────────
+In the SINR⁽³⁾ₖ expression, the term Var{aₖᴴgₖₖ} appears as
+"self-interference." Consider two cases:
+
+Case A: L = 100, N = 1, UE k close to 5 APs (strong channels)
+  The effective channel gₖₖ has 5 large entries and 95 near-zero entries.
+  The variance of the sum aₖᴴgₖₖ is dominated by 5 terms.
+
+Case B: L = 100, N = 4, UE k close to 5 APs
+  Now each AP contributes a 4-dimensional vector, so the effective channel
+  has more diversity.
+
+In which case is channel hardening better (lower Var{aₖᴴgₖₖ}/|𝔼{aₖᴴgₖₖ}|²)?
+
+Solution:
+
+Case B has better channel hardening. With N = 4 antennas per AP, each
+AP's contribution vₖₗᴴhₖₗ is itself a sum of N = 4 random terms, which
+provides some local averaging. The effective channel gₖₖ is "smoother."
+
+In Case A with N = 1, vₖₗᴴhₖₗ = ĥₖₗ*hₖₗ = |ĥₖₗ|² + ĥₖₗ*h̃ₖₗ, which
+is a single random variable with high relative variance.
+
+More antennas per AP → better local averaging → better channel hardening
+→ tighter capacity bound at Level 3 → better SE approximation.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. SUMMARY OF LEVELS 3 AND 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LEVEL 3:
+
+1. TWO-STAGE ARCHITECTURE: APs compute local estimates ŝₖₗ = vₖₗᴴyₗ
+   using L-MMSE or MR combining, then send to CPU. CPU applies LSFD
+   weights aₖ to combine local estimates.
+
+2. L-MMSE COMBINING (Eq. 16): The local MMSE combiner inverts an N×N
+   matrix at each AP. Even with N = 1, it differs from MR by a
+   non-deterministic (random) scaling factor that adapts to the local
+   interference environment per-realization.
+
+3. ACHIEVABLE SE (Proposition 2): SINR⁽³⁾ₖ is DETERMINISTIC (depends
+   only on channel statistics). The capacity bound assumes the CPU treats
+   the average effective channel as the true channel.
+
+4. OPTIMAL LSFD (Corollary 2): The weights aₖ are another generalized
+   Rayleigh quotient solution — an L×L matrix inversion. Requires
+   extensive statistical knowledge at the CPU (~L²K² parameters).
+
+5. LIMITATION: LSFD uses only deterministic weights, so it CANNOT recover
+   the per-realization adaptation of L-MMSE. This is why Level 3 + MR
+   is fundamentally inferior to Level 3 + L-MMSE.
+
+LEVEL 2:
+
+6. SIMPLE AVERAGE (Eq. 23): CPU uses aₖ = [1/L,...,1/L]ᵀ — equal weight
+   to all APs. No statistical knowledge needed at CPU.
+
+7. ACHIEVABLE SE (Corollary 3): Special case of Proposition 2. Always
+   gives lower SE than Level 3 (suboptimal weights).
+
+8. HISTORICAL SIGNIFICANCE: This is what Ngo et al. [16] originally
+   proposed as "Cell-free Massive MIMO." The paper shows it performs
+   poorly, especially with MR combining.
+
+KEY INSIGHT: The hierarchy is strict:
+  Level 4 (MMSE) > Level 3 (L-MMSE+LSFD) > Level 2 (L-MMSE+average)
+  >> Level 2 (MR+average)   [the original proposal from [16]]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks,"
+     Found. Trends Signal Process., 2017.
+[16] H. Q. Ngo et al., "Cell-free Massive MIMO versus small cells,"
+     IEEE TWC, vol. 16, no. 3, 2017.
+[17] E. Nayebi et al., "Precoding and power optimization in cell-free
+     Massive MIMO systems," IEEE TWC, vol. 16, no. 7, 2017.
+[24] E. Nayebi et al., "Performance of cell-free massive MIMO systems
+     with MMSE and LSFD receivers," Asilomar, 2016.
+[27] Z. Chen and E. Björnson, "Channel hardening and favorable
+     propagation in cell-free massive MIMO," IEEE TCOM, 2018.
+[28] A. Ashikhmin and T. Marzetta, "Pilot contamination precoding in
+     multi-cell large scale antenna systems," IEEE ISIT, 2012.
+[29] A. Adhikary et al., "Uplink interference reduction in large-scale
+     antenna systems," IEEE TCOM, vol. 65, no. 5, 2017.
+[33] H. Q. Ngo et al., "On the performance of cell-free massive MIMO
+     in Ricean fading," Asilomar, 2018.
+[48] T. Van Chien et al., "Large-scale-fading decoding in cellular
+     massive MIMO systems with spatially correlated channels,"
+     IEEE TCOM, vol. 67, no. 4, 2019.

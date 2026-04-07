@@ -1,0 +1,920 @@
+================================================================================
+  Making Cell-Free Massive MIMO Competitive With MMSE Processing and
+  Centralized Implementation
+  Authors: Emil Björnson & Luca Sanguinetti
+================================================================================
+
+================================================================================
+  PART 3A: SECTION III — FOUR LEVELS OF RECEIVER COOPERATION
+           LEVEL 4: FULLY CENTRALIZED PROCESSING
+           (Equations 8-14, Proposition 1, Corollary 1)
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Imagine a police command center trying to track a suspect using multiple
+surveillance cameras spread across a city. There are two ways to do this:
+
+  DISTRIBUTED approach: Each camera operator independently tries to identify
+  the suspect from their own camera feed, then calls the command center with
+  their best guess. The command center combines these guesses.
+
+  CENTRALIZED approach (Level 4): ALL camera feeds are sent directly to the
+  command center. A single expert analyst looks at ALL feeds simultaneously
+  and uses the complete picture to identify the suspect.
+
+The centralized approach is obviously more powerful — the analyst can cross-
+reference information across cameras, notice things that no single camera
+operator could see, and make much better decisions.
+
+Level 4 in Cell-free Massive MIMO works exactly like this. ALL the raw
+signals received at every AP are forwarded to the CPU (central processing
+unit). The CPU has the complete picture — it sees what every antenna in the
+entire network received. It then applies the smartest possible signal
+processing (MMSE combining) to decode each user's message.
+
+The key mathematical insight: when you stack all the received signals into
+one giant vector, the cell-free system looks EXACTLY like a single massive
+MIMO base station with LN antennas — just with a special block-diagonal
+correlation structure. So all the powerful Massive MIMO theory applies
+directly!
+
+The MMSE combiner at Level 4 achieves the absolute best performance because:
+  1. It uses ALL available information (signals from every AP)
+  2. It jointly optimizes across the ENTIRE network
+  3. It simultaneously maximizes desired signal and minimizes interference
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  OVERVIEW OF SECTION III
+─────────────────────────────
+
+Section III is the CORE TECHNICAL CONTRIBUTION of the paper. It defines four
+levels of receiver cooperation in Cell-free mMIMO and derives achievable SE
+expressions for each.
+
+The four levels, from most to least cooperative:
+
+  Level 4: CPU receives raw signals, does ALL processing (this part)
+  Level 3: APs process locally, CPU applies LSFD weights (Part B)
+  Level 2: APs process locally, CPU takes simple average (Part B)
+  Level 1: Each AP decodes independently — small cells (Part C)
+
+All APs connect to a CPU via fronthaul. The fronthaul can be:
+  • Star topology (each AP directly to CPU)
+  • Mesh topology (APs relay to each other)
+  • Serial topology (APs daisy-chained on one wire)
+  The methods apply to ANY fronthaul topology.
+
+
+2.2  THE COLLECTIVE SIGNAL MODEL — EQUATIONS (8) AND (9)
+──────────────────────────────────────────────────────────
+
+At Level 4, all L APs forward their received signals to the CPU. The CPU
+stacks them into one large vector:
+
+         ⎡ y₁ ⎤     K   ⎡ hᵢ₁ ⎤       ⎡ n₁ ⎤
+         ⎢ y₂ ⎥     ∑   ⎢ hᵢ₂ ⎥       ⎢ n₂ ⎥
+    y =  ⎢ ⋮  ⎥ =  i=1  ⎢  ⋮  ⎥ sᵢ +  ⎢ ⋮  ⎥            ... (8)
+         ⎣ yₗ ⎦          ⎣ hᵢₗ ⎦       ⎣ nₗ ⎦
+          ⏟              ⏟              ⏟
+         y ∈ ℂᴸᴺ       hᵢ ∈ ℂᴸᴺ      n ∈ ℂᴸᴺ
+
+In compact form:
+                K
+    y  =  ∑  hᵢ sᵢ  +  n                                        ... (9)
+               i=1
+
+Where:
+  • y ∈ ℂᴸᴺ is the collective received signal (all APs stacked)
+  • hᵢ ∈ ℂᴸᴺ is the collective channel from UE i to ALL APs
+  • sᵢ ~ 𝒩ℂ(0, pᵢ) is the data signal from UE i
+  • n ∈ ℂᴸᴺ is the collective noise
+
+DIMENSIONS:
+  Each yₗ is N×1, and there are L of them.
+  y = [y₁ᵀ, y₂ᵀ, ..., yₗᵀ]ᵀ has dimension LN × 1.
+
+  Example: L = 400 APs, N = 1 antenna each → y ∈ ℂ⁴⁰⁰
+  Example: L = 100 APs, N = 4 antennas each → y ∈ ℂ⁴⁰⁰
+
+  Both cases have a 400-dimensional signal space!
+
+
+2.2.1  The Collective Channel Distribution
+───────────────────────────────────────────
+
+The collective channel for UE k is:
+
+    hₖ = [hₖ₁ᵀ, hₖ₂ᵀ, ..., hₖₗᵀ]ᵀ ∈ ℂᴸᴺ
+
+It is distributed as:
+
+    hₖ ~ 𝒩ℂ(0, Rₖ)
+
+Where the collective correlation matrix is BLOCK-DIAGONAL:
+
+    Rₖ = diag(Rₖ₁, Rₖ₂, ..., Rₖₗ) ∈ ℂᴸᴺˣᴸᴺ
+
+         ⎡ Rₖ₁   0    ⋯   0  ⎤
+    Rₖ = ⎢  0   Rₖ₂   ⋯   0  ⎥
+         ⎢  ⋮    ⋮    ⋱   ⋮  ⎥
+         ⎣  0    0    ⋯  Rₖₗ ⎦
+
+WHY IS Rₖ BLOCK-DIAGONAL?
+
+  Because the channels hₖₗ and hₖₘ (from UE k to AP l and AP m) are
+  INDEPENDENT for l ≠ m. This is physically justified because:
+
+    1. APs are geographically separated (≥50m apart in this paper)
+    2. Each AP sees a different set of local scatterers
+    3. The scattering environments around different APs are independent
+
+  This means: 𝔼{hₖₗ hₖₘᴴ} = 0 for l ≠ m
+
+  So Rₖ = 𝔼{hₖ hₖᴴ} is block-diagonal, with the (l,l)-th block being
+  Rₖₗ and all off-diagonal blocks being zero.
+
+
+2.2.2  The KEY INSIGHT: Equivalence to Single-Cell mMIMO
+─────────────────────────────────────────────────────────
+
+The paper states (and this is a crucial observation):
+
+  "Equation (9) is mathematically equivalent to the signal model of a
+   single-cell mMIMO system with correlated fading [3, Sec. 2.3.1]."
+
+This means: Cell-free mMIMO at Level 4, from the CPU's perspective, is
+IDENTICAL to a single Massive MIMO base station with LN antennas.
+
+The only differences are:
+  (a) HOW the correlation matrices Rₖ are structured (block-diagonal,
+      reflecting the distributed geometry)
+  (b) HOW pilots are allocated (same pilot can be assigned to multiple UEs
+      — pilot contamination within the same "cell")
+
+This equivalence is extremely powerful because it allows us to directly
+apply ALL existing Massive MIMO SE results, capacity bounds, and combining
+schemes to the cell-free case.
+
+
+2.3  THE COLLECTIVE CHANNEL ESTIMATE — EQUATION (10)
+─────────────────────────────────────────────────────
+
+The CPU computes all MMSE estimates from the forwarded pilot signals. For
+UE k, the collective estimate is:
+
+         ⎡ ĥₖ₁ ⎤
+    ĥₖ = ⎢  ⋮  ⎥ ~ 𝒩ℂ(0, pₖτₚ Rₖ Ψ_tₖ⁻¹ Rₖ)                ... (10)
+         ⎣ ĥₖₗ ⎦
+
+Where the collective pilot correlation matrix is also block-diagonal:
+
+    Ψ_tₖ⁻¹ = diag(Ψ_tₖ₁⁻¹, Ψ_tₖ₂⁻¹, ..., Ψ_tₖₗ⁻¹)
+
+WHY IS Ψ_tₖ⁻¹ BLOCK-DIAGONAL?
+
+  Because the pilot observation z_tₖₗ at AP l is independent of z_tₖₘ
+  at AP m (different noise realizations, independent channels). The
+  estimates at different APs are computed independently.
+
+The estimation error:
+
+    h̃ₖ = hₖ - ĥₖ ~ 𝒩ℂ(0, Cₖ)
+
+Where:
+
+    Cₖ = diag(Cₖ₁, Cₖ₂, ..., Cₖₗ)
+
+This block-diagonal structure means:
+  • Each AP's estimate and error are independent of other APs
+  • The CPU can compute estimates AP-by-AP (no loss of optimality)
+  • But the CPU COMBINES them for data detection (this is where Level 4
+    gets its power)
+
+
+2.4  RECEIVE COMBINING AT THE CPU
+──────────────────────────────────
+
+The CPU selects a combining vector vₖ ∈ ℂᴸᴺ for each UE k.
+
+This vector spans ALL antennas across ALL APs. The CPU computes:
+
+    ŝₖ = vₖᴴ y  (scalar estimate of UE k's data symbol)
+
+The combining vector is designed based on the collective channel estimates
+{ĥₖ : k = 1, ..., K}.
+
+Different choices of vₖ:
+
+  ┌──────────────┬─────────────────────────────────┬──────────────────────┐
+  │ Combiner     │ Definition                       │ Complexity           │
+  ├──────────────┼─────────────────────────────────┼──────────────────────┤
+  │ MR           │ vₖ = ĥₖ                         │ O(LN) — trivial      │
+  │ ZF           │ vₖ = Ĥ(ĤᴴĤ)⁻¹eₖ               │ O(LNK² + K³)        │
+  │ RZF          │ vₖ = (ĤĤᴴ + αI)⁻¹ĥₖ           │ O((LN)³)            │
+  │ MMSE         │ Equation (13) — see below        │ O((LN)³)            │
+  └──────────────┴─────────────────────────────────┴──────────────────────┘
+
+Where Ĥ = [ĥ₁, ..., ĥₖ] ∈ ℂᴸᴺˣᴷ and eₖ is the k-th standard basis
+vector.
+
+The paper's central argument: MMSE combining is the ONLY combining that
+consistently makes Cell-free mMIMO outperform Cellular mMIMO.
+
+
+2.5  PROPOSITION 1: ACHIEVABLE SE AT LEVEL 4
+──────────────────────────────────────────────
+
+  ►  Proposition 1. At Level 4, if the MMSE estimator is used, an
+     achievable SE of UE k is:
+
+                  ⎛    τₚ ⎞
+     SE⁽⁴⁾ₖ  = ⎜1 - ──⎟ 𝔼{log₂(1 + SINR⁽⁴⁾ₖ)}                ... (11)
+                  ⎝    τc ⎠
+
+     where the instantaneous effective SINR is:
+
+                          pₖ |vₖᴴ ĥₖ|²
+     SINR⁽⁴⁾ₖ = ──────────────────────────────────────────       ... (12)
+                   K                       ⎛ K              ⎞
+                   ∑  pᵢ|vₖᴴ ĥᵢ|²  + vₖᴴ ⎜ ∑ pᵢCᵢ + σ²Iₗₙ⎟ vₖ
+                  i=1                      ⎝i=1             ⎠
+                  i≠k
+
+     and the expectation is with respect to the channel estimates.
+
+PROOF METHODOLOGY: "Use-and-then-Forget" Bound
+
+  The proof follows [3, Th. 4.1]. The idea is:
+
+  Step 1: Decompose the received signal using the channel estimate:
+
+    y = ĥₖ sₖ + h̃ₖ sₖ + ∑_{i≠k} hᵢ sᵢ + n
+        ⏟              ⏟            ⏟          ⏟
+     desired signal  estimation   inter-user   noise
+     (known channel)  error       interference
+
+  Step 2: After combining, the scalar output is:
+
+    vₖᴴy = vₖᴴĥₖ sₖ + vₖᴴh̃ₖ sₖ + ∑_{i≠k} vₖᴴhᵢ sᵢ + vₖᴴn
+
+  Step 3: Treat vₖᴴĥₖ as the "known channel" and everything else as
+  "effective noise." Conditioned on the channel estimates, vₖᴴĥₖ is
+  deterministic, and the effective noise is uncorrelated with the signal.
+
+  Step 4: By [3, Corollary 1.3], the achievable rate of a channel with
+  known (deterministic) channel coefficient and uncorrelated additive
+  noise is:
+
+    log₂(1 + signal power / noise power)
+
+  even if the noise is non-Gaussian (worst-case Gaussian noise gives the
+  tightest lower bound).
+
+  Step 5: The effective noise power, conditioned on {ĥᵢ}, is:
+
+    𝔼{|effective noise|² | {ĥᵢ}} = ∑_{i≠k} pᵢ|vₖᴴĥᵢ|²
+                                                       ⎛ K              ⎞
+                                     + vₖᴴ⎜ ∑ pᵢCᵢ + σ²I⎟ vₖ
+                                                       ⎝i=1             ⎠
+
+  Let me derive this noise power in detail:
+
+    The combined received signal is:
+
+      vₖᴴy = vₖᴴĥₖ sₖ  +  (vₖᴴh̃ₖ sₖ + ∑_{i≠k} vₖᴴĥᵢ sᵢ
+                              + ∑_{i≠k} vₖᴴh̃ᵢ sᵢ + vₖᴴn)
+              ⏟                ⏟
+           "signal"          "effective noise" ε
+
+    The noise ε has power (conditioned on estimates):
+
+    𝔼{|ε|² | {ĥᵢ}} = 𝔼{|vₖᴴh̃ₖ|² |sₖ|²} + ∑_{i≠k} 𝔼{|vₖᴴĥᵢ sᵢ|²}
+                       + ∑_{i≠k} 𝔼{|vₖᴴh̃ᵢ sᵢ|²} + 𝔼{|vₖᴴn|²}
+
+    Now:
+    • 𝔼{|vₖᴴh̃ₖ|² |sₖ|²} = pₖ vₖᴴ Cₖ vₖ  (estimation error of UE k)
+    • 𝔼{|vₖᴴĥᵢ sᵢ|²} = pᵢ |vₖᴴĥᵢ|²  (known, conditioned on ĥᵢ)
+    • 𝔼{|vₖᴴh̃ᵢ sᵢ|²} = pᵢ vₖᴴ Cᵢ vₖ  (estimation error of UE i)
+    • 𝔼{|vₖᴴn|²} = σ² ‖vₖ‖²  = σ² vₖᴴ vₖ
+
+    Combining estimation errors + noise:
+
+    = ∑_{i≠k} pᵢ|vₖᴴĥᵢ|²  +  vₖᴴ (∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I) vₖ
+
+    This matches the denominator of SINR⁽⁴⁾ₖ in (12). ✓
+
+  Step 6: Take expectation over {ĥᵢ} to get the ergodic achievable SE.
+
+
+WHY IS THE EXPECTATION OUTSIDE THE LOG?
+
+  At Level 4, the SINR⁽⁴⁾ₖ depends on the instantaneous channel estimates
+  {ĥᵢ}. These change every coherence block. The achievable SE is the
+  ERGODIC rate:
+
+    SE⁽⁴⁾ₖ = (1 - τₚ/τc) × 𝔼{log₂(1 + SINR⁽⁴⁾ₖ)}
+
+  The expectation is over many coherence blocks. This means UE k
+  experiences a different SINR each block and the average rate is what
+  matters.
+
+  IMPORTANT: The word "instantaneous" in "instantaneous effective SINR" is
+  subtle. As footnote 4 in the paper explains, SINR⁽⁴⁾ₖ CANNOT be measured
+  in the system at any point in time. It is an "effective" quantity — a
+  mathematical construct that, when plugged into the Shannon formula, gives
+  the correct achievable SE. The UE does not need to know SINR⁽⁴⁾ₖ for the
+  bound to be valid.
+
+
+2.5.1  Breaking Down the SINR Terms
+─────────────────────────────────────
+
+  NUMERATOR: pₖ |vₖᴴ ĥₖ|²
+
+    This is the DESIRED SIGNAL POWER after combining.
+
+    • vₖᴴ ĥₖ ∈ ℂ — the "beamforming gain" (inner product of combiner
+      with estimated channel)
+    • |vₖᴴ ĥₖ|² — its squared magnitude = received signal power
+    • pₖ — scales by UE k's transmit power
+
+    A good combiner makes |vₖᴴ ĥₖ|² large (aligns vₖ with ĥₖ).
+
+  DENOMINATOR TERM 1: ∑_{i≠k} pᵢ |vₖᴴ ĥᵢ|²
+
+    COHERENT INTERFERENCE from other UEs through their estimated channels.
+
+    • |vₖᴴ ĥᵢ|² measures how much UE i's signal "leaks" through the
+      combiner designed for UE k
+    • Called "coherent" because it acts through the KNOWN channel estimates
+    • A good combiner makes vₖᴴ ĥᵢ ≈ 0 for i ≠ k (spatial nulling)
+
+  DENOMINATOR TERM 2: vₖᴴ (∑ᵢ₌₁ᴷ pᵢ Cᵢ + σ²I) vₖ
+
+    INCOHERENT INTERFERENCE + NOISE.
+
+    • ∑ᵢ₌₁ᴷ pᵢ Cᵢ — interference caused by channel estimation errors
+      (this is from ALL K UEs, including UE k itself)
+    • σ²I — thermal noise
+    • Called "incoherent" because it acts through the UNKNOWN error channels
+    • Cannot be suppressed by any linear combiner — this is a fundamental
+      limit imposed by imperfect CSI
+
+
+2.6  COROLLARY 1: OPTIMAL MMSE COMBINING
+──────────────────────────────────────────
+
+  The SINR⁽⁴⁾ₖ in (12) has the structure of a GENERALIZED RAYLEIGH
+  QUOTIENT in vₖ:
+
+                 vₖᴴ A vₖ
+    SINR⁽⁴⁾ₖ = ──────────
+                 vₖᴴ B vₖ
+
+  Where:
+    A = pₖ ĥₖ ĥₖᴴ           (rank-1 positive semi-definite)
+    B = ∑_{i≠k} pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²Iₗₙ  (positive definite)
+
+  ►  BY LEMMA B.10 of [3]:
+
+  For a generalized Rayleigh quotient xᴴaαᴴx / xᴴBx with rank-1
+  numerator A = aaᴴ, the maximum is achieved by:
+
+    x* = B⁻¹ a
+
+  and the maximum value is:
+
+    max f(x) = aᴴ B⁻¹ a
+
+
+  Applying this with a = √pₖ ĥₖ:
+
+  ─────────────────────────────────────────────────────────────────────
+
+  ►  Corollary 1. The SINR is maximized by the MMSE combining vector:
+
+                ⎛ K                    K              ⎞⁻¹
+    vₖ = pₖ    ⎜ ∑  pᵢ ĥᵢ ĥᵢᴴ  +  ∑  pᵢCᵢ + σ²Iₗₙ⎟   ĥₖ      ... (13)
+                ⎝i=1                  i=1             ⎠
+
+  which leads to the maximum SINR:
+
+                         ⎛ K                   K              ⎞⁻¹
+    SINR⁽⁴⁾ₖ = pₖ ĥₖᴴ  ⎜ ∑  pᵢ ĥᵢ ĥᵢᴴ + ∑  pᵢCᵢ + σ²Iₗₙ ⎟   ĥₖ
+                         ⎝i=1                 i=1             ⎠  ... (14)
+                          i≠k
+
+  ─────────────────────────────────────────────────────────────────────
+
+  NOTE on Eq. (13) vs Eq. (14):
+
+  In the matrix being inverted:
+    • Eq. (13): the sum ∑ᵢ₌₁ᴷ starts from i=1 (INCLUDES i=k)
+    • Eq. (14): the sum ∑_{i≠k} EXCLUDES i=k
+
+  The difference is the term pₖ ĥₖ ĥₖᴴ. Including it in (13) doesn't
+  change the SINR-maximizing DIRECTION of vₖ (it only changes the
+  magnitude by a scalar factor, which cancels in the Rayleigh quotient).
+  But it simplifies the formula.
+
+
+2.6.1  WHY IS THIS CALLED "MMSE" COMBINING?
+─────────────────────────────────────────────
+
+  The combiner in (13) ALSO minimizes the Mean Squared Error:
+
+    MSEₖ = 𝔼{|sₖ - vₖᴴy|² | {ĥᵢ}}
+
+  This is the conditional MSE between the transmitted symbol sₖ and the
+  combined received signal vₖᴴy.
+
+  DERIVATION: Expanding MSEₖ:
+
+    MSEₖ = 𝔼{|sₖ - vₖᴴy|² | {ĥᵢ}}
+
+         = 𝔼{|sₖ|²} - 2 Re{𝔼{sₖ* vₖᴴy | {ĥᵢ}}} + 𝔼{|vₖᴴy|² | {ĥᵢ}}
+
+    Now:
+    • 𝔼{|sₖ|²} = pₖ
+    • 𝔼{sₖ* vₖᴴy | {ĥᵢ}} = pₖ vₖᴴ ĥₖ  (using y = ĥₖsₖ + ...)
+    • 𝔼{|vₖᴴy|² | {ĥᵢ}} = vₖᴴ (∑ᵢ₌₁ᴷ pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I) vₖ
+
+    So: MSEₖ = pₖ - 2pₖ Re{vₖᴴĥₖ} + vₖᴴ (∑ pᵢĥᵢĥᵢᴴ + ∑ pᵢCᵢ + σ²I) vₖ
+
+    Taking the derivative ∂MSEₖ/∂vₖ* = 0:
+
+      -pₖĥₖ + (∑ᵢ₌₁ᴷ pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I) vₖ = 0
+
+    Solving:
+
+      vₖ = pₖ (∑ᵢ₌₁ᴷ pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I)⁻¹ ĥₖ   ✓
+
+  This matches Eq. (13) exactly! So the SINR-maximizing combiner equals
+  the MSE-minimizing combiner — a well-known result for Gaussian channels.
+
+
+2.6.2  COMPUTATIONAL COMPLEXITY COMPARISON
+───────────────────────────────────────────
+
+  The MMSE combiner in (13) requires inverting an LN × LN matrix.
+
+  ┌────────────┬──────────────────────────────┬────────────────────────┐
+  │ Combiner   │ Matrix to Invert              │ Complexity             │
+  ├────────────┼──────────────────────────────┼────────────────────────┤
+  │ MR         │ None                          │ O(LN)                  │
+  │ ZF         │ K × K (ĤᴴĤ)                 │ O(LNK² + K³)          │
+  │ RZF        │ LN × LN (ĤĤᴴ + αI)         │ O((LN)³)              │
+  │ MMSE       │ LN × LN (Eq. 13)            │ O((LN)³)              │
+  └────────────┴──────────────────────────────┴────────────────────────┘
+
+  For L = 400, N = 1: LN = 400. Inverting a 400×400 matrix is routine
+  for modern CPUs (fraction of a millisecond).
+
+  For L = 100, N = 4: LN = 400. Same.
+
+  ZF and RZF invert smaller matrices (K×K with K=40) but provide LOWER SE,
+  especially for UEs with low SNR. The paper argues that since the CPU has
+  high computational capability, the O((LN)³) cost is acceptable.
+
+
+2.6.3  UNDERSTANDING THE MATRIX INVERSE INTUITIVELY
+────────────────────────────────────────────────────
+
+  The matrix being inverted in (13) is:
+
+    Σ = ∑ᵢ₌₁ᴷ pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I
+
+  This is the TOTAL COVARIANCE of the received signal y (conditioned on
+  the estimates):
+
+    Σ = 𝔼{yyᴴ | {ĥᵢ}}
+
+  Breakdown:
+    • ∑ᵢ pᵢ ĥᵢĥᵢᴴ — covariance from all UEs' signals through KNOWN channels
+    • ∑ᵢ pᵢ Cᵢ — covariance from estimation errors
+    • σ²I — noise covariance
+
+  The MMSE combiner is:
+
+    vₖ = pₖ Σ⁻¹ ĥₖ
+
+  This is a WHITENING + MATCHED FILTER operation:
+    1. Σ⁻¹ "whitens" the received signal (makes noise + interference
+       spatially white, i.e., identity covariance)
+    2. ĥₖ then applies matched filtering to the whitened signal
+    3. The combination is the optimal Wiener filter
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  MMSE/WIENER COMBINING IN WIRELESS SYSTEMS
+────────────────────────────────────────────────
+
+The MMSE receiver (Wiener filter) has a long history:
+
+  • Norbert Wiener (1949): "Extrapolation, Interpolation, and Smoothing of
+    Stationary Time Series" — the original Wiener filter theory
+  • Capon (1969): "High-resolution frequency-wavenumber spectrum analysis"
+    — introduced the minimum variance distortionless response (MVDR)
+    beamformer, closely related to MMSE combining
+  • Van Trees (2002): "Optimum Array Processing" — comprehensive treatment
+    of MMSE receive beamforming for antenna arrays
+
+In Massive MIMO specifically:
+  • Marzetta (2010) [4]: Advocated MR, showed it's asymptotically optimal
+  • Hoydis et al. (2013) [IEEE JSAC]: Analyzed MMSE combining in large
+    multi-cell systems using random matrix theory
+  • Björnson et al. (2017) [3]: Comprehensive treatment of MMSE combining
+    in correlated Massive MIMO (the monograph this paper heavily builds on)
+  • Björnson et al. (2018) [9]: Proved MMSE achieves unlimited capacity
+    even with pilot contamination
+
+
+3.2  CAPACITY LOWER BOUNDS WITH IMPERFECT CSI
+───────────────────────────────────────────────
+
+The "use-and-then-forget" bound used in Proposition 1 was developed through:
+
+  • Medard (2000): "The effect upon channel capacity in wireless
+    communications of perfect and imperfect knowledge of the channel,"
+    IEEE TIT — early treatment of imperfect CSI capacity
+  • Hassibi & Hochwald (2003): "How much training is needed in
+    multiple-antenna wireless links?" IEEE TIT — quantified training
+    overhead vs capacity tradeoff
+  • Marzetta & Hochwald (1999): Block fading capacity with training
+
+The specific form used in this paper follows [3, Th. 4.1] which
+generalizes the bound to multi-cell mMIMO with arbitrary combining and
+spatial correlation.
+
+
+3.3  NETWORK MIMO AND CENTRALIZED PROCESSING
+──────────────────────────────────────────────
+
+Level 4 is essentially "Network MIMO" — a concept studied extensively:
+
+  • Shamai & Zaidel (2001) [20]: Early work on cooperating BSs for
+    capacity enhancement
+  • Venkatesan, Lozano, Valenzuela (2007) [22]: "Network MIMO: Overcoming
+    intercell interference in indoor wireless systems"
+  • Estella Aguerri et al. (2019) [45]: "On the capacity of cloud radio
+    access networks with oblivious relaying" — studied capacity with
+    fronthaul constraints where APs act as relays (exactly Level 4)
+
+The key contribution of this paper vs prior Network MIMO work: the analysis
+with IMPERFECT CSI, spatially correlated channels, and the connection to
+the other three implementation levels.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. COMPLETE MATHEMATICAL DERIVATIONS (Unicode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  COMPLETE PROOF OF THE SINR EXPRESSION (12)
+────────────────────────────────────────────────
+
+Starting from the received signal after combining:
+
+    vₖᴴy = vₖᴴ (∑ᵢ₌₁ᴷ hᵢ sᵢ + n)
+
+Decompose each hᵢ = ĥᵢ + h̃ᵢ:
+
+    vₖᴴy = vₖᴴĥₖ sₖ  +  vₖᴴh̃ₖ sₖ  +  ∑_{i≠k} vₖᴴĥᵢ sᵢ
+            + ∑_{i≠k} vₖᴴh̃ᵢ sᵢ  +  vₖᴴn
+
+    = vₖᴴĥₖ sₖ  +  εₖ
+
+Where the "effective noise" εₖ collects everything except the desired term.
+
+Conditioned on {ĥ₁, ..., ĥₖ}:
+  • vₖᴴĥₖ is deterministic → known "channel coefficient"
+  • sₖ is the signal with power pₖ → signal power = pₖ |vₖᴴĥₖ|²
+  • εₖ is zero-mean (since h̃ᵢ, sᵢ, n are all zero-mean)
+  • εₖ is uncorrelated with sₖ (because h̃ₖ ⊥ ĥₖ)
+
+Noise power:
+
+  𝔼{|εₖ|² | {ĥᵢ}}
+
+  = pₖ vₖᴴ Cₖ vₖ                          (from h̃ₖ sₖ)
+  + ∑_{i≠k} pᵢ |vₖᴴĥᵢ|²                   (from ĥᵢ sᵢ, i≠k)
+  + ∑_{i≠k} pᵢ vₖᴴ Cᵢ vₖ                  (from h̃ᵢ sᵢ, i≠k)
+  + σ² vₖᴴ vₖ                              (from n)
+
+  = ∑_{i≠k} pᵢ |vₖᴴĥᵢ|²  +  vₖᴴ (∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I) vₖ
+
+Note: The pₖCₖ term from UE k's estimation error merges with the sum
+over all i, giving ∑ᵢ₌₁ᴷ pᵢCᵢ in the second term.
+
+Therefore:
+
+                      pₖ |vₖᴴĥₖ|²
+    SINR⁽⁴⁾ₖ = ──────────────────────────────────────    ✓
+                 ∑_{i≠k} pᵢ|vₖᴴĥᵢ|² + vₖᴴ(∑ᵢ pᵢCᵢ + σ²I)vₖ
+
+
+4.2  PROOF THAT MMSE COMBINING MAXIMIZES THE SINR
+──────────────────────────────────────────────────
+
+Rewrite SINR⁽⁴⁾ₖ as a generalized Rayleigh quotient:
+
+                 vₖᴴ (pₖ ĥₖĥₖᴴ) vₖ
+    SINR⁽⁴⁾ₖ = ──────────────────────
+                      vₖᴴ B vₖ
+
+Where: B = ∑_{i≠k} pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I
+
+Since the numerator matrix A = pₖ ĥₖĥₖᴴ is rank-1, we can write
+A = aaᴴ where a = √pₖ ĥₖ.
+
+By Lemma B.10 of [3]:
+
+    max_vₖ  (vₖᴴ aaᴴ vₖ) / (vₖᴴ B vₖ)  =  aᴴ B⁻¹ a
+
+Achieved by vₖ = B⁻¹ a = √pₖ B⁻¹ ĥₖ.
+
+Note: We can equivalently write vₖ = pₖ Σ⁻¹ ĥₖ where Σ = B + pₖĥₖĥₖᴴ
+(adding the desired UE's term changes only the magnitude, not direction).
+
+Maximum SINR value:
+
+    SINR⁽⁴⁾ₖ = aᴴ B⁻¹ a = pₖ ĥₖᴴ B⁻¹ ĥₖ
+
+    = pₖ ĥₖᴴ (∑_{i≠k} pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I)⁻¹ ĥₖ     ... (14) ✓
+
+
+4.3  CONNECTING SINR MAXIMIZATION AND MSE MINIMIZATION
+───────────────────────────────────────────────────────
+
+CLAIM: The vₖ that maximizes SINR⁽⁴⁾ₖ also minimizes MSEₖ.
+
+This is a well-known equivalence for single-stream detection. The proof:
+
+    MSEₖ = pₖ - 2pₖ Re{vₖᴴĥₖ} + vₖᴴ Σ vₖ
+
+Where Σ = 𝔼{yyᴴ | {ĥᵢ}} = ∑ᵢ₌₁ᴷ pᵢ ĥᵢĥᵢᴴ + ∑ᵢ₌₁ᴷ pᵢCᵢ + σ²I.
+
+Setting ∂MSEₖ/∂vₖ* = 0:
+
+    Σ vₖ = pₖ ĥₖ  →  vₖ = pₖ Σ⁻¹ ĥₖ
+
+This equals (13). The minimum MSE is:
+
+    MSEₖ,min = pₖ - pₖ² ĥₖᴴ Σ⁻¹ ĥₖ = pₖ (1 - pₖ ĥₖᴴ Σ⁻¹ ĥₖ)
+
+And the relationship to SINR is:
+
+    SINR⁽⁴⁾ₖ = 1/MSEₖ,min × pₖ - 1  (or more precisely, related
+                through the matrix inversion lemma)
+
+Using the matrix inversion lemma (Woodbury identity):
+
+    Σ⁻¹ = B⁻¹ - (pₖ B⁻¹ ĥₖ ĥₖᴴ B⁻¹) / (1 + pₖ ĥₖᴴ B⁻¹ ĥₖ)
+
+    pₖ ĥₖᴴ Σ⁻¹ ĥₖ = pₖ ĥₖᴴ B⁻¹ ĥₖ / (1 + pₖ ĥₖᴴ B⁻¹ ĥₖ)
+                     = SINR⁽⁴⁾ₖ / (1 + SINR⁽⁴⁾ₖ)
+
+    MSEₖ,min = pₖ (1 - SINR⁽⁴⁾ₖ/(1 + SINR⁽⁴⁾ₖ)) = pₖ / (1 + SINR⁽⁴⁾ₖ)
+
+So: SINR⁽⁴⁾ₖ = pₖ/MSEₖ,min - 1
+
+The higher the SINR, the lower the MSE. Maximizing one is equivalent to
+minimizing the other. ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. NUMERICAL EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE 1: Level 4 Signal Construction
+───────────────────────────────────────
+
+Setup: L = 3 APs, N = 1 (single antenna each), K = 2 UEs.
+
+The received signals at each AP:
+  y₁ = h₁₁s₁ + h₂₁s₂ + n₁
+  y₂ = h₁₂s₁ + h₂₂s₂ + n₂
+  y₃ = h₁₃s₁ + h₂₃s₂ + n₃
+
+The CPU stacks these:
+
+       ⎡ y₁ ⎤   ⎡ h₁₁ ⎤       ⎡ h₂₁ ⎤       ⎡ n₁ ⎤
+  y =  ⎢ y₂ ⎥ = ⎢ h₁₂ ⎥ s₁ + ⎢ h₂₂ ⎥ s₂ + ⎢ n₂ ⎥
+       ⎣ y₃ ⎦   ⎣ h₁₃ ⎦       ⎣ h₂₃ ⎦       ⎣ n₃ ⎦
+                  ⏟              ⏟              ⏟
+                  h₁ ∈ ℂ³       h₂ ∈ ℂ³       n ∈ ℂ³
+
+This is a 3-dimensional MIMO channel with 2 users — classical Massive MIMO
+with M = 3 receive antennas and K = 2 users.
+
+Suppose the channel estimates are:
+  ĥ₁ = [0.9, 0.4, 0.1]ᵀ   (UE 1 is close to AP 1)
+  ĥ₂ = [0.05, 0.2, 0.8]ᵀ  (UE 2 is close to AP 3)
+
+Error covariance: C₁ = diag(0.02, 0.03, 0.01), C₂ = diag(0.01, 0.02, 0.03)
+Powers: p₁ = p₂ = 1, σ² = 0.1
+
+MR combining for UE 1: v₁ = ĥ₁ = [0.9, 0.4, 0.1]ᵀ
+
+  Desired: |v₁ᴴĥ₁|² = |0.81 + 0.16 + 0.01|² = |0.98|² = 0.960
+  Interference: |v₁ᴴĥ₂|² = |0.045 + 0.08 + 0.08|² = |0.205|² = 0.042
+  Error+noise: v₁ᴴ(C₁+C₂+0.1I)v₁
+    = v₁ᴴ diag(0.13, 0.15, 0.14) v₁
+    = 0.13×0.81 + 0.15×0.16 + 0.14×0.01
+    = 0.1053 + 0.024 + 0.0014 = 0.131
+
+  SINR_MR = 0.960 / (0.042 + 0.131) = 0.960 / 0.173 = 5.55  (7.44 dB)
+  SE_MR = log₂(1 + 5.55) = log₂(6.55) = 2.71 bit/s/Hz
+
+MMSE combining for UE 1: v₁ = Σ⁻¹ ĥ₁ (we'd need to invert a 3×3 matrix)
+
+  The SINR will be HIGHER than 5.55 — MMSE always does at least as well
+  as MR. The improvement comes from the combiner reducing the
+  |v₁ᴴĥ₂|² interference term (partially nulling UE 2's channel).
+
+
+EXAMPLE 2: Why MMSE Outperforms MR (Geometric Intuition)
+─────────────────────────────────────────────────────────
+
+Consider L = 2, N = 1, K = 2 with:
+  ĥ₁ = [1, 0]ᵀ  (UE 1 only visible from AP 1)
+  ĥ₂ = [1, 1]ᵀ  (UE 2 visible from both APs)
+
+MR for UE 1: v₁ = [1, 0]ᵀ
+  • Desired: |v₁ᴴĥ₁|² = |1|² = 1
+  • Interference: |v₁ᴴĥ₂|² = |1|² = 1 ← FULL interference!
+  • SINR_MR = 1 / (1 + noise terms) — terrible!
+
+MMSE for UE 1: v₁ ∝ Σ⁻¹ ĥ₁ (will point AWAY from ĥ₂)
+
+  Σ = ĥ₁ĥ₁ᴴ + ĥ₂ĥ₂ᴴ + (noise terms)
+
+  The MMSE combiner will tilt v₁ away from ĥ₂ = [1,1]ᵀ direction.
+  Something like v₁ ∝ [1, -1]ᵀ (perpendicular to ĥ₂) would give:
+    • Desired: |[1,-1]ᵀᴴ [1,0]ᵀ|² = |1|² = 1
+    • Interference: |[1,-1]ᵀᴴ [1,1]ᵀ|² = |1-1|² = 0 ← ZERO interference!
+
+  This is the power of MMSE: it finds the direction that collects the
+  desired signal while simultaneously nulling the interference.
+
+  (In practice, MMSE balances signal collection vs interference rejection
+  optimally, rather than fully nulling.)
+
+
+EXAMPLE 3: Fronthaul Load at Level 4
+─────────────────────────────────────
+
+Setup: L = 400, N = 1, K = 40, τₚ = 10, τc = 200
+
+Per AP, per coherence block:
+  • Pilot signals: τₚ × N = 10 × 1 = 10 complex scalars
+  • Data signals: (τc - τₚ) × N = 190 × 1 = 190 complex scalars
+  • Total: τc × N = 200 × 1 = 200 complex scalars
+
+Per AP, statistical parameters:
+  • Correlation matrices {Rₖₗ}: K × N²/2 = 40 × 0.5 = 20 complex scalars
+    (but these change slowly — only when UE locations/statistics change)
+
+Total fronthaul per coherence block: 200 × 400 = 80,000 complex scalars
+
+Compare with Level 2/3: (τc - τₚ) × K × L = 190 × 40 × 400 = 3,040,000
+  → Level 4 uses 80,000/3,040,000 = 2.6% of Level 2/3's fronthaul!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. PRACTICE PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM 1: SINR Computation
+────────────────────────────
+Consider L = 2, N = 1, K = 2 at Level 4.
+
+  ĥ₁ = [0.6 + 0.3j, 0.2 - 0.1j]ᵀ
+  ĥ₂ = [0.1 - 0.2j, 0.5 + 0.4j]ᵀ
+  C₁ = diag(0.04, 0.02), C₂ = diag(0.03, 0.05)
+  p₁ = p₂ = 1, σ² = 0.05
+
+(a) Compute SINR for UE 1 with MR combining (v₁ = ĥ₁).
+(b) Verify that SINR_MR ≤ SINR_MMSE (just set up the MMSE expression).
+
+Solution:
+
+(a) Desired: |ĥ₁ᴴĥ₁|² = |‖ĥ₁‖²|²
+    ‖ĥ₁‖² = |0.6+0.3j|² + |0.2-0.1j|² = 0.45 + 0.05 = 0.50
+    Desired power = 0.50² = 0.25
+
+    Interference: |ĥ₁ᴴĥ₂|²
+    ĥ₁ᴴĥ₂ = (0.6-0.3j)(0.1-0.2j) + (0.2+0.1j)(0.5+0.4j)
+           = (0.06-0.12j-0.03j+0.06j²) + (0.10+0.08j+0.05j+0.04j²)
+           = (0.06-0.15j-0.06) + (0.10+0.13j-0.04)
+           = (0.00-0.15j) + (0.06+0.13j)
+           = 0.06 - 0.02j
+    |ĥ₁ᴴĥ₂|² = 0.06² + 0.02² = 0.0036 + 0.0004 = 0.0040
+
+    Error+noise: ĥ₁ᴴ(C₁ + C₂ + σ²I)ĥ₁
+    = ĥ₁ᴴ diag(0.04+0.03+0.05, 0.02+0.05+0.05) ĥ₁
+    = ĥ₁ᴴ diag(0.12, 0.12) ĥ₁
+    = 0.12 × 0.45 + 0.12 × 0.05 = 0.054 + 0.006 = 0.060
+
+    SINR_MR = 0.25 / (0.004 + 0.060) = 0.25 / 0.064 = 3.91  (5.92 dB)
+
+(b) MMSE combining:
+    v₁ = (ĥ₁ĥ₁ᴴ + ĥ₂ĥ₂ᴴ + C₁ + C₂ + 0.05I₂)⁻¹ ĥ₁
+
+    The resulting SINR will satisfy SINR_MMSE ≥ 3.91, with equality only
+    if ĥ₁ happens to be the eigenvector of Σ⁻¹ corresponding to the
+    maximum Rayleigh quotient (which generally doesn't happen).
+
+
+PROBLEM 2: Collective Correlation Matrix
+──────────────────────────────────────────
+A network has L = 3, N = 2. UE k has correlation matrices:
+  Rₖ₁ = [0.5, 0.2; 0.2, 0.5]
+  Rₖ₂ = [0.3, 0.1j; -0.1j, 0.3]
+  Rₖ₃ = [0.1, 0; 0, 0.1]
+
+(a) Write the collective correlation matrix Rₖ (6×6).
+(b) Compute the large-scale fading coefficients βₖ₁, βₖ₂, βₖ₃.
+(c) Verify that tr(Rₖ) = ∑ₗ₌₁³ N βₖₗ.
+
+Solution:
+
+(a) Rₖ = diag(Rₖ₁, Rₖ₂, Rₖ₃) =
+
+    ⎡ 0.5   0.2   0     0     0    0   ⎤
+    ⎢ 0.2   0.5   0     0     0    0   ⎥
+    ⎢ 0     0     0.3   0.1j  0    0   ⎥
+    ⎢ 0     0    -0.1j  0.3   0    0   ⎥
+    ⎢ 0     0     0     0     0.1  0   ⎥
+    ⎣ 0     0     0     0     0    0.1 ⎦
+
+(b) βₖ₁ = tr(Rₖ₁)/N = (0.5+0.5)/2 = 0.5
+    βₖ₂ = tr(Rₖ₂)/N = (0.3+0.3)/2 = 0.3
+    βₖ₃ = tr(Rₖ₃)/N = (0.1+0.1)/2 = 0.1
+
+(c) tr(Rₖ) = 0.5+0.5+0.3+0.3+0.1+0.1 = 1.8
+    ∑ₗ N βₖₗ = 2×(0.5+0.3+0.1) = 2×0.9 = 1.8  ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. SUMMARY OF LEVEL 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. SIGNAL MODEL: At Level 4, the CPU stacks all received signals into one
+   LN-dimensional vector y, making cell-free mMIMO mathematically equivalent
+   to single-cell Massive MIMO with LN antennas and block-diagonal
+   correlation.
+
+2. ACHIEVABLE SE (Proposition 1): Uses the "use-and-then-forget" capacity
+   lower bound. The SE = (1-τₚ/τc) × 𝔼{log₂(1+SINR⁽⁴⁾ₖ)} holds for ANY
+   linear combining vector vₖ.
+
+3. OPTIMAL COMBINING (Corollary 1): The MMSE combining vector
+   vₖ = pₖ(∑ pᵢĥᵢĥᵢᴴ + ∑ pᵢCᵢ + σ²I)⁻¹ĥₖ maximizes the SINR. It
+   simultaneously maximizes signal power and minimizes interference+noise.
+
+4. EQUIVALENCE: SINR maximization ⟺ MSE minimization for single-stream
+   detection. The MMSE combiner is the Wiener filter applied to the
+   whitened received signal.
+
+5. COMPLEXITY: Requires inverting an LN×LN matrix at the CPU — feasible
+   for typical sizes (400×400). MR avoids this but at devastating SE cost.
+
+6. FRONTHAUL: Each AP sends τcN complex scalars per coherence block. When
+   N < K (typical), this is LESS than Levels 2/3.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks,"
+     Found. Trends Signal Process., vol. 11, no. 3-4, 2017.
+[4]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+     numbers of BS antennas," IEEE TWC, vol. 9, no. 11, 2010.
+[9]  E. Björnson et al., "Massive MIMO has unlimited capacity,"
+     IEEE TWC, vol. 17, no. 1, 2018.
+[20] S. Shamai and B. M. Zaidel, "Enhancing the cellular downlink
+     capacity via co-processing at the transmitting end," IEEE VTC, 2001.
+[22] S. Venkatesan et al., "Network MIMO: Overcoming intercell
+     interference in indoor wireless systems," Asilomar Conf., 2007.
+[24] E. Nayebi et al., "Performance of cell-free massive MIMO systems
+     with MMSE and LSFD receivers," Asilomar Conf., 2016.
+[27] Z. Chen and E. Björnson, "Channel hardening and favorable
+     propagation in cell-free massive MIMO," IEEE TCOM, 2018.
+[45] I. Estella Aguerri et al., "On the capacity of cloud radio access
+     networks with oblivious relaying," IEEE TIT, vol. 65, no. 7, 2019.
+[46] E. Biglieri et al., "Fading channels: information-theoretic and
+     communications aspects," IEEE TIT, 1998.
+[47] S. Park et al., "Robust and efficient distributed compression for
+     cloud radio access networks," IEEE TVT, 2013.

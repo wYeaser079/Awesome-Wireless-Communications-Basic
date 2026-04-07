@@ -1,0 +1,822 @@
+================================================================================
+  Making Cell-Free Massive MIMO Competitive With MMSE Processing and
+  Centralized Implementation
+  Authors: Emil Björnson & Luca Sanguinetti
+================================================================================
+
+================================================================================
+  PART 3C: SECTION III — FOUR LEVELS OF RECEIVER COOPERATION
+           LEVEL 1: SMALL-CELL NETWORK
+           (Equations 26-30, Corollary 4, Proposition 3, Remark 3)
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. HIGH-LEVEL EXPLANATION (Layman's Terms)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Imagine you have 400 small shops in a city, each with its own manager. In
+Levels 2-4, all shops report to a central headquarters that coordinates
+everything. But in Level 1, each shop operates COMPLETELY INDEPENDENTLY.
+
+Each customer (UE) picks ONE shop (AP) to do business with. The chosen shop
+handles everything — no communication with other shops or headquarters.
+
+This is a "small-cell network": each AP acts as its own mini base station,
+serving its own set of users. There are no cell-free benefits — no macro
+diversity, no cooperative processing.
+
+This is the SIMPLEST and CHEAPEST implementation:
+  • No fronthaul needed (zero data sent to CPU)
+  • No coordination between APs
+  • Each AP processes independently
+
+But it's also the LOWEST PERFORMING (in general) because:
+  • If the AP you're connected to has a weak channel to you, you're stuck
+  • No other AP helps you
+  • Interference from nearby APs is not cooperatively managed
+
+HOWEVER, this paper shows something surprising: Level 1 with L-MMSE
+combining (even with just 1 antenna per AP) outperforms Level 2 with MR
+combining! The simple act of using the RIGHT signal processing locally
+matters more than having AP cooperation with the WRONG processing.
+
+Another key improvement in this paper: instead of assigning each UE to the
+AP with the strongest average signal (as done in [16]), they assign to the
+AP that gives the HIGHEST SE. This makes a huge difference because SE
+accounts for interference, not just signal strength.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. DETAILED TECHNICAL EXPLANATION (PhD Level)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  LEVEL 1 ARCHITECTURE
+──────────────────────────
+
+At Level 1:
+  • Each UE k is decoded by exactly ONE AP (say AP l*)
+  • AP l* uses only its own received signal yₗ* and its local channel
+    estimates {ĥᵢₗ*}
+  • NO information is exchanged with the CPU for data processing
+  • The network is fully distributed
+
+The choice of l* (which AP serves UE k) is critical:
+
+  ┌───────────────────────────────────────────────────────────────┐
+  │                   LEVEL 1 DATA FLOW                          │
+  │                                                               │
+  │  AP 1: y₁ → decode UE(s) assigned to AP 1                   │
+  │  AP 2: y₂ → decode UE(s) assigned to AP 2                   │
+  │  ...                                                          │
+  │  AP L: yₗ → decode UE(s) assigned to AP L                   │
+  │                                                               │
+  │  No fronthaul for data processing!                            │
+  │  (Decoded data goes to core network via backhaul)             │
+  └───────────────────────────────────────────────────────────────┘
+
+
+2.2  AP SELECTION: THE KEY IMPROVEMENT
+───────────────────────────────────────
+
+In [16] (Ngo et al., 2017): Each UE selects the AP with the largest
+large-scale fading coefficient:
+
+    l*₍₁₆₎ = argmax_l βₖₗ
+
+PLUS the restriction that each AP can serve AT MOST one UE.
+
+This paper removes both restrictions:
+
+    l* = argmax_l  𝔼{log₂(1 + SINR⁽¹ˡ⁾ₖ)}
+
+  1. Selection is based on SE (not just βₖₗ)
+  2. An AP can serve MULTIPLE UEs
+
+Why SE-based selection is much better:
+
+  • βₖₗ only measures signal strength, ignoring interference
+  • An AP with high βₖₗ but also high interference from co-pilot UEs
+    may give LOWER SE than an AP with moderate βₖₗ but low interference
+  • The one-UE-per-AP restriction in [16] forces many UEs to connect to
+    suboptimal APs (if their best AP is "taken")
+
+Example: UE k is at the midpoint between AP 1 (β = 0.5) and AP 2 (β = 0.4).
+  • [16] method: Choose AP 1 (larger β)
+  • But if AP 1 also serves a strong interfering co-pilot UE, while AP 2
+    has no interference, AP 2 might give 2× higher SE!
+
+The numerical results in Section IV show this improvement is substantial.
+
+
+2.3  COROLLARY 4: ACHIEVABLE SE AT LEVEL 1
+────────────────────────────────────────────
+
+  ►  Corollary 4. At Level 1, an achievable SE of UE k is:
+
+                   ⎛    τₚ ⎞
+    SE⁽¹⁾ₖ  =   ⎜1 - ──⎟  max   𝔼{log₂(1 + SINR⁽¹ˡ⁾ₖ)}       ... (26)
+                   ⎝    τc ⎠ l∈{1,...,L}
+
+  Where the SINR at AP l for UE k is:
+
+                           pₖ |vₖₗᴴ ĥₖₗ|²
+    SINR⁽¹ˡ⁾ₖ = ───────────────────────────────────────────────── ... (27)
+                   K                      ⎛ K              ⎞
+                   ∑  pᵢ|vₖₗᴴĥᵢₗ|² + vₖₗᴴ⎜ ∑ pᵢCᵢₗ + σ²Iₙ⎟vₖₗ
+                  i=1                     ⎝i=1             ⎠
+                  i≠k
+
+  The expectation is over the channel estimates.
+
+STRUCTURE ANALYSIS:
+
+  The SINR⁽¹ˡ⁾ₖ at each AP l is structurally IDENTICAL to Level 4's
+  SINR⁽⁴⁾ₖ (Eq. 12), but restricted to a SINGLE AP:
+
+    Level 4: vₖ ∈ ℂᴸᴺ, operates over ALL APs jointly
+    Level 1: vₖₗ ∈ ℂᴺ, operates over ONE AP's antennas only
+
+  The "max over l" means: UE k is served by whichever AP gives it the
+  best performance. This provides MACRO DIVERSITY — even though each AP
+  works alone, the UE benefits from having many APs to choose from.
+
+
+2.4  OPTIMAL COMBINING AT LEVEL 1: L-MMSE
+───────────────────────────────────────────
+
+The maximum SINR at AP l is achieved by L-MMSE combining (same as Eq. 16):
+
+                         ⎛ K                    K              ⎞⁻¹
+    SINR⁽¹ˡ⁾ₖ = pₖ ĥₖₗᴴ ⎜ ∑ pᵢĥᵢₗĥᵢₗᴴ + ∑ pᵢCᵢₗ + σ²Iₙ ⎟  ĥₖₗ
+                         ⎝i=1                 i=1             ⎠ ... (28)
+                          i≠k
+
+This is identical to the Level 4 MMSE SINR (Eq. 14) but with:
+  • N-dimensional vectors instead of LN-dimensional
+  • Only LOCAL channel estimates at one AP
+
+For a single AP, the "cell-free" system reduces to a single small cell
+with N antennas serving K users — classical multi-user MIMO.
+
+
+2.4.1  WHY MULTI-ANTENNA APs HELP LEVEL 1
+───────────────────────────────────────────
+
+With N = 1: Each AP has 1 antenna → can't do any spatial filtering
+  • L-MMSE is a scalar → differs from MR only by a deterministic-like
+    scaling (actually non-deterministic, but it's still just one dimension)
+  • Very limited interference suppression
+
+With N = 4: Each AP has 4 antennas → can null up to 3 interferers
+  • L-MMSE inverts a 4×4 matrix → real spatial filtering
+  • Can suppress nearby interferers effectively
+  • Much closer in performance to Level 2/3
+
+This is why the paper observes (Fig. 2(b)): With L = 100, N = 4, Level 1
+is comparable to Level 2 for the weakest UEs and substantially BETTER for
+the strongest UEs.
+
+
+2.5  PROPOSITION 3: CLOSED-FORM SE FOR N = 1
+──────────────────────────────────────────────
+
+When N = 1 and AP l decodes UE k using ONLY the local estimate ĥₖₗ:
+
+  ►  Proposition 3. An achievable SE is:
+
+                                   1                           1
+    SE = ────── × [ e^(1/(γₖₗ(1+Aₖₗ))) E₁( ──────────── )
+          ln(2)                              γₖₗ(1+Aₖₗ)
+
+                                          1                1
+                   - e^(1/(γₖₗAₖₗ)) E₁( ──────── ) ]     ... (29)
+                                          γₖₗAₖₗ
+
+  Where:
+
+    • Aₖₗ = (∑_{i∈𝒫ₖ\{k}} pᵢγᵢₗ) / (pₖγₖₗ)  — pilot contamination ratio
+
+    • γₖₗ = pₖ²τₚ²βₖₗ² / Ψ_tₖₗ  — this is the SINR-like quantity
+
+      More precisely:
+                     pₖ²τₚβₖₗ²
+      γₖₗ = ───────────────────────────────────────     ... (30)
+             Ψ_tₖₗ × (∑_{i∈𝒫ₖ} pᵢβᵢₗ + ∑_{i∉𝒫ₖ} pᵢCᵢₗ + σ²)
+
+    • E₁(x) = ∫₁^∞ (e⁻ˣᵘ / u) du  — the exponential integral function
+
+
+2.5.1  UNDERSTANDING THE EXPONENTIAL INTEGRAL E₁(x)
+─────────────────────────────────────────────────────
+
+E₁(x) is a classical special function that appears frequently in
+communications theory when averaging log(1+SNR) over exponential
+(Rayleigh fading) distributions.
+
+Properties:
+  • E₁(x) > 0 for all x > 0
+  • E₁(x) → -ln(x) - γ_E  as x → 0⁺ (where γ_E ≈ 0.5772 is the
+    Euler-Mascheroni constant)
+  • E₁(x) → e⁻ˣ/x  as x → ∞
+  • E₁(x) is a DECREASING function
+
+The combination eˣE₁(x):
+  • eˣE₁(x) → x  as x → 0
+  • eˣE₁(x) → 1/x  as x → ∞
+  • Used in the bounds: x/(1+x) ≤ eˣE₁(x) ≤ x  (from [49, Eq. 5.1.19])
+
+Where does E₁ come from?
+
+  When averaging log₂(1+αX) where X ~ Exp(1) (exponential distribution):
+
+    𝔼{log₂(1+αX)} = (1/ln2) × e^(1/α) E₁(1/α)
+
+  This is a standard result. In Level 1 with N = 1, the SINR conditioned
+  on ĥₖₗ has the form α|ĥₖₗ|² where |ĥₖₗ|² is exponentially distributed.
+  Averaging gives the E₁ function.
+
+
+2.5.2  UNDERSTANDING Aₖₗ: THE PILOT CONTAMINATION RATIO
+─────────────────────────────────────────────────────────
+
+    Aₖₗ = ∑_{i∈𝒫ₖ\{k}} (pᵢ γᵢₗ) / (pₖ γₖₗ)
+
+This is the ratio of CONTAMINATING channel estimate power to DESIRED
+channel estimate power at AP l.
+
+  • Aₖₗ = 0: No pilot contamination (UE k has a unique pilot)
+    → The SE formula simplifies (only the first term survives)
+
+  • Aₖₗ >> 1: Heavy pilot contamination (co-pilot UEs have much
+    stronger channels to AP l than UE k)
+    → Severe SE degradation
+
+  • Aₖₗ ≈ 1: Moderate contamination (similar-strength co-pilot UEs)
+
+
+2.5.3  PROOF SKETCH (From Appendix B)
+──────────────────────────────────────
+
+The proof uses [3, Cor. 1.3] with ĥₖₗ as the known channel realization.
+
+Step 1: With N = 1, everything is scalar. The combined signal at AP l is:
+
+  vₖₗ* yₗ = vₖₗ* hₖₗ sₖ + vₖₗ* ∑_{i≠k} hᵢₗ sᵢ + vₖₗ* nₗ
+
+Step 2: The SE is 𝔼{log₂(1 + pₖ|ĥₖₗ|² / 𝔼{|ε|² | ĥₖₗ})}
+
+Step 3: The interference power 𝔼{|ε|² | ĥₖₗ} involves conditioning on ĥₖₗ.
+
+  KEY SUBTLETY: For co-pilot UEs (i ∈ 𝒫ₖ\{k}), the estimates ĥᵢₗ and
+  ĥₖₗ are CORRELATED (they come from the same pilot observation z_tₖₗ).
+  Specifically:
+
+    ĥᵢₗ = (√pᵢτₚ βᵢₗ / √pₖτₚ βₖₗ) × (βᵢₗΨ⁻¹_tₖₗ / βₖₗΨ⁻¹_tₖₗ) × ĥₖₗ
+
+  Wait, more precisely for N = 1:
+
+    ĥᵢₗ = √pᵢτₚ βᵢₗ / Ψ_tₖₗ × z_tₖₗ
+    ĥₖₗ = √pₖτₚ βₖₗ / Ψ_tₖₗ × z_tₖₗ
+
+  So: ĥᵢₗ = (√pᵢ βᵢₗ) / (√pₖ βₖₗ) × ĥₖₗ  for all i ∈ 𝒫ₖ
+
+  This means: conditioned on ĥₖₗ, the co-pilot estimates ĥᵢₗ are
+  DETERMINISTIC (proportional to ĥₖₗ). This creates the COHERENT
+  pilot contamination interference captured by the Aₖₗ term.
+
+Step 4: After conditioning on ĥₖₗ, the SINR has the form:
+
+  SINR = pₖ|ĥₖₗ|² / (pₖAₖₗ|ĥₖₗ|² + Cₖₗ,effective + σ²)
+
+  = |ĥₖₗ|² / ((Aₖₗ)|ĥₖₗ|² + constant)
+
+Step 5: Averaging log₂(1+SINR) over the distribution of |ĥₖₗ|² (which
+  is exponential with mean γₖₗ) yields the E₁ expressions in (29).
+
+Step 6: The specific form comes from decomposing:
+
+  𝔼{log₂(1 + X/(aX+b))} = 𝔼{log₂(1 + (1+a)X/b)} - 𝔼{log₂(1 + aX/b)}
+
+  where X = |ĥₖₗ|² ~ Exp(γₖₗ), and each expectation gives an E₁ function.
+
+
+2.5.4  DIFFERENCE FROM [16, Eq. (47)]
+──────────────────────────────────────
+
+The paper notes an important correction to [16]:
+
+  The SE expression in [16] is equivalent to (29) ONLY when Aₖₗ = 0
+  (no pilot contamination).
+
+  When Aₖₗ ≠ 0, [16] seems to have neglected the conditioning on ĥₖₗ
+  when computing the interference power. Specifically, [16] did not
+  account for the fact that co-pilot estimates ĥᵢₗ are correlated with
+  ĥₖₗ (they are proportional for N = 1).
+
+  This means [16]'s SE formula is APPROXIMATE (too optimistic) in the
+  presence of pilot contamination. Proposition 3 provides the EXACT
+  expression.
+
+
+2.6  REMARK 3: NUMERICAL STABILITY
+────────────────────────────────────
+
+The expression in (29) involves e^(1/x) × E₁(1/x), which is numerically
+unstable when x → 0 because:
+  • e^(1/x) → ∞
+  • E₁(1/x) → 0
+  • Their product → x (but computing it directly causes overflow/underflow)
+
+The paper uses the bounds from [49, Eq. 5.1.19]:
+
+    x/(1+x) ≤ e^(1/x) E₁(1/x) ≤ x
+
+So when γₖₗ(1+Aₖₗ) or γₖₗAₖₗ is very small:
+
+    e^(1/x) E₁(1/x) ≈ x
+
+This is used as a numerical replacement to avoid computing e^(1/x) for
+tiny x.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. HISTORICAL AND PRIOR DEVELOPMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  SMALL CELLS AND HETEROGENEOUS NETWORKS
+────────────────────────────────────────────
+
+Small cells (femtocells, picocells, microcells) have been studied
+extensively in the context of Heterogeneous Networks (HetNets):
+
+  • Andrews et al. (2012): "An overview of load coupling and its
+    applications in heterogeneous cellular networks" — comprehensive survey
+  • Lopez-Perez et al. (2011): "OFDMA femtocells: A roadmap on
+    interference avoidance," IEEE Commun. Mag.
+
+Small cells are a special case of Cell-free mMIMO where each AP serves
+only its own UEs with NO cooperation. The advantage: zero fronthaul cost.
+The disadvantage: no macro diversity, no cooperative interference management.
+
+
+3.2  AP SELECTION AND USER ASSOCIATION
+───────────────────────────────────────
+
+User association (deciding which AP/BS serves which UE) is a well-studied
+optimization problem:
+
+  • Ye et al. (2013): "User association for load balancing in heterogeneous
+    cellular networks," IEEE TWC — showed that max-SINR association
+    (similar to this paper's approach) outperforms max-RSS (received signal
+    strength, similar to max-β in [16])
+
+  • In [16]: Sequential greedy assignment based on max βₖₗ, with each AP
+    serving at most one UE. This restriction is artificial and was imposed
+    for simplicity, not performance.
+
+  • This paper: Assignment based on max SE, with no restriction on the
+    number of UEs per AP. Both changes improve performance significantly.
+
+
+3.3  THE EXPONENTIAL INTEGRAL IN WIRELESS COMMUNICATIONS
+──────────────────────────────────────────────────────────
+
+The exponential integral E₁(x) appears naturally in:
+
+  • Ergodic capacity of Rayleigh fading channels:
+    𝔼{log₂(1+ρ|h|²)} = (1/ln2) e^(1/ρ) E₁(1/ρ)  when |h|² ~ Exp(1)
+
+  • First derived in this context by:
+    Goldsmith & Varaiya (1997): "Capacity of fading channels with channel
+    side information," IEEE TIT
+
+  • Also appears in:
+    Alouini & Goldsmith (1999): "Capacity of Rayleigh fading channels
+    under different adaptive transmission and diversity-combining
+    techniques," IEEE TVT
+
+The specific form in Proposition 3 generalizes these results to include
+pilot contamination (the Aₖₗ term), which creates a more complex
+integration that yields the difference of two E₁ functions.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. COMPLETE MATHEMATICAL DERIVATIONS (Unicode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  DERIVATION OF SINR⁽¹ˡ⁾ₖ (Eq. 27-28)
+──────────────────────────────────────────
+
+This follows directly from Proposition 1 restricted to AP l.
+
+At AP l, the received signal is:
+
+    yₗ = ∑ᵢ₌₁ᴷ hᵢₗ sᵢ + nₗ
+
+This is a single-cell Massive MIMO with N antennas and K users.
+The achievable SE from [3, Th. 4.1] gives:
+
+                         pₖ |vₖₗᴴ ĥₖₗ|²
+  SINR⁽¹ˡ⁾ₖ = ──────────────────────────────────────────────
+                K                       ⎛ K               ⎞
+                ∑  pᵢ|vₖₗᴴĥᵢₗ|² + vₖₗᴴ⎜ ∑ pᵢCᵢₗ + σ²Iₙ⎟vₖₗ
+               i=1                     ⎝i=1              ⎠
+               i≠k
+
+Maximized by L-MMSE: vₖₗ = pₖ(∑ᵢ pᵢ(ĥᵢₗĥᵢₗᴴ+Cᵢₗ)+σ²Iₙ)⁻¹ĥₖₗ
+
+The maximum:
+
+                        ⎛ K                   K              ⎞⁻¹
+  SINR⁽¹ˡ⁾ₖ = pₖ ĥₖₗᴴ ⎜ ∑ pᵢĥᵢₗĥᵢₗᴴ + ∑ pᵢCᵢₗ + σ²Iₙ ⎟  ĥₖₗ  ... (28)
+                        ⎝i=1                i=1             ⎠
+                         i≠k
+
+The UE is then served by: l* = argmax_l 𝔼{log₂(1+SINR⁽¹ˡ⁾ₖ)}
+
+
+4.2  FULL DERIVATION OF PROPOSITION 3 (From Appendix B)
+────────────────────────────────────────────────────────
+
+We derive the closed-form SE for N = 1. All quantities are SCALARS.
+
+Step 1: The achievable SE bound from [3, Cor. 1.3]:
+
+  SE = 𝔼{log₂(1 + pₖ|ĥₖₗ|² / 𝔼{|ε|² | ĥₖₗ})}                ... (46)
+
+  Where ε = h̃ₖₗsₖ + ∑_{i≠k} hᵢₗsᵢ represents interference + error.
+
+Step 2: Compute 𝔼{|ε|² | ĥₖₗ}:
+
+  𝔼{|ε|² | ĥₖₗ} = pₖCₖₗ + ∑_{i≠k} pᵢ 𝔼{|hᵢₗ|² | ĥₖₗ}
+
+  Now we need 𝔼{|hᵢₗ|² | ĥₖₗ} for different cases:
+
+  Case 1: i ∉ 𝒫ₖ (UE i uses a different pilot)
+    hᵢₗ is INDEPENDENT of ĥₖₗ (different pilots → independent estimates)
+    𝔼{|hᵢₗ|² | ĥₖₗ} = 𝔼{|hᵢₗ|²} = βᵢₗ
+
+  But we can decompose: βᵢₗ = γᵢₗ + Cᵢₗ (since N=1, these are scalars)
+  So this contributes: pᵢβᵢₗ = pᵢ(γᵢₗ + Cᵢₗ) = pᵢγᵢₗ + pᵢCᵢₗ
+
+  Wait, more carefully: for i ∉ 𝒫ₖ, ĥᵢₗ is independent of ĥₖₗ.
+    𝔼{|hᵢₗ|² | ĥₖₗ} = βᵢₗ
+
+  Case 2: i ∈ 𝒫ₖ\{k} (UE i shares pilot with UE k)
+    ĥᵢₗ and ĥₖₗ are CORRELATED. For N = 1:
+
+    ĥᵢₗ = √pᵢτₚ βᵢₗ / Ψ_tₖₗ × z_tₖₗ
+    ĥₖₗ = √pₖτₚ βₖₗ / Ψ_tₖₗ × z_tₖₗ
+
+    Therefore: ĥᵢₗ = (√pᵢ βᵢₗ) / (√pₖ βₖₗ) × ĥₖₗ
+
+    This means: conditioned on ĥₖₗ, ĥᵢₗ is KNOWN (deterministic).
+
+    Now: hᵢₗ = ĥᵢₗ + h̃ᵢₗ, where h̃ᵢₗ is independent of ĥₖₗ.
+
+    𝔼{|hᵢₗ|² | ĥₖₗ} = |ĥᵢₗ|² + Cᵢₗ = (pᵢβᵢₗ²)/(pₖβₖₗ²) |ĥₖₗ|² + Cᵢₗ
+
+Step 3: Substituting into the interference power:
+
+  𝔼{|ε|² | ĥₖₗ} = pₖCₖₗ
+                   + ∑_{i∈𝒫ₖ\{k}} pᵢ((pᵢβᵢₗ²)/(pₖβₖₗ²)|ĥₖₗ|² + Cᵢₗ)
+                   + ∑_{i∉𝒫ₖ} pᵢβᵢₗ
+
+  Rearranging: = (∑_{i∈𝒫ₖ\{k}} pᵢ²βᵢₗ²/(pₖβₖₗ²)) |ĥₖₗ|²
+                + (pₖCₖₗ + ∑_{i∈𝒫ₖ\{k}} pᵢCᵢₗ + ∑_{i∉𝒫ₖ} pᵢβᵢₗ)
+
+  Let's denote:
+    α₁ = ∑_{i∈𝒫ₖ\{k}} pᵢ²βᵢₗ²/(pₖβₖₗ²) = pₖγₖₗ Aₖₗ  (pilot contamination)
+    α₂ = constant terms (estimation errors + non-copilot interference)
+
+  So: 𝔼{|ε|² | ĥₖₗ} = α₁|ĥₖₗ|² + α₂
+
+  And the SINR conditioned on ĥₖₗ is:
+
+    SINR = pₖ|ĥₖₗ|² / (α₁|ĥₖₗ|² + α₂)
+
+Step 4: Average over |ĥₖₗ|² ~ Exponential(γₖₗ):
+
+  Let X = |ĥₖₗ|² with pdf fₓ(x) = (1/γₖₗ)e^(-x/γₖₗ), x ≥ 0
+
+  SE = 𝔼{log₂(1 + pₖX/(α₁X + α₂))}
+
+  Use the decomposition:
+
+    log₂(1 + pₖX/(α₁X+α₂)) = log₂((α₁X+α₂+pₖX)/(α₁X+α₂))
+                               = log₂(1 + (α₁+pₖ)X/α₂) - log₂(1 + α₁X/α₂)
+
+  Each expectation has the form 𝔼{log₂(1+cX)} with X ~ Exp(γₖₗ):
+
+    𝔼{log₂(1+cX)} = (1/ln2) × e^(1/(cγₖₗ)) × E₁(1/(cγₖₗ))
+
+  Applying:
+    First term: c₁ = (α₁+pₖ)/α₂ → corresponds to 1/(γₖₗ(1+Aₖₗ))
+    Second term: c₂ = α₁/α₂ → corresponds to 1/(γₖₗAₖₗ)
+
+  SE = (1/ln2)[e^(1/(γₖₗ(1+Aₖₗ))) E₁(1/(γₖₗ(1+Aₖₗ)))
+              - e^(1/(γₖₗAₖₗ)) E₁(1/(γₖₗAₖₗ))]                ... (29) ✓
+
+
+4.3  SPECIAL CASE: NO PILOT CONTAMINATION (Aₖₗ = 0)
+────────────────────────────────────────────────────
+
+When 𝒫ₖ = {k} (no co-pilot UEs), Aₖₗ = 0.
+
+The second term involves γₖₗ × 0 → 0 in the argument.
+Using e^(1/x)E₁(1/x) → x as x → 0:
+
+  The second term → γₖₗ × Aₖₗ → 0
+
+So: SE = (1/ln2) e^(1/(γₖₗ)) E₁(1/(γₖₗ))
+
+This is the classical ergodic capacity of a Rayleigh fading channel
+with average SNR γₖₗ — a well-known result.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. NUMERICAL EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE 1: AP Selection — Max β vs Max SE
+──────────────────────────────────────────
+
+Setup: K = 2 UEs sharing pilot 1, L = 3 APs, N = 1
+
+Large-scale fading coefficients:
+  β₁₁ = 0.5,  β₁₂ = 0.3,  β₁₃ = 0.1   (UE 1)
+  β₂₁ = 0.4,  β₂₂ = 0.05, β₂₃ = 0.02  (UE 2, co-pilot)
+
+p₁ = p₂ = 1, τₚ = 5, σ² = 10⁻⁴ (negligible noise)
+
+Compute γ and A for UE 1 at each AP:
+
+AP 1: Ψ₁ = p₁τₚβ₁₁ + p₂τₚβ₂₁ = 5×0.5 + 5×0.4 = 4.5
+      γ₁₁ = p₁²τₚβ₁₁² / Ψ₁ = 1×5×0.25/4.5 = 0.278
+      γ₂₁ = p₂²τₚβ₂₁² / Ψ₁ = 1×5×0.16/4.5 = 0.178
+      A₁₁ = p₂γ₂₁ / (p₁γ₁₁) = 0.178/0.278 = 0.640
+      → Aₖₗ = 0.640  (significant contamination!)
+
+AP 2: Ψ₂ = 5×0.3 + 5×0.05 = 1.75
+      γ₁₂ = 5×0.09/1.75 = 0.257
+      γ₂₂ = 5×0.0025/1.75 = 0.00714
+      A₁₂ = 0.00714/0.257 = 0.0278
+      → Aₖₗ = 0.028  (almost no contamination!)
+
+AP 3: Ψ₃ = 5×0.1 + 5×0.02 = 0.60
+      γ₁₃ = 5×0.01/0.60 = 0.0833
+      γ₂₃ = 5×0.0004/0.60 = 0.00333
+      A₁₃ = 0.00333/0.0833 = 0.040
+
+Max-β selection (method of [16]): Choose AP 1 (β₁₁ = 0.5 is largest)
+  But AP 1 has A = 0.640 (heavy pilot contamination from UE 2!)
+
+Max-SE selection (this paper): Likely AP 2, because:
+  • γ₁₂ = 0.257 (slightly less than γ₁₁ = 0.278)
+  • But A₁₂ = 0.028 << A₁₁ = 0.640 (much less contamination)
+  • The SE at AP 2 may be HIGHER despite the weaker signal
+
+The SE at AP 1:
+  e^(1/(0.278×1.64)) E₁(1/(0.278×1.64)) - e^(1/(0.278×0.64)) E₁(1/(0.278×0.64))
+  = e^(2.19) E₁(2.19) - e^(5.62) E₁(5.62)
+  ≈ 8.94 × 0.0746 - 275 × 0.000785
+  ≈ 0.667 - 0.216 = 0.451  → SE ≈ 0.451/ln(2) = 0.651 bit/s/Hz
+
+The SE at AP 2:
+  e^(1/(0.257×1.028)) E₁(1/(0.257×1.028)) - e^(1/(0.257×0.028)) E₁(1/(0.257×0.028))
+  = e^(3.79) E₁(3.79) - e^(139) E₁(139)
+  ≈ 44.1 × 0.0125 - ≈0 (extremely small)
+  ≈ 0.551 → SE ≈ 0.551/ln(2) = 0.795 bit/s/Hz
+
+AP 2 gives 22% HIGHER SE than AP 1, despite having a weaker signal!
+This demonstrates why SE-based AP selection is superior.
+
+
+EXAMPLE 2: Comparing SE with and without Pilot Contamination
+──────────────────────────────────────────────────────────────
+
+Setup: N = 1, γₖₗ = 10 (20 dB SNR after estimation)
+
+Case A: No contamination (Aₖₗ = 0)
+  SE = (1/ln2) e^(0.1) E₁(0.1)
+     = (1/0.693) × 1.105 × 1.823
+     = 1/0.693 × 2.014 = 2.907 bit/s/Hz
+
+Case B: Moderate contamination (Aₖₗ = 0.5)
+  SE = (1/ln2) [e^(1/15) E₁(1/15) - e^(1/5) E₁(1/5)]
+     = (1/0.693) [e^(0.0667) E₁(0.0667) - e^(0.2) E₁(0.2)]
+     = (1/0.693) [1.069 × 2.399 - 1.221 × 1.223]
+     = (1/0.693) [2.564 - 1.494]
+     = (1/0.693) × 1.070 = 1.544 bit/s/Hz
+
+Case C: Heavy contamination (Aₖₗ = 2)
+  SE = (1/ln2) [e^(1/30) E₁(1/30) - e^(1/20) E₁(1/20)]
+     = (1/0.693) [e^(0.0333) E₁(0.0333) - e^(0.05) E₁(0.05)]
+     = (1/0.693) [1.034 × 2.959 - 1.051 × 2.468]
+     = (1/0.693) [3.059 - 2.595]
+     = (1/0.693) × 0.464 = 0.670 bit/s/Hz
+
+Summary:
+  Aₖₗ = 0:   SE = 2.91 bit/s/Hz  (baseline)
+  Aₖₗ = 0.5: SE = 1.54 bit/s/Hz  (47% loss)
+  Aₖₗ = 2:   SE = 0.67 bit/s/Hz  (77% loss)
+
+Pilot contamination can be devastating at Level 1!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. PRACTICE PROBLEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM 1: L-MMSE SINR at Level 1 with N = 2
+──────────────────────────────────────────────
+An AP with N = 2 antennas serves K = 2 UEs.
+
+  ĥ₁ = [0.7, 0.3]ᵀ,  ĥ₂ = [0.2, 0.6]ᵀ
+  C₁ = diag(0.03, 0.02), C₂ = diag(0.02, 0.04)
+  p₁ = p₂ = 1, σ² = 0.05
+
+(a) Compute the matrix Σ that needs to be inverted for L-MMSE.
+(b) Compute SINR for UE 1 using MR combining v₁ = ĥ₁.
+
+Solution:
+
+(a) Σ = ∑ᵢ₌₁² pᵢ(ĥᵢĥᵢᴴ + Cᵢ) + σ²I₂
+
+    ĥ₁ĥ₁ᴴ = [0.7][0.7 0.3] = [0.49  0.21]
+              [0.3]              [0.21  0.09]
+
+    ĥ₂ĥ₂ᴴ = [0.2][0.2 0.6] = [0.04  0.12]
+              [0.6]              [0.12  0.36]
+
+    Σ = [0.49+0.03  0.21   ] + [0.04+0.02  0.12   ] + [0.05  0   ]
+        [0.21       0.09+0.02]   [0.12       0.36+0.04]   [0     0.05]
+
+      = [0.52  0.21] + [0.06  0.12] + [0.05  0  ]
+        [0.21  0.11]   [0.12  0.40]   [0     0.05]
+
+      = [0.63  0.33]
+        [0.33  0.56]
+
+(b) MR for UE 1: v₁ = ĥ₁ = [0.7, 0.3]ᵀ
+
+    Desired: p₁|v₁ᴴĥ₁|² = |ĥ₁ᴴĥ₁|² = |0.49+0.09|² = 0.58² = 0.3364
+
+    Interference: p₂|v₁ᴴĥ₂|² = |0.7×0.2+0.3×0.6|² = |0.14+0.18|² = 0.32² = 0.1024
+
+    Error+noise: v₁ᴴ(C₁+C₂+σ²I)v₁ = v₁ᴴ diag(0.10,0.11) v₁
+                = 0.10×0.49 + 0.11×0.09 = 0.049 + 0.0099 = 0.0589
+
+    SINR_MR = 0.3364 / (0.1024 + 0.0589) = 0.3364 / 0.1613 = 2.085
+    SE_MR = log₂(1+2.085) = log₂(3.085) ≈ 1.625 bit/s/Hz
+
+    The L-MMSE SINR would be higher because the 2×2 matrix inversion
+    allows the combiner to partially null UE 2's interference.
+
+
+PROBLEM 2: Pilot Contamination Ratio
+─────────────────────────────────────
+A network with N = 1. UE k shares pilot with one other UE (UE i).
+
+  βₖₗ = 0.3, βᵢₗ = 0.1, pₖ = pᵢ = 0.1 W, τₚ = 10, σ² ≈ 0
+
+(a) Compute Ψ_tₖₗ.
+(b) Compute γₖₗ and γᵢₗ.
+(c) Compute the pilot contamination ratio Aₖₗ.
+(d) Is the contamination severe?
+
+Solution:
+
+(a) Ψ = pₖτₚβₖₗ + pᵢτₚβᵢₗ = 0.1×10×0.3 + 0.1×10×0.1 = 0.3 + 0.1 = 0.4
+
+(b) γₖₗ = pₖτₚβₖₗ² / Ψ = 0.1×10×0.09 / 0.4 = 0.09/0.4 = 0.225
+    γᵢₗ = pᵢτₚβᵢₗ² / Ψ = 0.1×10×0.01 / 0.4 = 0.01/0.4 = 0.025
+
+(c) Aₖₗ = pᵢγᵢₗ / (pₖγₖₗ) = 0.1×0.025 / (0.1×0.225) = 0.025/0.225 = 0.111
+
+(d) Aₖₗ = 0.111 is relatively small — the contaminating UE i has a much
+    weaker channel (βᵢₗ = 0.1 vs βₖₗ = 0.3) so its contamination is
+    manageable. This demonstrates the cell-free advantage: co-pilot UEs
+    are typically at different distances from most APs, resulting in low
+    Aₖₗ at most APs.
+
+
+PROBLEM 3: Comparing All Four Levels Conceptually
+──────────────────────────────────────────────────
+For a network with L = 100, N = 1, K = 40, rank the four levels in terms
+of: (a) SE, (b) fronthaul load, (c) computational complexity, (d) required
+CSI at CPU.
+
+Solution:
+
+(a) SE ranking (with MMSE/L-MMSE combining):
+    Level 4 >> Level 3 > Level 2 >> Level 1
+    (Level 4 is much better due to global MMSE processing;
+     Level 1 is worst but still useful for cell-edge UEs)
+
+(b) Fronthaul per coherence block (τc = 200, τₚ = 10):
+    Level 4: τcNL = 200×1×100 = 20,000 scalars
+    Level 3: (τc-τₚ)KL = 190×40×100 = 760,000 scalars
+    Level 2: Same as Level 3 = 760,000 scalars
+    Level 1: 0 (no fronthaul)
+
+    Ranking: Level 1 < Level 4 << Level 2 = Level 3
+
+(c) Computational complexity:
+    Level 4: O((LN)³) = O(100³) = O(10⁶) at CPU
+    Level 3: O(N³) = O(1) per AP + O(L³) for LSFD at CPU
+    Level 2: O(N³) = O(1) per AP + O(L) averaging at CPU
+    Level 1: O(N³) = O(1) per AP
+
+    Ranking: Level 1 < Level 2 < Level 3 < Level 4
+
+(d) CSI at CPU:
+    Level 4: All channel estimates + correlation matrices
+    Level 3: Channel statistics (𝔼{gₖᵢgₖᵢᴴ} etc.)
+    Level 2: Nothing
+    Level 1: Nothing
+
+    Ranking: Level 1 = Level 2 < Level 3 < Level 4
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. SUMMARY OF LEVEL 1 + COMPLETE SECTION III OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LEVEL 1:
+
+1. FULLY DISTRIBUTED: Each UE decoded by ONE AP. No fronthaul needed.
+   Equivalent to a small-cell network.
+
+2. AP SELECTION: This paper improves upon [16] by selecting the AP that
+   maximizes SE (not just max βₖₗ) and allowing each AP to serve multiple
+   UEs. This alone significantly improves Level 1 performance.
+
+3. ACHIEVABLE SE (Corollary 4): SE = (1-τₚ/τc) max_l 𝔼{log₂(1+SINR⁽¹ˡ⁾ₖ)}.
+   The max over l provides macro diversity despite no cooperation.
+
+4. L-MMSE COMBINING: Even with N = 1, L-MMSE outperforms MR. With N ≥ 4,
+   Level 1 becomes competitive with Level 2.
+
+5. CLOSED-FORM SE (Proposition 3): For N = 1, a closed-form involving the
+   exponential integral E₁ is derived. This corrects an error in [16] that
+   neglected pilot contamination conditioning.
+
+
+COMPLETE SECTION III OVERVIEW:
+
+  ┌─────────┬────────────┬──────────┬──────────────┬────────────────┐
+  │ Level   │ Best SE    │ Fronthaul│ CPU Info     │ Key Result     │
+  │         │ Expression │ per block│ Required      │                │
+  ├─────────┼────────────┼──────────┼──────────────┼────────────────┤
+  │ Level 4 │ Prop. 1    │ τcNL     │ Raw signals + │ MMSE combining │
+  │         │ Eq. (11)   │ (lowest) │ correlation   │ is optimal     │
+  │         │            │          │ matrices      │                │
+  ├─────────┼────────────┼──────────┼──────────────┼────────────────┤
+  │ Level 3 │ Prop. 2    │ (τc-τₚ)KL│ Local ests + │ LSFD optimizes │
+  │         │ Eq. (19)   │          │ many stats   │ AP weights     │
+  ├─────────┼────────────┼──────────┼──────────────┼────────────────┤
+  │ Level 2 │ Cor. 3     │ (τc-τₚ)KL│ Local ests   │ Simple average │
+  │         │ Eq. (24)   │          │ only          │ (suboptimal)   │
+  ├─────────┼────────────┼──────────┼──────────────┼────────────────┤
+  │ Level 1 │ Cor. 4     │ 0        │ Nothing      │ Best-AP        │
+  │         │ Eq. (26)   │          │               │ selection      │
+  └─────────┴────────────┴──────────┴──────────────┴────────────────┘
+
+THE PAPER'S FUNDAMENTAL HIERARCHY (with L-MMSE / MMSE):
+
+  SE:       Level 4 >> Level 3 > Level 2 > Level 1
+  Fronthaul: Level 1 < Level 4 << Level 2 = Level 3 (when K > N)
+  Complexity: Level 1 < Level 2 < Level 3 < Level 4
+
+  The "sweet spot": Level 4 is BEST in both SE AND fronthaul (when K > N),
+  making it the clear winner for practical Cell-free mMIMO implementation.
+
+THE MOST IMPORTANT FINDING OF SECTION III:
+
+  With MR combining:
+    Level 2 (MR) < Level 1 (MR) < Cellular mMIMO
+    → Cell-free mMIMO LOSES to both small cells and cellular!
+
+  With L-MMSE/MMSE combining:
+    Cellular mMIMO < Level 1 (L-MMSE) < Level 2 (L-MMSE) < Level 3 < Level 4
+    → Cell-free mMIMO WINS at every level!
+
+  The combining scheme matters MORE than the level of cooperation.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SOURCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3]  E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks,"
+     Found. Trends Signal Process., 2017.
+[15] E. Björnson and E. Jorswieck, "Optimal resource allocation in
+     coordinated multi-cell systems," Found. Trends CAIT, 2013.
+[16] H. Q. Ngo et al., "Cell-free Massive MIMO versus small cells,"
+     IEEE TWC, vol. 16, no. 3, 2017.
+[17] E. Nayebi et al., "Precoding and power optimization in cell-free
+     Massive MIMO systems," IEEE TWC, vol. 16, no. 7, 2017.
+[49] M. Abramowitz and I. Stegun, "Handbook of Mathematical Functions,"
+     Dover Publications, 1965.
