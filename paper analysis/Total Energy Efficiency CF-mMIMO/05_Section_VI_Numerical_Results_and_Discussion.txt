@@ -1,0 +1,882 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+         H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G. Larsson
+         IEEE TGCN, vol. 2, no. 1, pp. 25–39, Mar. 2018.
+--------------------------------------------------------------------------------
+  SECTION COVERED: SECTION VI — NUMERICAL RESULTS AND DISCUSSION
+                    (A. Parameters and Setup
+                     B. Results and Discussions
+                        1) Power Allocation       (Fig. 1, Fig. 2)
+                        2) AP Selection           (Fig. 3, Fig. 4)
+                        3) Effect of N_antennas   (Fig. 5)
+                        4) Cell-Free vs Colocated (Fig. 6))
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL (LAYMAN) EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+Sections II–V have given us everything we need:
+  •  a closed-form data-rate expression (Sec II, Prop 1),
+  •  a realistic power-consumption model with backhaul (Sec III),
+  •  an SCA-SOCP power-allocation algorithm (Sec IV, Algorithm 1),
+  •  two AP-selection schemes (Sec V, Algorithms 2 and 3).
+
+Section VI's job is to run all of this on a REALISTIC simulated
+cell-free deployment and answer four practical questions:
+
+   Q1. Does Algorithm 1 actually converge, and how fast?
+   Q2. How much does power control help total energy efficiency,
+       compared to naively "use full power equally"?
+   Q3. How much does AP selection help, and which scheme is better?
+       How many APs are actually needed per user?
+   Q4. What is the optimal number of antennas per AP (N), for a
+       fixed total service-antenna count MN? And is cell-free
+       massive MIMO really more energy-efficient than a single
+       colocated massive-MIMO base station with the same MN?
+
+The answers — which this section then pays off with six well-chosen
+figures — are:
+
+   A1. Algorithm 1 converges in ~10 iterations and empirically
+       matches the global optimum found by a branch-and-bound
+       method on small problems. So you can safely trust its
+       solutions as "effectively optimal" in practice.
+
+   A2. Power control (Algorithm 1) improves EE by a factor of about
+       2.6 to 3× compared to "no power control." This is a huge
+       free win that requires zero hardware change.
+
+   A3. AP selection further improves EE significantly, especially
+       at large M or at high backhaul cost P_bt. The received-
+       power-based scheme (Algorithm 2) is marginally better than
+       the LSF-based scheme (Algorithm 3), but the gap is small —
+       practical deployments can confidently use Algorithm 3, which
+       is cheaper. And each user ends up needing only about
+       10–20 APs out of 80–200, i.e. 5–20% of the total.
+
+   A4. There is an OPTIMAL number of antennas per AP N*, which
+       depends on the deployment density and the backhaul cost
+       P_bt. When backhaul is cheap and the area is small, you
+       want MANY APs with FEWER antennas each (N* small). When
+       backhaul is expensive or the area is large, you want FEWER
+       APs with MORE antennas each (N* large). And — critically —
+       cell-free massive MIMO beats colocated massive MIMO in EE
+       by a factor of 7.4× (at MN = 128) to 2.2× (at MN = 256)
+       when each user has a 1 bit/s/Hz quality-of-service
+       requirement. This is the "order-of-magnitude" headline that
+       appeared in the abstract.
+
+Together, these results validate the whole theoretical edifice of
+Sections II–V and deliver the punchline:
+
+    "Cell-free massive MIMO is not just a blackboard concept — it
+     is practically GREEN, provided you run the power-control +
+     AP-selection algorithms presented in this paper. Skipping
+     either step throws away most of the benefit."
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. PHD-LEVEL EXPLANATION — PART A: PARAMETERS AND SETUP
+───────────────────────────────────────────────────────────────────────────────
+
+─── 2.1  Geometry: the wrap-around square ────────────────────────────
+
+APs and users are placed UNIFORMLY AT RANDOM inside a square of side
+D kilometres, giving a D × D km² deployment area. The square is
+"wrapped around at the edges to avoid boundary effects", which
+means the simulation places identical copies of the square on every
+side of the original (a 3 × 3 torus) and uses the SHORTEST wrapped
+distance for computing path losses. This is the standard technique
+for simulating an infinite-grid deployment with only a finite amount
+of computation, pioneered by Marzetta's massive-MIMO textbook [7].
+
+Without wrap-around, an AP at the corner of the square would have
+half as many neighbours as an AP in the centre, and it would both
+experience AND cause less interference. Users near the edges would
+likewise be "cornered". Wrap-around restores translation invariance
+so that every AP and every user is statistically equivalent.
+
+Two deployment sizes are explored in the figures:
+   •  D = 1 km (dense deployment, e.g. a stadium or downtown
+      district)
+   •  D = 2 km (sparser deployment, e.g. a residential neighbourhood)
+
+─── 2.2  Pilot assignment: random from a pool of τ_p ─────────────────
+
+For simplicity the paper uses RANDOM pilot assignment: each user
+independently picks one of τ_p orthogonal length-τ_p pilot sequences
+uniformly at random. If K ≤ τ_p (e.g. K = 20 users and τ_p = 20),
+every user gets a DIFFERENT pilot and there is NO pilot contamination.
+If K > τ_p (e.g. K = 40 users and τ_p = 20), some users MUST share
+pilots, and the expected number of "collision partners" per user is
+
+      K/τ_p − 1 ≈ 2 − 1 = 1 collision partner
+
+so each user has ~one pilot-contamination interferer. This is a
+modest amount of contamination; heavier contamination requires
+smarter pilot-assignment schemes (covered in follow-up papers).
+
+The random assignment is pessimistic compared to smart assignment
+(e.g., Ngo 2017 TWC [6] Sec. III uses a greedy assignment that
+minimizes max inter-user interference), so the numerical results
+here represent a lower bound on what CF-mMIMO can achieve. The
+paper uses random assignment for simplicity and to keep the focus
+on EE rather than on pilot-assignment algorithms.
+
+─── 2.3  Large-scale fading: path loss × shadow fading (Eqs. 46–47) ─
+
+The large-scale fading β_{m,k} is modelled as
+
+     β_{m,k}  =  PL_{m,k}  ·  z_{m,k}                                 (46)
+
+with z_{m,k} = 10^(σ_sh · n_{m,k} / 10), n_{m,k} ~ 𝒩(0, 1), i.e.
+log-normal shadowing with standard deviation σ_sh dB. The paper
+uses σ_sh = 8 dB — the standard value for outdoor propagation used
+by Marzetta and across the cellular industry.
+
+PL_{m,k} is a THREE-SLOPE PATH LOSS model from Tang-Sun-Gong 2001
+(ref [24] in the paper), originally developed for NLOS street
+microcells in dense urban areas with low-antenna base stations:
+
+              ⎧ −L − 35 · log₁₀(d_{m,k}),           d_{m,k} > d_1
+   PL_{m,k} = ⎨ −L − 15 · log₁₀(d_1) − 20 · log₁₀(d_{m,k}),  d_0 < d_{m,k} ≤ d_1
+              ⎩ −L − 15 · log₁₀(d_1) − 20 · log₁₀(d_0),     d_{m,k} ≤ d_0        (47)
+
+where d_{m,k} is the distance between AP m and user k in metres, and
+
+   d_0 = 10 m          (below this, path loss is CAPPED at a constant)
+   d_1 = 50 m          (breakpoint between "near" and "far" regime)
+   L   = 140.7 dB      (absorbs carrier frequency, AP/user heights,
+                        reference distance; corresponds to about
+                        1.9 GHz with 15 m base-station antenna and
+                        1.65 m user antenna — typical urban macro)
+
+The three regimes have clear physical meanings:
+
+  •  Very close (d ≤ d_0 = 10 m):
+     The path loss is FROZEN at a constant −L − 15 log_{10}(d_1) −
+     20 log_{10}(d_0) ≈ −140.7 − 15·1.699 − 20·1.0 ≈ −186.2 dB.
+     (This includes the 10 m ground-wave cap and prevents absurd
+     "infinite gain" artefacts when a user sits right next to an AP.)
+
+  •  Near regime (10 m < d ≤ 50 m):
+     PL slope is −20 log₁₀(d) relative to the 10 m reference —
+     i.e. FREE SPACE PROPAGATION (path-loss exponent 2). This is
+     the typical very-near-AP behaviour.
+
+  •  Far regime (d > 50 m):
+     PL slope is −35 log₁₀(d) — i.e. path-loss exponent 3.5.
+     This is an AGGRESSIVE decay exponent representative of dense
+     urban NLOS propagation, where buildings severely attenuate the
+     signal.
+
+The split at d_1 = 50 m into "free-space" and "NLOS" regimes captures
+the transition from "you are close enough to the AP to enjoy
+line-of-sight-like propagation" to "you are in the NLOS shadow of
+buildings". The three-slope model is a widely-used 3GPP-compatible
+simplification of the full 3D ray-tracing propagation measurements
+from [24].
+
+─── 2.4  Power-consumption parameters (Table I of the paper) ───────
+
+   Parameter                                          Value
+   ─────────────────────────────────────────────────────────────
+   PA efficiency  ν_m                                 0.4
+   Per-antenna circuit  P_{tc,m}                      0.2 W
+   Fixed backhaul per AP  P_{0,m}                    0.825 W
+   Traffic-dep backhaul  P_{bt,m}                    0.25 W/(Gbit/s)
+
+These values are taken from Björnson-2015 [11] and Zuo-2016 [14],
+which in turn calibrated to the EARTH project measurements of
+Auer-2011. They are representative of small-cell / femtocell-grade
+AP hardware in the 2015–2017 era. Newer power amplifiers (envelope-
+tracking, GaN) can hit ν_m = 0.5 and beyond, which would make
+CF-mMIMO even more energy-efficient than Fig. 2–6 suggest.
+
+─── 2.5  Other constants ───────────────────────────────────────────
+
+   System bandwidth           B           = 20 MHz
+   Noise figure (at receiver) NF          = 9 dB
+   Normalized DL transmit SNR ρ_d         = 1 W    (see caveat below)
+   Normalized UL pilot  SNR   ρ_p         = 0.2 W  (20% of downlink)
+   Coherence interval         τ_c         = 200 samples
+
+The thermal noise power at 20 MHz bandwidth with NF = 9 dB is
+approximately
+
+   N_0  =  k T B · 10^(NF/10)  ≈  (1.38 × 10^{−23}) · (290) · (2 × 10^7)
+                                       · 10^0.9
+         ≈  6.4 × 10^{−14}  W     (~ −132 dBm)
+
+Caveat on "ρ_d = 1 W": in the paper's notation ρ_d is the
+NORMALIZED downlink SNR (dimensionless, normalized by N_0). So
+"ρ_d = 1" really means "the AP can transmit at SNR level 1 in units
+of noise power", which corresponds to an actual transmit power of
+roughly N_0 × 1 ≈ 6.4 × 10^{−14} W. In the simulations, a
+dimensional transmit power of ~200 mW is implicitly recovered by
+scaling; the numerical EE figures (which are the reported Mbit/J)
+should be interpreted in that calibrated sense.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. PHD-LEVEL EXPLANATION — PART B: RESULTS
+
+   We now walk through the six figures in order.
+───────────────────────────────────────────────────────────────────────────────
+
+─── 3.1  Fig. 1 — Convergence of Algorithm 1 ───────────────────────
+
+SETUP: N = 1 (single-antenna APs), D = 1 km, τ_p = 20, arbitrary
+large-scale-fading realization. Several (M, K) combinations are
+shown:
+   •  (M = 8, K = 2)    — a TINY case used to benchmark against BRB
+   •  (M = 100, K = 20)
+   •  (M = 100, K = 40)
+   •  (M = 200, K = 40)
+
+WHAT THE PLOT SHOWS: EE (in Mbit/Joule) as a function of the SCA
+iteration index, from iteration 0 to iteration ~15. The curves
+rise monotonically from the initial feasible point (solved by the
+initialization SOCP in step 1 of Algorithm 1) and plateau.
+
+KEY OBSERVATIONS:
+
+  (i)  Monotone increase. The EE at iteration n+1 is ALWAYS ≥ the
+       EE at iteration n (for all 4 curves). This confirms the
+       convergence analysis of Sec IV-D: the SCA bounds are tight at
+       the tangent point, so the previous iterate is always
+       feasible for the next SOCP, and the objective cannot
+       decrease.
+
+  (ii) Fast convergence. All curves essentially plateau after
+       ~10 iterations. The marginal improvement beyond iteration
+       10 is < 1%, which is well below any engineering-relevant
+       precision.
+
+  (iii) BRB benchmark (only for M = 8, K = 2). The paper modifies
+       the BRB code from Tervo-Tran-Juntti 2015 [25] and runs it on
+       the tiny (8, 2) case, finding the GLOBAL optimum as an
+       asymptote. Algorithm 1 converges to EXACTLY the BRB optimum.
+       So in the toy case, SCA IS globally optimal — not just a
+       KKT point. The paper extrapolates (cautiously) that SCA is
+       near-globally-optimal on larger instances as well.
+
+  (iv) Larger networks converge similarly fast. Going from (100,
+       20) to (200, 40) does NOT increase the number of iterations
+       needed. The convergence of SCA depends mostly on the shape
+       of the problem (degree of non-convexity), not on its size.
+
+CONCLUSION FROM FIG. 1: it is SAFE to fix N_I = 10 iterations and
+ε_tol = 0.01 for the rest of the numerical study. This is what the
+remaining figures use.
+
+─── 3.2  Fig. 2 — Impact of power control (vs "no power control") ──
+
+SETUP: N = 1, D = 1 km, τ_p = 20, M varies from 20 to 100 on the
+x-axis. Two curves per K value: (K = 20) and (K = 40).
+
+WHAT IS "NO POWER CONTROL"? Each AP uses FULL TRANSMIT POWER (the
+per-AP power constraint holds with equality) and distributes it
+EQUALLY among the K users:
+
+    η_{m,k}  =  ( N · Σ_{k'=1}^K γ_{m,k'} )^{-1}    for all k
+             (independent of k)
+
+This way Σ_k η_{m,k} γ_{m,k} = 1/N is exactly satisfied. The target
+S_o,k for the optimized Algorithm-1 curve is set to match the
+spectral efficiency that "no power control" achieves, so that the
+comparison is fair (both deliver the same per-user QoS).
+
+WHAT THE PLOT SHOWS: Average EE versus the number of APs M, for two
+user-count values (K = 20 and K = 40), for both power-control
+methods. Averages are taken over many large-scale-fading
+realizations.
+
+KEY OBSERVATIONS:
+
+  (i)  Power control WINS by a LARGE margin. At M = 100:
+          K = 20:  EE(Alg-1) ≈ 11   Mbit/J
+                    EE(no PC) ≈ 3.8 Mbit/J
+                    → improvement factor ≈ 2.9×
+          K = 40:  EE(Alg-1) ≈ 10   Mbit/J
+                    EE(no PC) ≈ 3.9 Mbit/J
+                    → improvement factor ≈ 2.6×
+       So Algorithm 1 roughly TRIPLES energy efficiency at zero
+       hardware cost. This is the single biggest "free win" of the
+       whole paper.
+
+  (ii) Why does EE increase with M for the optimized curve? Because
+       a larger number of APs provides more spatial diversity and
+       array gain, which raises S_e faster than the backhaul cost
+       can drag it down (at least for M up to ~100). This is the
+       classical "more APs help" massive-MIMO intuition.
+
+  (iii) Why does EE DECREASE slightly with K (from K=20 to K=40)?
+       Because more users means more pilot contamination (random
+       pilot assignment, and K > τ_p = 20 when K = 40 forces
+       collisions), and also more backhaul traffic — both of which
+       hurt EE. The effect is moderate: EE drops from ~11 to ~10
+       Mbit/J.
+
+  (iv) The "no power control" curve is roughly flat in M, because
+       adding APs under equal-power allocation just replicates the
+       same waste of transmit power across more APs; no intelligent
+       reallocation happens. The benefit from Algorithm 1 is that
+       it aggressively SHUTS DOWN some η_{m,k} entries when they
+       are inefficient.
+
+CONCLUSION FROM FIG. 2: the remaining figures in the paper always
+use power control (Algorithm 1). Also: when a problem is infeasible
+(S_o,k cannot be achieved with any power allocation), the paper
+sets EE = 0 — the curves always plot finite positive values because
+the simulation samples only feasible realizations, or averages in
+infeasible EE = 0 events.
+
+─── 3.3  Fig. 3 — Impact of AP selection ────────────────────────────
+
+SETUP: M = 100, K = 40, N = 1, D = 1 km, τ_p = 40 (enough pilots
+for all K users to have an orthogonal pilot, so NO pilot
+contamination in this figure), S_o,k = 1 bit/s/Hz for all users.
+Selection threshold ρ = 95%. The x-axis is the traffic-dependent
+backhaul power P_{bt,m} (assumed equal for all m, i.e. P_{bt}),
+ranging from 0.25 to 2 W/(Gbit/s).
+
+THREE CURVES:
+   (a) "no AP selection" (Algorithm 1 alone, baseline)
+   (b) "largest-large-scale-based selection" (Algorithm 3)
+   (c) "received-power-based selection" (Algorithm 2)
+
+WHAT THE PLOT SHOWS: Average EE in Mbit/J versus P_bt.
+
+KEY OBSERVATIONS:
+
+  (i)  The baseline (no selection) EE DECREASES STEEPLY with P_bt:
+       at P_bt = 0.25 it is high (say 10 Mbit/J), but at P_bt = 2
+       it has crashed to ~3 Mbit/J. This is the "backhaul is the
+       elephant" effect — as backhaul becomes more expensive, the
+       denominator of E_e blows up and EE collapses.
+
+  (ii) Both AP-selection curves are almost FLAT in P_bt. They
+       start at roughly the same value as the baseline at P_bt =
+       0.25 and remain within a few % of that value as P_bt grows
+       to 2. The algorithms effectively SHIELD EE from increases
+       in backhaul cost by keeping only the necessary APs active.
+       This is the main argument for using AP selection.
+
+  (iii) Both AP-selection schemes are close: Received-power-based
+       is slightly better than largest-LSF-based (as expected,
+       since the former uses more information about interference
+       and power allocation). But the gap is SMALL — typically
+       within 5–10%. So Algorithm 3 is an excellent practical
+       choice because it is cheaper.
+
+  (iv) Gains are LARGEST at high P_bt. At P_bt = 2, AP selection
+       doubles EE compared to the baseline. At P_bt = 0.25, the
+       gain is smaller (~20%) because the baseline already works
+       well. The lesson: AP selection is essential in deployments
+       with expensive backhaul (e.g. wireless backhaul, distant
+       APs), and optional but still helpful elsewhere.
+
+─── 3.4  Fig. 4 — How many APs per user are actually chosen? ──────
+
+SETUP: K = 40, N = 1, τ_p = 40, S_o,k = 1, ρ = 95%. D ∈ {1, 2} km.
+M on the x-axis, ranging from 80 to 200.
+
+TWO CURVES per D (so four curves total): received-power-based and
+largest-LSF-based.
+
+WHAT THE PLOT SHOWS: the AVERAGE NUMBER OF APs SELECTED per user,
+as a function of total M. If it scaled as M (e.g. always 50% of M),
+the curves would be straight lines through the origin; if it were
+a constant, the curves would be horizontal.
+
+KEY OBSERVATIONS:
+
+  (i)  The average |A_k| is ROUGHLY CONSTANT in M for D = 1 km:
+       at M = 80 it is ~10 APs, at M = 200 it is ~15 APs. So the
+       number of ACTIVE associations per user scales SUB-LINEARLY
+       with M. This is a crucial scalability observation: even as
+       you densify the network, the backhaul load per user stays
+       roughly constant. Without selection, it would scale linearly.
+
+  (ii) D = 2 km (sparser deployment) requires MORE APs per user
+       than D = 1 km (denser): at M = 200, D = 2 km selects ~30
+       APs per user while D = 1 km selects only ~15. Why? Because
+       in a sparser deployment, the β's decay more slowly across
+       APs (there are fewer very-close APs to dominate), so you
+       need more of them to reach the 95% cumulative threshold.
+
+  (iii) Received-power-based selects SLIGHTLY FEWER APs than
+       largest-LSF-based (by ~10%). The reason is that the
+       received-power criterion "sees" how well the power-control
+       algorithm is allocating η — some of the APs with strong β
+       are actually being given very small η because they serve
+       many users, so they contribute less than an LSF-only ranking
+       would suggest. Received-power-based correctly drops them.
+
+CONCLUSION FROM FIG. 4: the paper concludes "only about 10%–20%
+of the total number of APs really participate in serving a given
+user. These results imply that ... it is enough for each user to
+choose a small number of APs around it, which enables the PRACTICAL
+IMPLEMENTATION of cell-free massive MIMO." This is essentially the
+motto of user-centric cell-free massive MIMO that blossomed in
+2018 and afterwards. In the remaining numerical results, the paper
+uses received-power-based selection with ρ = 95%.
+
+─── 3.5  Fig. 5 — Effect of N (antennas per AP), fixed MN = 256 ───
+
+SETUP: K = 40, τ_p = 40, total service antennas MN = 256. N varies
+on the x-axis from 1 to ~150, so M decreases correspondingly from
+256 down to ~2. Received-power-based selection with ρ = 95%.
+
+Three curves for three (D, P_{bt,m}, S_{o,k}) combinations:
+   •  D = 1 km, P_{bt,m} = 0.25 W/(Gbit/s), S_{o,k} = 1  (best case)
+   •  D = 2 km, P_{bt,m} = 0.5  W/(Gbit/s), S_{o,k} = 1  (medium)
+   •  D = 2 km, P_{bt,m} = 0.25 W/(Gbit/s), S_{o,k} = 2  (harder QoS)
+
+WHAT THE PLOT SHOWS: The EE is NOT MONOTONE in N — it first
+INCREASES (as N grows from 1), reaches a MAXIMUM at some optimal
+N*, and then DECREASES (as N grows beyond N*). The curves look
+like inverted-U / concave functions, with distinct peaks.
+
+THE INTUITION behind the U-shape is the classical CF-mMIMO trade-off:
+
+  •  Small N (many APs). You have M = MN/N = 256/N APs, so M is
+     large. This gives:
+        + High macro-diversity: every user is close to some AP.
+        + High spectral efficiency (the direct-signal N² gain per
+          AP is small but the number of APs is huge).
+        − High per-AP backhaul: Σ_m P_{0,m} = 256/N × 0.825 W.
+          For N = 1, this is 211 W — a massive fixed cost.
+        − High per-AP circuit power: unchanged.
+     Net effect: backhaul costs dominate EE.
+
+  •  Large N (few APs). You have few APs, each with many antennas.
+        + Low per-AP backhaul: Σ_m P_{0,m} = 256/N × 0.825 W is small.
+          For N = 64, it is only 3.3 W.
+        + Large array gain per AP: N² coherent combining within
+          each AP.
+        − Low macro-diversity: users near "gaps" between APs suffer.
+          SE decreases because users are farther from the nearest
+          AP on average.
+     Net effect: lower SE but much lower power → EE could go
+     either way.
+
+OPTIMAL N*: the sweet spot between these two effects. It depends
+on the specific deployment:
+
+  (i)  D = 1 km, P_bt = 0.25, S_o = 1 (dense + cheap backhaul):
+       N* is small (~4), because backhaul is cheap so you can
+       afford many APs. Peak EE ≈ 25 Mbit/J.
+
+  (ii) D = 2 km, P_bt = 0.5, S_o = 1 (sparse + expensive backhaul):
+       N* shifts HIGHER (~16), because backhaul is expensive so
+       you save money by using fewer APs. Peak EE ≈ 15 Mbit/J
+       — lower than (i) because the underlying conditions are worse.
+
+  (iii) D = 2 km, P_bt = 0.25, S_o = 2 (sparse + cheap backhaul +
+       harder QoS): N* is even HIGHER (~32), because the user
+       is asking for twice the data rate of (ii), which requires
+       more array gain per AP. Peak EE ≈ 5 Mbit/J — much lower
+       because the QoS is harder to meet.
+
+GENERAL RULE-OF-THUMB from the paper:
+   •  at LOW P_bt, LOW S_o, SMALL D  →  small N* (many APs, few
+      antennas per AP).
+   •  at HIGH P_bt, HIGH S_o, LARGE D →  large N* (few APs, many
+      antennas per AP).
+
+CONCLUSION FROM FIG. 5: there is a design principle for choosing N
+given the deployment parameters. The paper does NOT derive a
+closed-form N* expression, but Fig. 5 lets an engineer eyeball the
+right range for any given (D, P_bt, S_o) triple.
+
+─── 3.6  Fig. 6 — Cell-Free vs Colocated Massive MIMO ──────────────
+
+SETUP: K = 20, τ_p = 40 (no pilot contamination), D = 1 km. Two
+values of MN (= 128 and 256). x-axis: SUM SPECTRAL EFFICIENCY TARGET
+Σ_{k=1}^K S_{o,k} in bit/s/Hz. y-axis: average EE in Mbit/J.
+
+COLOCATED MASSIVE MIMO baseline: M = 1, N ∈ {128, 256}. One huge
+BS with a massive antenna array.
+
+CELL-FREE MASSIVE MIMO: received-power-based selection with the
+best-for-that-column N* as selected from Fig. 5. For MN = 128
+and D = 1 km, N* = 4 → M = 32; for MN = 256 and D = 1 km, N* = 4
+→ M = 64 (approximately).
+
+WHAT THE PLOT SHOWS: EE vs. sum rate target. As the sum target
+increases, both CF and colocated curves rise (you're getting more
+bits per joule), reach a peak, and fall (once the target becomes
+too hard for the available power — SE saturates and EE drops).
+
+KEY OBSERVATIONS:
+
+  (i)  CELL-FREE MASSIVE MIMO IS SIGNIFICANTLY BETTER, for BOTH
+       MN values. The CF curve is uniformly above the colocated
+       curve across the entire range of sum-rate targets.
+
+  (ii) Gain quantified: with Σ_k S_{o,k} = 20 bit/s/Hz (1 bit/s/Hz
+       per user), cell-free massive MIMO delivers:
+          MN = 128:  CF ≈ 20 Mbit/J, colocated ≈ 2.7 Mbit/J
+                    → CF factor ≈ 7.4×
+          MN = 256:  CF ≈ 22 Mbit/J, colocated ≈ 10 Mbit/J
+                    → CF factor ≈ 2.2×
+       So at MODERATE antenna counts (MN = 128), CF-mMIMO is
+       7.4× MORE ENERGY-EFFICIENT than a single colocated massive-
+       MIMO BS. This is the order-of-magnitude headline from the
+       abstract.
+
+  (iii) The gap SHRINKS as MN grows (from 7.4× at MN = 128 to
+       2.2× at MN = 256). Why? At very large antenna counts, the
+       colocated BS has so much array gain that it can reach every
+       user's QoS target with very little transmit power, even
+       the cell-edge users. At MN = 128, by contrast, the
+       colocated BS struggles with cell-edge users (not enough
+       diversity), while the distributed CF array has an AP
+       near every user and delivers the QoS easily with minimal
+       power. The distance-based macro-diversity gain of CF is
+       inversely proportional to how much array gain you have.
+
+  (iv) The cell-free curve is ALSO more "resilient": its peak is
+       broader and its drop-off at high target rates is gentler.
+       This is again the diversity effect: even when the target
+       becomes aggressive, the CF array has nearby APs that can
+       still deliver.
+
+CONCLUSION FROM FIG. 6: "This shows the strong potential of
+cell-free massive MIMO to boost the energy and spectral
+efficiency of 5G networks." The paper ends Section VI on this
+note, which — five years later — is borne out by every subsequent
+CF-mMIMO deployment study.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. HISTORICAL / PRIOR DEVELOPMENTS — the simulation methodology
+───────────────────────────────────────────────────────────────────────────────
+
+The simulation methodology used in Section VI is a fairly standard
+recipe in the cell-free literature circa 2017, but worth unpacking:
+
+▸ **Wrap-around torus simulation** was introduced by Marzetta for
+  massive-MIMO studies in his 2010 TWC paper and has been the
+  default way to simulate "infinite planar deployments" in a
+  finite computer since. Without it, edge APs would have fewer
+  interferers and bias the averages.
+
+▸ **Three-slope path-loss model** [24] is Tang-Sun-Gong 2001, a
+  VTC Spring paper that measured propagation in NLOS urban streets
+  with LOW base-station antennas. It was adopted in Ngo-2017 TWC
+  [6] as the canonical CF-mMIMO propagation model, and this paper
+  inherits it. Newer CF papers sometimes use the 3GPP TR 38.901
+  urban-micro (UMi) model instead, which is more accurate but more
+  complex.
+
+▸ **σ_sh = 8 dB** log-normal shadowing is the cellular-industry
+  default for outdoor propagation (3GPP TS 25.814 and many others).
+
+▸ **τ_p = 20 or 40** reflects typical massive-MIMO coherence-
+  interval budgets. For 3 km/h pedestrian users at 1.9 GHz with
+  a 20 MHz bandwidth, the coherence interval is about τ_c = 200
+  samples, so τ_p up to 40 leaves 80% of the block for payload.
+
+▸ **Power-consumption parameters from Table I** are calibrated to
+  the EARTH project's small-cell measurements (Auer-2011) and
+  refined by Björnson-2015 and Zuo-2016. These parameter values
+  became the standard "honeynut" numbers used in virtually every
+  EE paper in CF-mMIMO from 2017 to 2020.
+
+▸ **Benchmark against branch-and-reduce-and-bound (BRB)** for
+  small problems [25] is a clever way to check that SCA is
+  actually finding the global optimum (at least on small
+  instances). Tervo-Tran-Juntti 2015 was the source of the BRB
+  code.
+
+▸ **SOCP solver: Gurobi or MOSEK** — commercial interior-point
+  solvers with free academic licenses. MOSEK is more widely used
+  in the CF-mMIMO community; Ngo et al.'s public code at
+  github.com/tranlenam/cellfreeMIMOenergyefficiency uses MOSEK.
+
+One thing Section VI DOES NOT include: statistical confidence
+intervals (error bars). The EE values are averages over large-
+scale fading realizations but without reported standard deviations.
+This is typical for CF-mMIMO papers of the era.
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. MATHEMATICAL RECAP IN UNICODE
+───────────────────────────────────────────────────────────────────────────────
+
+Deployment and channel model:
+
+  (a) Geometry: APs and users uniformly at random in D × D km²,
+      wrap-around boundary.
+
+  (b) Large-scale fading (Eq. 46):
+        β_{m,k} = PL_{m,k} · z_{m,k}
+      where PL_{m,k} is three-slope path loss and
+        z_{m,k} = 10^(σ_sh · n_{m,k} / 10),  n_{m,k} ~ 𝒩(0,1).
+
+  (c) Three-slope path loss (Eq. 47):
+
+                    ⎧ −L − 35 · log₁₀(d_{m,k}),            d_{m,k} > d_1
+         PL_{m,k} = ⎨ −L − 15 · log₁₀(d_1) − 20·log₁₀(d_{m,k}), d_0 < d_{m,k} ≤ d_1
+                    ⎩ −L − 15 · log₁₀(d_1) − 20·log₁₀(d_0),  d_{m,k} ≤ d_0
+
+      Defaults: L = 140.7 dB,  σ_sh = 8 dB,  d_0 = 10 m,  d_1 = 50 m.
+
+  (d) Pilots: random assignment from a pool of τ_p orthogonal
+      length-τ_p pilot sequences. With K > τ_p, collisions occur
+      and pilot contamination is present.
+
+  (e) Thermal noise: N_0 ≈ kT B × 10^(NF/10) ≈ 6.4 × 10^{-14} W.
+
+Power-consumption parameters (Table I):
+   ν_m       = 0.4
+   P_{tc,m}  = 0.2  W/antenna
+   P_{0,m}   = 0.825 W/AP
+   P_{bt,m}  = 0.25 W / (Gbit/s) = 2.5 × 10^{-10} W/(bit/s)
+   B         = 20 MHz
+   NF        = 9 dB
+   τ_c       = 200 samples
+   ρ_p       = 0.2  (normalized UL pilot SNR)
+   ρ_d       = 1    (normalized DL SNR)
+
+SCA termination:  N_I = 10,  ε_tol = 0.01.
+AP-selection threshold:  ρ = 95%.
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. NUMERICAL WORKED MINI-EXAMPLE (reproducing the qualitative trend
+   of Fig. 5)
+───────────────────────────────────────────────────────────────────────────────
+
+Let us attempt a back-of-envelope reproduction of the Fig. 5 trend
+for a simplified scenario.
+
+Fix:  MN = 256 total service antennas, K = 40, D = 1 km,
+      P_{bt} = 0.25, S_{o,k} = 1 bit/s/Hz, Table I parameters.
+
+We vary N and computed an ESTIMATED total power P_total (assuming
+PA fully loaded at ρ_d · N_0 = 200 mW, the effective real-world
+transmit power of the whole system — i.e., each AP contributes
+200 mW/M when fully loaded, for consistency) and assume a constant
+sum SE of S_e = 40 bit/s/Hz.
+
+Step 1 — Sum throughput:
+   B · S_e = (2 × 10^7) · 40 = 8 × 10^8 bit/s = 800 Mbit/s.
+
+Step 2 — P̄_fix per configuration:
+   N = 1, M = 256:  P̄_fix = Σ_m (N·P_tc + P_0)
+                         = 256 · (0.2 + 0.825)
+                         = 256 · 1.025
+                         = 262.4 W
+   N = 2, M = 128:  P̄_fix = 128 · (0.4 + 0.825) = 128 · 1.225 = 156.8 W
+   N = 4, M = 64:   P̄_fix = 64 · (0.8 + 0.825) = 64 · 1.625 = 104.0 W
+   N = 8, M = 32:   P̄_fix = 32 · (1.6 + 0.825) = 32 · 2.425 = 77.6 W
+   N = 16, M = 16:  P̄_fix = 16 · (3.2 + 0.825) = 16 · 4.025 = 64.4 W
+   N = 32, M = 8:   P̄_fix = 8 · (6.4 + 0.825) = 8 · 7.225 = 57.8 W
+   N = 64, M = 4:   P̄_fix = 4 · (12.8 + 0.825) = 4 · 13.625 = 54.5 W
+   N = 128, M = 2:  P̄_fix = 2 · (25.6 + 0.825) = 2 · 26.425 = 52.85 W
+
+   OBSERVATION: P̄_fix DECREASES STEEPLY as N grows, because the
+   per-antenna circuit (N·P_tc) grows linearly with N but the
+   fixed backhaul (P_0) only grows with M = 256/N. The dominant
+   effect is the shrinking M and hence shrinking Σ_m P_0.
+
+Step 3 — Traffic backhaul:
+   Σ_m P_{bt,m} · B·S_e = M · 0.25·10⁻⁹ · 8·10⁸ = M · 0.2 W
+   N = 1:  M = 256 → traffic BH = 51.2 W
+   N = 2:  M = 128 → 25.6 W
+   N = 4:  M = 64 → 12.8 W
+   N = 16: M = 16 → 3.2 W
+   N = 64: M = 4 → 0.8 W
+   N = 128: M = 2 → 0.4 W
+
+Step 4 — PA power (assume total RF = 200 mW at full load):
+   P_PA,total = 0.2 W / ν = 0.2 / 0.4 = 0.5 W     (approximately
+                                                    independent of N)
+
+Step 5 — Total power and EE:
+   N = 1:   P_total ≈ 262.4 + 51.2 + 0.5 ≈ 314 W   → E_e ≈ 8·10⁸/314  ≈ 2.55 Mbit/J
+   N = 2:   P_total ≈ 156.8 + 25.6 + 0.5 ≈ 183 W   → E_e ≈ 4.37 Mbit/J
+   N = 4:   P_total ≈ 104   + 12.8 + 0.5 ≈ 117 W   → E_e ≈ 6.82 Mbit/J
+   N = 8:   P_total ≈ 77.6  + 6.4  + 0.5 ≈ 84.5 W  → E_e ≈ 9.47 Mbit/J
+   N = 16:  P_total ≈ 64.4  + 3.2  + 0.5 ≈ 68.1 W  → E_e ≈ 11.7 Mbit/J
+   N = 32:  P_total ≈ 57.8  + 1.6  + 0.5 ≈ 59.9 W  → E_e ≈ 13.4 Mbit/J
+   N = 64:  P_total ≈ 54.5  + 0.8  + 0.5 ≈ 55.8 W  → E_e ≈ 14.3 Mbit/J
+   N = 128: P_total ≈ 52.85 + 0.4  + 0.5 ≈ 53.7 W  → E_e ≈ 14.9 Mbit/J
+
+Wait — in this BACK-OF-ENVELOPE calculation E_e is MONOTONIC
+INCREASING in N, with no inverted-U maximum. Why doesn't this
+reproduce Fig. 5?
+
+The answer is: the calculation ASSUMED a CONSTANT sum SE of 40
+bit/s/Hz regardless of N. But in reality, as N grows and M shrinks,
+the MACRO-DIVERSITY of the deployment drops (users get further
+from the nearest AP on average), and the sum SE drops too. In
+particular, at very large N / small M, some users may become
+INFEASIBLE (their SE target cannot be met), and then EE collapses
+because we set it to zero for infeasible users.
+
+To get the inverted-U, one would need to also model how S_e decays
+with decreasing M. Roughly, one can argue that S_e ∝ log₂(average
+β × N) where average β depends on M (more APs → on average a
+closer AP per user → higher β_max). A rigorous model is beyond a
+back-of-envelope calculation, but the paper's simulations capture
+it exactly via Algorithm 1.
+
+THE LESSON of this mini-example: the N* trade-off in Fig. 5 is
+NOT primarily about power — it is a SPECTRAL-EFFICIENCY effect.
+At large N / small M, the CF array loses the "AP near every user"
+benefit and SE crashes, driving EE down. The power savings from
+shrinking M are overwhelmed by the SE loss. The cross-over is
+the point where these two effects are balanced.
+
+PRACTICE PROBLEM:
+
+(a) Repeat Steps 2–5 with P_{bt} = 1 W/(Gbit/s) (4× more expensive
+    backhaul than the default). Show that the shape of P̄_fix does
+    not change but traffic BH scales 4× (so N = 1 has 204.8 W, etc).
+    What does that do to E_e as N varies?
+
+(b) Argue qualitatively how the SE term S_e(N) would need to
+    evolve with N to produce the Fig. 5 inverted-U pattern.
+    (Hint: think about the log-linearity of log₂(1 + array_gain)
+    and the concavity of the resulting "useful rate vs M" curve.)
+
+(c) Explain why — for the second scenario (D = 2 km, P_bt = 0.5,
+    S_o = 1) — Fig. 5 has its peak at LARGER N than scenario 1
+    (D = 1 km, P_bt = 0.25, S_o = 1). Hint: D = 2 km reduces the
+    benefit of dense distribution and P_bt = 0.5 doubles the
+    penalty of many APs.
+
+
+───────────────────────────────────────────────────────────────────────────────
+7. SUMMARY OF SECTION VI
+───────────────────────────────────────────────────────────────────────────────
+
+• Setup. Square D × D km² deployment with wrap-around. APs and
+  users placed uniformly at random. Three-slope path loss (L =
+  140.7 dB, d_0 = 10 m, d_1 = 50 m) × log-normal shadowing (σ_sh
+  = 8 dB). Random pilot assignment. Bandwidth B = 20 MHz, NF =
+  9 dB, τ_c = 200, ν = 0.4, P_tc = 0.2 W, P_0 = 0.825 W, P_bt =
+  0.25 W/(Gbit/s). Defaults from refs [11], [14] (Björnson-2015,
+  Zuo-2016).
+
+• Fig. 1. Convergence of Algorithm 1. Monotone increase,
+  plateau by ~10 iterations, matches BRB global optimum on
+  tiny (M = 8, K = 2) instance. → It is safe to fix N_I = 10.
+
+• Fig. 2. Power control vs no power control. Algorithm 1 improves
+  EE by a factor of ~2.6–2.9× at M = 100 for K = 20 and 40.
+  Huge "free win." All later figures use power control.
+
+• Fig. 3. Impact of AP selection. Baseline EE crashes with
+  increasing P_bt; AP selection keeps EE nearly FLAT across
+  P_bt ∈ [0.25, 2]. Received-power-based slightly > LSF-based
+  but gap small (~5–10%). AP selection is essential at expensive
+  backhaul.
+
+• Fig. 4. Number of selected APs per user. Roughly CONSTANT in
+  M (~10–20 APs) for D = 1 km, ~30 APs for D = 2 km.
+  Sub-linear scaling → SCALABILITY. "Only about 10–20% of the
+  total number of APs really participate in serving a given
+  user." The birth of user-centric CF-mMIMO.
+
+• Fig. 5. Effect of N. EE is non-monotone in N: inverted-U
+  with a peak at N* that depends on (D, P_bt, S_o):
+  - dense + cheap BH + low QoS   → small N* (~4), many APs
+  - sparse + expensive BH + high QoS → large N* (~32), few APs
+  Design rule: tune N based on deployment.
+
+• Fig. 6. CF vs colocated massive MIMO. CF-mMIMO is uniformly
+  more EE than colocated for both MN = 128 and MN = 256.
+  Gains:  7.4× at MN = 128,  2.2× at MN = 256.
+  The gap shrinks with MN because colocated gets enough array
+  gain at large antenna counts. At moderate MN, macro-diversity
+  of CF-mMIMO wins decisively.
+
+• Practical impact. Section VI is the "proof in the pudding":
+  it validates every claim of Sections II–V on realistic
+  deployments. The combination of (Algorithm 1 power control)
+  + (Algorithm 3 AP selection) + (well-chosen N) turns CF-mMIMO
+  from a theoretical curiosity into a practical green-wireless
+  technology.
+
+• Headline. Under 1 bit/s/Hz per-user QoS, CF-mMIMO beats
+  colocated massive MIMO in energy efficiency by an order of
+  magnitude. This is the abstract's punchline — and the reason
+  the paper is so widely cited.
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018]   H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou,
+                  E. G. Larsson, "On the Total Energy Efficiency of
+                  Cell-Free Massive MIMO," IEEE TGCN, 2018.
+                  arXiv: 1702.07601.  Simulation code:
+                  https://github.com/tranlenam/cellfreeMIMOenergyefficiency
+
+[Tang-2001]       A. Tang, J. Sun, K. Gong, "Mobile propagation loss
+                  with a low base station antenna for NLOS street
+                  microcells in urban area," Proc. IEEE VTC Spring,
+                  May 2001.  (Ref [24] in the Ngo paper. Source of
+                  the three-slope path-loss model.)
+
+[Auer-2011]       G. Auer, V. Giannini, C. Desset, I. Gódor,
+                  P. Skillermark, et al., "How much energy is needed
+                  to run a wireless network?" IEEE Wireless Commun.
+                  Mag., vol. 18, no. 5, pp. 40–49, Oct. 2011.
+                  (EARTH project; source of the empirical power
+                  consumption numbers behind Table I.)
+
+[Bjornson-TWC-2015] E. Björnson, L. Sanguinetti, J. Hoydis, M. Debbah,
+                  "Optimal Design of Energy-Efficient Multi-User MIMO
+                  Systems: Is Massive MIMO the Answer?" IEEE TWC,
+                  Jun. 2015.  (Ref [11] in Ngo paper. Parent power
+                  model + calibration.)
+
+[Zuo-2016]        J. Zuo, J. Zhang, C. Yuen, W. Jiang, W. Luo,
+                  "Energy efficient downlink transmission for
+                  multi-cell massive DAS with pilot contamination,"
+                  IEEE TVT, Apr. 2016.  (Ref [14] in Ngo paper.
+                  Direct source of Table I values.)
+
+[Ngo-TWC-2017]    H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson,
+                  T. L. Marzetta, "Cell-free Massive MIMO versus
+                  Small Cells," IEEE TWC, Mar. 2017.  (Ref [6] in
+                  Ngo paper. Source of the wrap-around simulation
+                  methodology and three-slope model adoption.)
+
+[Marzetta-2016]   T. L. Marzetta, E. G. Larsson, H. Yang, H. Q. Ngo,
+                  "Fundamentals of Massive MIMO," Cambridge Univ.
+                  Press, 2016.  (Ref [7] in Ngo paper. Wrap-around
+                  torus simulation technique.)
+
+[Tervo-2015]      O. Tervo, L.-N. Tran, M. Juntti, "Optimal energy-
+                  efficient transmit beamforming for multi-user MISO
+                  downlink," IEEE TSP, Oct. 2015.  (Ref [25] in Ngo
+                  paper. Source of the BRB code used to benchmark
+                  Algorithm 1 in Fig. 1.)
+
+[Buzzi-2017]      S. Buzzi, C. D'Andrea, "Cell-free massive MIMO:
+                  User-centric approach," IEEE WCL, Dec. 2017.
+                  (Concurrent paper that coined "user-centric
+                  CF-mMIMO"; the practical implications of Fig. 4
+                  are exactly the same.)
+
+[Bjornson-2020]   E. Björnson, L. Sanguinetti, "Scalable cell-free
+                  massive MIMO systems," IEEE TCom, Jul. 2020.
+                  (arXiv:1908.03119.  Later paper that formalizes
+                  the scalability observation implicit in Fig. 4.)
+
+[3GPP-38.901]     3GPP TR 38.901 v16.1.0, "Study on channel model
+                  for frequencies from 0.5 to 100 GHz," Dec. 2019.
+                  (Modern 3GPP UMi/UMa path-loss model, used in
+                  post-2018 CF-mMIMO papers as an alternative to
+                  the three-slope model of [24].)

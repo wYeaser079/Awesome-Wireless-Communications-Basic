@@ -1,0 +1,630 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+  AUTHORS: Hien Quoc Ngo, Le-Nam Tran, Trung Q. Duong, Michail Matthaiou,
+           Erik G. Larsson
+  VENUE  : IEEE Trans. Green Commun. Netw., vol. 2, no. 1, pp. 25–39, Mar. 2018
+  arXiv  : 1702.07601v1  (24 Feb 2017)
+  DOI    : 10.1109/TGCN.2017.2770215
+--------------------------------------------------------------------------------
+  SECTION COVERED: ABSTRACT  +  SECTION I (INTRODUCTION)
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL / LAYMAN EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+Imagine a football stadium filled with spectators (users) who are all trying
+to watch a live-stream on their phones simultaneously. In the classical
+cellular model, you place a few very tall towers at the corners of the
+stadium. The people sitting in the middle of the stadium get a strong signal,
+but the poor fans near the fence — right between two towers — get terrible
+reception because the two towers' signals interfere with each other and
+neither is close enough.
+
+"Cell-free massive MIMO" (CF-mMIMO) turns this picture inside-out. Instead
+of 3 or 4 huge towers, you scatter HUNDREDS of tiny antennas (each one is
+called an "access point" or AP) all over the stadium — on every light-post,
+every railing, every seat-row. Every access point cooperates with every other
+access point through a wired backhaul that connects them to one central
+processing unit (CPU). All of them *simultaneously* transmit to every user at
+the same time, using the same frequency band, and they beam-shape their
+signals so that the waves add up *constructively* exactly at the user's
+phone and *destructively* everywhere else. The word "cell-free" means there
+are no more cells and no more cell edges — every user is effectively at the
+"center" because antennas are always nearby.
+
+But there is a catch nobody wants to talk about: running all those little
+antennas costs electricity, and more importantly, the wired backhaul
+connecting them all back to the CPU also costs a lot of power (fiber
+transceivers, baseband processors, etc.). Even if the system provides a
+blazing-fast data rate, if every megabit cost you a whole joule of power,
+the system would be a green disaster. So a natural question is:
+
+    "Is cell-free massive MIMO actually ENERGY EFFICIENT,
+     once you honestly include the backhaul power cost?"
+
+This paper answers that question. It does four concrete things:
+
+(a) It derives a clean closed-form formula for the per-user data rate
+    (spectral efficiency, SE) when every AP has MULTIPLE antennas (the
+    earlier Ngo-2017 paper only treated single-antenna APs).
+
+(b) It writes down a realistic power model that counts EVERY power source:
+    (i) the radio-frequency amplifier, (ii) hardware (mixers, filters,
+    converters) per antenna, (iii) a fixed backhaul cost per AP, and
+    (iv) a "traffic-dependent" backhaul cost that grows with the data
+    rate you push down the backhaul.
+
+(c) It formulates the energy-efficiency maximization as an optimization
+    problem (with a minimum-rate guarantee per user and a per-AP power
+    budget), shows it is NON-convex, then uses Sequential Convex
+    Approximation (SCA) to turn it into a sequence of Second-Order Cone
+    Programs (SOCPs) that modern solvers (Gurobi, MOSEK) can handle.
+
+(d) It proposes two *AP-selection* heuristics so that each user is served by
+    only a small subset of nearby APs, not by all M APs. This slashes the
+    backhaul power and — perhaps counter-intuitively — almost does not hurt
+    the spectral efficiency, because the faraway APs were barely
+    contributing anyway.
+
+Headline result (from the numerical section): with a 1 bit/s/Hz quality-of-
+service (QoS) constraint per user, CF-mMIMO beats conventional colocated
+massive MIMO in energy efficiency BY AN ORDER OF MAGNITUDE (roughly 7.4×
+when MN = 128 and 2.2× when MN = 256 service antennas). That is what made
+this paper an instant staple of the CF-mMIMO energy-efficiency literature.
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. DETAILED PHD-LEVEL TECHNICAL EXPLANATION OF THE INTRODUCTION
+───────────────────────────────────────────────────────────────────────────────
+
+The Introduction (Section I) plays three roles:
+
+   (i)   It frames the *problem* in its historical context (network MIMO,
+         coordinated multi-point, distributed antenna systems).
+   (ii)  It reviews the *state-of-the-art* of cell-free massive MIMO as
+         of early 2017, identifying the gap the paper will fill.
+   (iii) It enumerates the paper's *contributions* and the *organization*
+         of the remaining sections.
+
+Let us unpack each of these carefully, adding context the authors assume
+you already know.
+
+─── 2.1. The pain point: inter-cell interference in cellular networks ─────
+
+The opening paragraph reminds us that conventional cellular networks are
+INTERFERENCE-LIMITED, not noise-limited. If Alice is sitting at the edge of
+cell 𝑗 she hears a "desired" signal 𝑃ᴅ from BS-𝑗 and "interfering" signals
+𝑃ᵢ from BS-𝑖, 𝑖 ≠ 𝑗. Her cell-edge SINR is roughly
+
+          SINR_edge  ≈  𝑃ᴅ / ( 𝑃ᵢ + 𝜎² )
+
+and at the edge 𝑃ᴅ ≈ 𝑃ᵢ, so SINR_edge is of order 0 dB — terrible compared
+to the ≈20 dB that a cell-center user might enjoy. This creates the infamous
+"5-percentile / cell-edge problem": the bottom 5% of users have two orders
+of magnitude worse throughput than the median user.
+
+─── 2.2. How did we try to fix this? Network MIMO ─────────────────────────
+
+The accepted remedy, dating back to the mid-2000s, is to let neighbouring
+BSs *cooperate* instead of fighting each other. The same concept appeared
+under several names:
+
+  •  Network MIMO  (Karakayali-Foschini-Valenzuela 2006, ref [1])
+  •  Coordinated Multi-Point transmission / reception  (CoMP) — this is
+     the 3GPP LTE-Advanced terminology introduced in Rel-11 (~2012).
+  •  Distributed Antenna Systems (DAS)  — used in the cellular industry
+     since the 1990s for in-building coverage.
+
+In all three the idea is the same: the BSs share channel state information
+(CSI) and possibly user data over a high-capacity backhaul, then they jointly
+design the downlink precoder so that the (formerly interfering) signals
+become coherent contributions to every user's desired signal.
+
+There is, however, a famous negative result that the paper flags:
+Lozano-Heath-Andrews 2013 [2] proved that with full BS cooperation and
+a finite-density deployment, the ergodic per-user capacity is upper-bounded
+by a FINITE constant even as the transmit power goes to infinity. The reason
+is out-of-cluster interference plus pilot contamination. This means
+"full-cooperation network MIMO" is not the silver bullet people once hoped
+for — BUT it still gives large, practically useful gains compared to no
+cooperation at all. Hence the continued interest ([3]–[5]).
+
+The practical enemies of network MIMO are:
+   (a) huge backhaul overhead (you must ship precoded symbols + CSI
+       between every pair of cooperating BSs),
+   (b) very high deployment cost (fiber everywhere),
+   (c) a sufficiently fast & capable central processing unit (CPU).
+
+─── 2.3. Cell-free massive MIMO: the new embodiment ──────────────────────
+
+Cell-free massive MIMO was introduced as a *practical* and *scalable*
+flavour of network MIMO in Ngo, Ashikhmin, Yang, Larsson, Marzetta 2017 [6]
+("Cell-free Massive MIMO versus Small Cells", IEEE TWC). Its defining
+features are:
+
+  •  A very large number M of APs, each with few antennas (originally one).
+  •  All APs are connected via a backhaul to one or more CPUs.
+  •  All APs serve all K single-antenna users on the SAME time-frequency
+     resource (universal frequency reuse, no hand-overs, no cells).
+  •  CSI is acquired by TDD uplink pilots; channel reciprocity gives the
+     downlink CSI for free. This is the classical massive-MIMO trick that
+     makes CSI overhead grow as O(K) instead of O(M·K).
+  •  Each AP applies LOCAL precoding using the CSI it estimated for
+     itself (a "distributed" scheme). Matched-filter / conjugate beam-
+     forming is the simplest such choice and is what the paper uses.
+
+The marriage of "distributed antennas" with "massive MIMO TDD" is exactly
+what makes cell-free massive MIMO interesting. From massive MIMO it
+inherits:
+   •  channel-hardening (|g|² concentrates around 𝔼{|g|²}) and
+   •  favorable propagation (channels to different users become
+      asymptotically orthogonal),
+so simple matched filtering becomes near-optimal with a large number of
+service antennas.
+
+From distributed antennas it inherits:
+   •  macro-diversity — every user sees at least one AP with line of
+      sight,
+   •  much smaller average path loss,
+   •  spatially uniform quality of service (no cell-edge users).
+
+Reference [6] had already shown that a single-antenna-per-AP CF-mMIMO
+system beats a small-cell deployment of the same total number of antennas,
+especially in the low-outage regime.
+
+─── 2.4. The research gap the paper is filling ───────────────────────────
+
+As of Feb-2017 the literature on CF-mMIMO was thin:
+
+  •  [6] originally studied conjugate beamforming, single-antenna APs,
+     orthogonal or non-orthogonal pilots.
+  •  [8] (Nayebi-Ashikhmin-Marzetta-Yang, Asilomar 2015) studied
+     zero-forcing, but under the simplifying assumption that all pilots
+     were mutually orthogonal — i.e. no pilot contamination.
+  •  [9] (Interdonato-Ngo-Larsson-Frenger, GLOBECOM 2016) studied
+     downlink training with beamformed pilots, showing that beamformed
+     pilots substantially improve performance.
+  •  [10] (Huang-Burr 2016) proposed compute-and-forward to reduce the
+     backhaul load.
+
+Everyone above assumed single-antenna APs. But APs can of course be
+equipped with multiple antennas, which trades the number of APs for the
+number of antennas per AP, and which affects the array gain, the
+macro-diversity, and very critically the backhaul power cost. Furthermore,
+while colocated massive MIMO had already been shown to be energy-efficient
+(Björnson-Sanguinetti-Hoydis-Debbah 2015 [11], the canonical reference),
+NOBODY had honestly quantified the EE of cell-free massive MIMO, because
+nobody had included the backhaul cost in the power model. This paper is
+therefore:
+
+   (a) the first CF-mMIMO paper with multi-antenna APs and a closed-form
+       SE expression;
+   (b) the first CF-mMIMO paper with a rigorous EE analysis that includes
+       backhaul power;
+   (c) the first to propose AP-selection schemes that were explicitly
+       justified by EE considerations rather than only SE or complexity.
+
+─── 2.5. The four claimed contributions, in a little more depth ─────────
+
+▸ Contribution 1 — Closed-form SE expression. The authors derive an
+  exact (not asymptotic!) closed-form for the achievable downlink SE
+  of user k with arbitrary K, arbitrary M, arbitrary N ≥ 1, arbitrary
+  pilot sequences (even non-orthogonal, so pilot contamination is built
+  in). This generalizes two known results:
+
+     - Setting N = 1 recovers ref. [6, Eq. (24)]: the original CF-mMIMO
+       with single-antenna APs.
+     - Setting M = 1 and renaming N → M (so you lump all antennas onto
+       ONE AP) recovers the colocated massive-MIMO SE of [7, Table 3.2].
+
+  The derivation relies on the classical "use-and-then-forget" bound
+  that is standard in the massive-MIMO capacity literature (Marzetta,
+  Larsson, Yang, Ngo textbook 2016, ref. [7]): because of channel
+  hardening, the user can treat 𝔼{𝐠ᵀ ĝ*} as the "known" channel gain
+  and lump the deviation into a Gaussian-equivalent "effective noise".
+
+▸ Contribution 2 — Optimal power control for EE. The problem
+
+       maximize  Ee  s.t.  per-user SE ≥ S_o,k
+                             per-AP power ≤ 1/N
+
+  is a fractional program with a non-convex numerator and a non-convex
+  set of SE constraints. The authors:
+
+     (i) change variables c_mk = √η_mk to kill the square-roots,
+    (ii) use Charnes–Cooper / linear-fractional transformation ideas to
+         turn the objective into a linear function,
+   (iii) approximate the SE constraint from below by first-order Taylor
+         expansion + an ln(x) ≤ x − 1 log-inequality,
+    (iv) reformulate everything as a Second-Order Cone Program (SOCP),
+         which is then solved iteratively by the SCA method. Each
+         iteration is a standard SOCP (polynomial time), and the sequence
+         of objectives is monotonically non-decreasing and bounded
+         above, hence convergent.
+
+▸ Contribution 3 — Two AP-selection schemes. If M is very large the
+  second term in the denominator of Ee — the backhaul power, which is
+  proportional to M · Se — dominates and crushes the EE. Two fixes:
+
+     (a) Received-power-based selection: for each user k, rank all M APs
+         by the fraction of the useful received desired-signal power
+         they contribute, then keep only the top few that together
+         contribute ≥ ρ% (they use ρ = 95%) of the total.
+
+     (b) Largest-large-scale-fading-based selection: for each user k,
+         rank APs by β_mk (the large-scale fading coefficient, essentially
+         path loss × shadow fading) and keep only the top few that
+         cumulatively contribute ≥ ρ% of the total large-scale fading.
+
+  Scheme (b) is simpler because it does not require solving Algorithm 1
+  first. Numerically they give almost the same EE, and they cut the
+  number of serving APs per user from M down to roughly 10–20% of M.
+
+▸ Contribution 4 — Quantitative CF vs. colocated comparison. With their
+  power-control + AP-selection in place, the paper shows that under a
+  uniform per-user QoS requirement CF-mMIMO trounces colocated mMIMO
+  in EE, with the margin growing at lower MN.
+
+─── 2.6. Paper organization (road-map the authors give us) ──────────────
+
+   Sec II   System model + downlink SE (with the closed-form Proposition 1)
+   Sec III  Power consumption model + definition of Ee
+   Sec IV   Power-control optimization (Algorithm 1, SCA-SOCP)
+   Sec V    AP-selection (Algorithms 2 and 3)
+   Sec VI   Numerical results
+   Sec VII  Conclusions
+   App  A   Proof of Proposition 1
+
+─── 2.7. Notational conventions (paragraph at the end of Sec I) ─────────
+
+   • Bold lower-case  x    column vector
+   • Bold upper-case  A    matrix
+   • (·)*             element-wise complex conjugate
+   • (·)ᵀ             transpose
+   • (·)ᴴ             conjugate transpose (Hermitian)
+   • ‖·‖              Euclidean (ℓ₂) norm
+   • 𝔼{·}             expectation
+   • [x]_n            n-th element of vector x
+   • z ~ 𝒞𝒩(0, σ²)   circularly symmetric complex Gaussian with
+                      zero mean and variance σ²
+   • z ~ 𝒩(0, σ²)    real-valued Gaussian with zero mean, variance σ²
+
+These are completely standard in the IEEE literature, so we will not
+redefine them below.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. HISTORICAL / PRIOR DEVELOPMENTS
+───────────────────────────────────────────────────────────────────────────────
+
+To really understand WHY this paper matters, you need a timeline of how
+the community arrived at "cell-free massive MIMO + energy efficiency."
+
+▸ 1987 — Wyner's circular/linear cellular model (the "Wyner array") is
+  the first analytically tractable multi-cell model with BS cooperation.
+  Not practical, but it seeded the idea that joint processing could boost
+  capacity.
+
+▸ 1990s–2000s — Distributed Antenna Systems (DAS) deployed as passive
+  in-building coverage solutions. No joint processing, pure coverage.
+
+▸ 2006 — Karakayali, Foschini, Valenzuela publish the seminal "Network
+  Coordination for Spectrally Efficient Communications" paper [1]. This
+  is the reference for the term "Network MIMO." They propose that BSs
+  share user data and CSI over a high-speed backhaul and jointly precode.
+
+▸ 2010 — Björnson-Zakhour-Gesbert-Ottersten [3] give the multicell
+  precoding rate region with instantaneous and statistical CSI, and
+  distributed coordination strategies. This is the beginning of the
+  "limited/imperfect CSI sharing" thread.
+
+▸ 2010 — Marzetta's landmark paper "Noncooperative Cellular Wireless with
+  Unlimited Numbers of Base Station Antennas" (IEEE TWC, Nov. 2010, not
+  in this paper's reference list but canonical) launches *massive* MIMO.
+  Massive MIMO says: cooperation is hard, but if you put a huge number
+  of antennas at one base station, channel hardening + favorable
+  propagation let simple linear processing do almost everything you
+  hoped joint processing would do, at a small fraction of the
+  cooperation cost.
+
+▸ 2011–2014 — 3GPP LTE-Advanced standardizes CoMP (JT-CoMP, DPS, CS/CB)
+  in Release 11. Real deployment is severely limited by backhaul
+  latency and capacity.
+
+▸ 2013 — Lozano-Heath-Andrews "Fundamental Limits of Cooperation" [2]
+  shows that even with unlimited cooperation the per-user rate is
+  bounded by a finite constant (due to out-of-cluster interference),
+  dashing hopes of "cooperation → infinite rate."
+
+▸ 2014 — 3GPP LTE Rel-12/13 begin exploring ultra-dense networks and
+  C-RAN (Cloud-RAN) to realize distributed antennas with a central
+  baseband processing pool. This is the industrial parallel of
+  cell-free thinking.
+
+▸ 2015 — Björnson, Sanguinetti, Hoydis, Debbah publish "Optimal Design
+  of Energy-Efficient Multi-User MIMO Systems: Is Massive MIMO the
+  Answer?" (IEEE TWC, [11]). This is the canonical EE paper for
+  colocated massive MIMO. It introduces the now-standard power
+  consumption model that the Ngo et al. paper under study extends:
+  total power = amplifier + per-antenna circuit + per-UE baseband +
+  coding/decoding + backhaul, with the last term scaling linearly
+  with the sum rate. This is THE reference model for EE analyses.
+
+▸ 2015 — Nayebi, Ashikhmin, Marzetta, Yang introduce the CF-mMIMO
+  terminology at Asilomar [8], analyzing zero-forcing under orthogonal
+  pilots.
+
+▸ 2016 — Cell-free papers multiply: [9] beamformed downlink pilots,
+  [10] compute-and-forward backhaul compression.
+
+▸ Jan 2017 — Ngo, Ashikhmin, Yang, Larsson, Marzetta publish the
+  reference cell-free paper "Cell-Free Massive MIMO versus Small
+  Cells" in IEEE TWC [6]. Single-antenna APs, conjugate beamforming,
+  MMSE channel estimation with pilot contamination. This paper sets
+  up the canonical CF-mMIMO framework.
+
+▸ Feb 2017 — The paper under study (arXiv:1702.07601) extends [6]
+  to multi-antenna APs and performs the first rigorous EE analysis
+  with a backhaul power term. Published in IEEE TGCN Mar 2018.
+
+▸ 2018–present — A flood of follow-up work: user-centric CF
+  (Buzzi-D'Andrea 2017), scalable CF (Björnson-Sanguinetti 2020),
+  fronthaul-limited CF, RIS-aided CF, CF with LSFD, etc. The
+  energy-efficiency narrative of the 2017-Ngo paper is repeatedly
+  cited as the first to warn that backhaul cost can flip the
+  CF-mMIMO EE advantage if not carefully managed.
+
+The *single* most important prior reference for this paper is [11]
+(Björnson et al. 2015), because it supplies the power consumption
+model; and [6] (Ngo et al. 2017 TWC), because it supplies the system
+model that is being generalized.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. MATHEMATICAL PREVIEW OF THE INTRODUCTION
+   (full formal math appears in later sections; here we expose the scaffolding)
+───────────────────────────────────────────────────────────────────────────────
+
+The Introduction does not contain numbered equations. But to prepare you
+for Section II, here are the key objects the Introduction implicitly
+introduces, written in clean Unicode.
+
+▸ Number of APs          :  M
+▸ Number of users        :  K  (assumed M ≫ K, i.e. massive regime)
+▸ Antennas per AP        :  N  (≥ 1 — the new generalization)
+▸ Total service antennas :  MN
+▸ Coherence interval     :  τ_c     (samples)
+▸ Pilot length           :  τ_p < τ_c    (samples)
+▸ Downlink payload       :  τ_c − τ_p    (samples)
+▸ Pilot sequence of user k :  𝛗_k ∈ ℂ^{τ_p}, with ‖𝛗_k‖ = 1
+▸ Channel of AP m to user k :
+        𝐠_{m,k} = √β_{m,k} · 𝐡_{m,k},     𝐡_{m,k} ~ 𝒞𝒩(𝟎_N, 𝐈_N)
+   where β_{m,k} is the deterministic large-scale fading (path-loss ×
+   shadow fading).
+
+▸ MMSE estimate of 𝐠_{m,k} :
+        ĝ_{m,k} = α_{m,k} · 𝐲_{p,m}^{(k)}
+   where 𝐲_{p,m}^{(k)} = 𝐘_{p,m} · 𝛗_k^{*}  is the despread received
+   pilot, and α_{m,k} is the MMSE scalar. The mean square of each
+   component is denoted γ_{m,k} (see Sec II).
+
+▸ Conjugate-beamforming downlink transmit signal from AP m :
+        𝐱_m = √ρ_d · Σ_{k=1}^{K} √η_{m,k} · ĝ_{m,k}^{*} · q_k
+
+  where q_k is the unit-energy data symbol of user k, ρ_d is the
+  maximum normalized transmit SNR, and η_{m,k} ≥ 0 are the power
+  control coefficients that we will later OPTIMIZE for EE.
+
+▸ Per-AP power budget :
+        Σ_{k=1}^{K} η_{m,k} · γ_{m,k}  ≤  1 / N,     m = 1, …, M
+
+▸ Total downlink power consumption (anticipating Sec III-A) :
+        P_total  =  Σ_{m=1}^{M} P_m  +  Σ_{m=1}^{M} P_{bh,m}
+  with
+        P_m    =  (1/ν_m) · ρ_d · N₀ · N · Σ_k η_{m,k} γ_{m,k}  +  N · P_{tc,m}
+        P_{bh,m} = P_{0,m}  +  B · S_e · P_{bt,m}
+
+  Here:
+   • ν_m     ∈ (0, 1] is the PA efficiency of AP m
+   • P_{tc,m} is per-antenna circuit power
+   • P_{0,m}  is fixed backhaul power per AP
+   • P_{bt,m} is traffic-dependent backhaul power (W per bit/s)
+   • B       is system bandwidth, S_e is sum spectral efficiency
+
+▸ Total energy efficiency (the object being maximized in Sec IV) :
+
+                    B · S_e ({η_{m,k}})
+        E_e   =  ─────────────────────────────       [bit / Joule]
+                    P_total ({η_{m,k}})
+
+All of these symbols become explicit equations in Section II and III.
+The whole paper is a story about how to compute E_e in closed form and
+then maximize it.
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. NUMERICAL WORKED EXAMPLE (to ground the story)
+───────────────────────────────────────────────────────────────────────────────
+
+Let's pick a small, hand-computable configuration that illustrates why
+the backhaul cost can be the dominant piece of the EE denominator.
+
+Take:
+   • M          = 100 APs
+   • N          = 1  antenna per AP (single-antenna case)
+   • K          = 20 users
+   • Bandwidth  : B   = 20 MHz   (so 20 × 10⁶ Hz)
+   • Per-user SE target : S_o,k = 1 bit/s/Hz   → S_e = K · 1 = 20 bit/s/Hz
+   • ν_m        = 0.4  (PA efficiency, 40%)
+   • P_{tc,m}   = 0.2 W per antenna
+   • P_{0,m}    = 0.825 W per AP (fixed backhaul)
+   • P_{bt,m}   = 0.25 W / (Gbit/s) = 0.25 × 10⁻⁹ W / (bit/s)
+   • ρ_d        = 1 W (normalized transmit power)
+   • N_0        = thermal noise power at 9 dB noise figure and
+                   B = 20 MHz ≈ 4 × 10⁻¹³ W  (we approximate −134 dBW)
+
+Step 1 — Sum throughput :
+   R_sum = B · S_e = 2 × 10⁷ · 20 = 4 × 10⁸ bit/s = 400 Mbit/s = 0.4 Gbit/s
+
+Step 2 — PA + circuit power  (assume power control uses full budget) :
+   Per AP PA draw = (ρ_d · N · 1/ν_m) · [Σ_k η_{m,k}γ_{m,k}]
+                 ≈ (1 · 1 / 0.4) · (1/N)
+                 = 2.5 · 1   = 2.5 W
+   Plus per-antenna circuit: N · P_{tc,m} = 1 · 0.2 = 0.2 W
+   So   P_m ≈ 2.7 W   per AP
+   Total over M=100 APs:  Σ_m P_m ≈ 270 W
+
+Step 3 — Backhaul power :
+   Fixed part:   Σ_m P_{0,m}            = 100 · 0.825 = 82.5 W
+   Traffic part: B · S_e · Σ_m P_{bt,m} = 4 × 10⁸ · 100 · 2.5 × 10⁻¹⁰
+                                        = 4 × 10⁸ · 2.5 × 10⁻⁸
+                                        = 10 W
+   Total backhaul ≈ 82.5 + 10 = 92.5 W
+
+Step 4 — Total power :
+   P_total ≈ 270 + 92.5 = 362.5 W
+
+Step 5 — Energy efficiency :
+   E_e = R_sum / P_total = 4 × 10⁸ / 362.5
+       ≈ 1.10 × 10⁶  bit/Joule
+       ≈ 1.10  Mbit/Joule
+
+Observation: the backhaul accounts for roughly 92.5 / 362.5 ≈ 25% of
+the total power already at M = 100, and more importantly the FIXED
+backhaul part (82.5 W) alone is non-trivial. Now imagine M grows to 500:
+
+   Fixed backhaul:  500 · 0.825 ≈ 412.5 W  (↑ 5×)
+   Circuit / PA:    500 · 2.7  ≈ 1350 W   (↑ 5×)
+   Traffic-dep. backhaul:   4 × 10⁸ · 500 · 2.5 × 10⁻¹⁰ ≈ 50 W
+   Total:           ≈ 1812.5 W
+
+The new EE would be ≈ 4 × 10⁸ / 1.8 × 10³ ≈ 0.22 Mbit/J — EE collapsed to
+one fifth! That is precisely why the paper screams "backhaul matters"
+and then introduces AP selection. With AP selection, only ~10–20% of
+the 500 APs per user are actually active, so the traffic-dependent
+backhaul and a large chunk of the PA power goes away.
+
+─── PRACTICE PROBLEM ────────────────────────────────────────────────────
+
+Repeat the five-step calculation above for:
+
+   M = 200,  K = 40,  N = 4 antennas per AP,
+   S_o,k = 2 bit/s/Hz (so S_e = 80 bit/s/Hz),
+   other parameters as in Table I of the paper
+   (ν_m = 0.4, P_{tc,m} = 0.2 W, P_{0,m} = 0.825 W, P_{bt,m} = 0.25 W/(Gbit/s),
+    B = 20 MHz, ρ_d = 1 W).
+
+(a) Compute R_sum.
+(b) Compute Σ_m P_m (remember N enters both the PA and the circuit term).
+(c) Compute the fixed + traffic-dependent backhaul power.
+(d) Compute E_e in Mbit/Joule.
+
+[Expected sanity check answers:
+   (a) R_sum = 1.6 × 10⁹ bit/s = 1.6 Gbit/s
+   (b) per-AP PA ≈ 2.5 W, per-AP circuit = 4·0.2 = 0.8 W,
+       per-AP total ≈ 3.3 W, Σ_m P_m ≈ 660 W
+   (c) fixed BH = 200·0.825 = 165 W,
+       traffic BH = 1.6 × 10⁹ · 200 · 2.5 × 10⁻¹⁰ = 80 W,
+       total BH = 245 W
+   (d) P_total ≈ 905 W, E_e ≈ 1.77 Mbit/J ]
+
+Notice that increasing N (from 1 → 4) and K (from 20 → 40) raised E_e
+despite higher total power, because R_sum grew faster. But the fixed
+backhaul part is identical whether or not users are actually active —
+this is the term that AP selection is trying to kill.
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. SUMMARY OF SECTION I
+───────────────────────────────────────────────────────────────────────────────
+
+• Problem context. Conventional cellular networks are interference-limited
+  at the cell-edge. Network-MIMO / CoMP / DAS try to fix this by having
+  base stations cooperate, at the cost of heavy backhaul. Fundamental
+  limits [2] show that even full cooperation saturates, but the gains
+  are still practically large.
+
+• Cell-free massive MIMO. Introduced in [6] as a practical flavour of
+  network MIMO. Huge number of APs (single-antenna in prior work),
+  TDD channel reciprocity, conjugate beamforming with local CSI, no
+  cells, no hand-overs. Inherits macro-diversity (from DAS) and
+  channel hardening + favorable propagation (from massive MIMO).
+
+• The gap. Prior CF-mMIMO work assumed single-antenna APs and did NOT
+  analyze energy efficiency with a realistic backhaul power model.
+  Since CF-mMIMO needs many more backhaul links than colocated
+  massive MIMO, it was a priori unclear whether CF-mMIMO is actually
+  green.
+
+• This paper's contributions.
+    1. Closed-form downlink SE for multi-antenna APs with arbitrary
+       pilots; reduces to [6] for N=1 and to colocated massive MIMO [7]
+       for M=1.
+    2. Realistic power-consumption model including fixed and
+       traffic-dependent backhaul power (extended from [11]).
+    3. Optimal EE-maximizing power control under per-user SE and
+       per-AP power constraints, approximated by a sequence of SOCPs
+       via SCA.
+    4. Two AP-selection schemes (received-power-based and
+       largest-large-scale-fading-based) to slash backhaul power.
+    5. Quantitative comparison with colocated massive MIMO showing
+       CF-mMIMO's clear EE advantage under per-user QoS.
+
+• Paper organization. Sec II (system model + SE), Sec III (power
+  model + EE), Sec IV (power control optimization), Sec V (AP
+  selection), Sec VI (numerical results), Sec VII (conclusion).
+
+• Headline number. Under 1 bit/s/Hz per-user QoS, CF-mMIMO improves
+  EE by ≈7.4× (MN = 128) and ≈2.2× (MN = 256) vs. colocated
+  massive MIMO — roughly an order of magnitude at moderate service-
+  antenna counts. This establishes CF-mMIMO as a genuinely green
+  candidate for 5G/6G distributed MIMO deployments.
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018] H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G.
+    Larsson, "On the Total Energy Efficiency of Cell-Free Massive MIMO,"
+    IEEE Trans. Green Commun. and Networking, vol. 2, no. 1, pp. 25–39,
+    Mar. 2018. DOI: 10.1109/TGCN.2017.2770215.
+    arXiv: https://arxiv.org/abs/1702.07601 (Feb 2017 preprint).
+    Simulation code: https://github.com/tranlenam/cellfreeMIMOenergyefficiency
+
+[Karakayali-2006] M. Karakayali, G. Foschini, R. Valenzuela, "Network
+    Coordination for Spectrally Efficient Communications in Cellular
+    Systems," IEEE Wireless Commun. Mag., vol. 13, no. 4, pp. 56–61,
+    Aug. 2006.
+
+[Lozano-2013] A. Lozano, R. W. Heath Jr., J. G. Andrews, "Fundamental
+    Limits of Cooperation," IEEE Trans. Inf. Theory, vol. 59, no. 9,
+    pp. 5213–5226, Sep. 2013.
+
+[Ngo-TWC-2017] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L.
+    Marzetta, "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans.
+    Wireless Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+
+[Marzetta-2016] T. L. Marzetta, E. G. Larsson, H. Yang, H. Q. Ngo,
+    "Fundamentals of Massive MIMO," Cambridge University Press, 2016.
+
+[Bjornson-TWC-2015] E. Björnson, L. Sanguinetti, J. Hoydis, M. Debbah,
+    "Optimal Design of Energy-Efficient Multi-User MIMO Systems: Is
+    Massive MIMO the Answer?" IEEE Trans. Wireless Commun., vol. 14,
+    no. 6, pp. 3059–3075, Jun. 2015.
+
+[Nayebi-2015] E. Nayebi, A. Ashikhmin, T. L. Marzetta, H. Yang,
+    "Cell-Free Massive MIMO Systems," 47th Asilomar Conf. Signals,
+    Syst. and Comput., Nov. 2015, pp. 695–699.
+
+[Marzetta-2010] T. L. Marzetta, "Noncooperative Cellular Wireless with
+    Unlimited Numbers of Base Station Antennas," IEEE Trans. Wireless
+    Commun., vol. 9, no. 11, pp. 3590–3600, Nov. 2010. (Seminal paper
+    that launched massive MIMO — not in the reference list of this
+    paper but canonical background.)
+
+[3GPP-Rel11] 3GPP TR 36.819 v11.2.0, "Coordinated multi-point operation
+    for LTE physical layer aspects," Sep. 2013. (Industrial parallel
+    of network MIMO.)

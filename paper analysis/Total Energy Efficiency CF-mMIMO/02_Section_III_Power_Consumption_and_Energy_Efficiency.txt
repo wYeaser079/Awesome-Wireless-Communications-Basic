@@ -1,0 +1,760 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+         H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G. Larsson
+         IEEE TGCN, vol. 2, no. 1, pp. 25–39, Mar. 2018.
+--------------------------------------------------------------------------------
+  SECTION COVERED:  SECTION III — POWER CONSUMPTION MODEL AND ENERGY
+                    EFFICIENCY
+                    (A. Power Consumption Model — Eqs. (17)–(20)
+                     B. Total Energy Efficiency — Eq. (21))
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL / LAYMAN EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+Section II told us how many bits per second per hertz cell-free massive
+MIMO can squeeze out of the spectrum. Section III now asks the
+complementary question:
+
+    "How many JOULES per second does this same system burn to deliver
+     those bits?"
+
+You could naively answer "just the transmit power" and be tragically
+wrong — modern wireless systems spend FAR more energy on hardware and
+signalling overhead than they do radiating RF out of the antennas.
+A concrete example from the 2014-era cellular literature: a 20-W-output
+macro base station typically draws 800–1300 W from the wall socket.
+Only about 1–2% of its total electricity bill actually leaves the
+antenna as radio waves. The rest is:
+
+   •  heat lost in the power amplifier (PA efficiency ≈ 30–50%),
+   •  DC power burned by the hardware chains — mixers, ADCs/DACs,
+      oscillators, filters, synthesizers,
+   •  baseband digital processing (FFTs, channel estimation, decoding),
+   •  backhaul transceivers that ship data from the BS to the core
+      network through fiber or microwave,
+   •  air-conditioning, power supplies, losses, monitoring, …
+
+Any honest energy-efficiency paper therefore needs a COMPONENT-LEVEL
+power-consumption model that charges every Watt to its source.
+Björnson, Sanguinetti, Hoydis, Debbah (IEEE TWC 2015, ref [11]) wrote
+THE canonical such model for colocated massive MIMO and gave closed-
+form expressions for the optimal number of antennas, the optimal
+number of users, etc. That paper is the direct parent of Section III
+here.
+
+In the cell-free case, however, there is a BIG new term that the
+colocated model does not capture: the backhaul from each AP to the
+central CPU. Unlike a colocated base station with ONE backhaul, a
+cell-free system has M backhaul links, one per AP, and the total
+backhaul energy grows roughly linearly with M. Worse, the traffic-
+dependent part of the backhaul also grows linearly with the sum data
+rate S_e. So if you are not careful, adding more APs simultaneously
+raises S_e (good) AND raises total power (bad), and the "bit per joule"
+ratio may actually DECREASE even though the bit/s increases.
+
+Section III models all of this cleanly. The result is:
+
+   •  Equation (17): P_total = (total AP hardware power) + (total
+                                backhaul power)
+   •  Equation (18): per-AP hardware power = PA-draw for transmit
+                     power + per-antenna fixed circuit power
+   •  Equation (19): per-AP backhaul power = fixed backhaul part +
+                     traffic-dependent backhaul part ∝ data rate
+   •  Equation (20): a clean all-in-one expression for P_total as a
+                     function of the power-control coefficients η_{m,k}
+                     and the sum SE S_e
+   •  Equation (21): total energy efficiency E_e = B · S_e / P_total,
+                     measured in bit per joule.
+
+With E_e written explicitly in terms of the variables we already
+control (the power-control coefficients), Section IV can turn the
+"maximize EE" mission into an actual optimization problem.
+
+The practical headline the reader must carry forward:
+
+    "In cell-free massive MIMO, the backhaul is the elephant in the
+     room. A realistic EE analysis without it is not a realistic EE
+     analysis at all."
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. PHD-LEVEL DETAILED EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+─── 2.1  The decomposition of total power (Eq. 17) ─────────────────────
+
+The authors partition the total network power consumption into two
+parts:
+
+         P_total  =  Σ_{m=1}^{M} P_m  +  Σ_{m=1}^{M} P_{bh,m}         (17)
+
+  •  P_m         = power at the m-th AP due to the amplifier and
+                   the circuit components;
+  •  P_{bh,m}    = power consumed by the backhaul link between the
+                   m-th AP and the central processing unit (CPU).
+
+Notice what is NOT modeled separately: the CPU itself. The paper
+ignores the CPU power as a constant add-on (it would appear only in a
+single "+P_CPU" term, which does not depend on the power-allocation
+variables and therefore does not change the shape of the optimization
+problem). The reference [11] treats CPU/coding/decoding explicitly,
+but for the cell-free context its contribution is dominated by the
+AP + backhaul terms, so the authors absorb it into a "background"
+constant or neglect it.
+
+Similarly, the paper ignores any power-allocation-dependent baseband
+processing cost (FFTs, channel estimation, matched filtering) at the
+APs. Those costs DO scale with the number of antennas N (and, to a
+lesser extent, with K), but they are all bundled into the per-antenna
+circuit term N·P_{tc,m} below. This is a mildly coarse abstraction
+that is standard in the massive-MIMO EE literature.
+
+─── 2.2  The AP hardware power P_m (Eq. 18) ──────────────────────────
+
+The AP hardware draw is the classical "PA + circuit" decomposition:
+
+            P_m  =  (1/ν_m) · ρ_d · N₀ · N · Σ_{k=1}^{K} η_{m,k} γ_{m,k}
+                     ───────────────────────────────────────────────
+                                (PA-draw at AP m, in Watt)
+
+                    + N · P_{tc,m}                                      (18)
+                     ─────────────
+                      (circuit draw,
+                       in Watt)
+
+The first term is the DC power the POWER AMPLIFIER (PA) must pull from
+the battery in order to radiate the transmit signal.
+
+Let us unpack it step by step:
+
+  (i) In Section II, the expected transmit RF power at AP m, in
+      NORMALIZED units (normalized by noise power N₀), was Eq. (7):
+
+           𝔼{‖𝐱_m‖²} = ρ_d · N · Σ_{k=1}^{K} η_{m,k} γ_{m,k}
+
+      Multiplying by N₀ converts the normalized power to actual Watts:
+
+           P_RF,m = ρ_d · N₀ · N · Σ_{k=1}^{K} η_{m,k} γ_{m,k}  [W]
+
+      Here ρ_d is the MAXIMUM normalized transmit SNR (dimensionless),
+      N₀ is the thermal noise power (in Watts), and the sum Σ_k η_{m,k}
+      γ_{m,k} ≤ 1/N is the fraction of the AP's maximum normalized
+      power that is actually being used (≤ 1/N).
+
+  (ii) The PA does not convert all the DC power it pulls from the
+       battery into RF. Only a fraction ν_m ∈ (0, 1] actually comes
+       out as RF; the rest is heat. Hence the DC draw is
+
+           P_PA,m = P_RF,m / ν_m
+
+       This is where (1/ν_m) in (18) comes from. Typical values:
+           •  ν_m ≈ 0.3–0.4 for a class-A/AB PA in commodity base
+              stations (default in this paper: ν_m = 0.4).
+           •  ν_m ≈ 0.5–0.6 for a well-designed class-B/class-F PA.
+           •  ν_m ≈ 0.8–0.9 only for envelope-tracking PAs in
+              research prototypes.
+       For cell-free massive MIMO with many small APs, 0.3–0.4 is the
+       realistic default.
+
+  (iii) The factor N inside the sum is NOT accidental — it comes from
+        the N antennas per AP. But observe the clever counter-balance:
+        the per-AP power constraint (Eq. 8) says Σ_k η_{m,k} γ_{m,k}
+        ≤ 1/N, so
+
+            P_RF,m  ≤  ρ_d · N₀ · N · (1/N)  =  ρ_d · N₀
+
+        Therefore the PA's worst-case DC draw per AP is ρ_d·N₀/ν_m,
+        independent of N. Changing the number of antennas per AP does
+        not change the total PA power at full load — this is how the
+        paper enforces a "fair comparison" across different N values.
+
+The second term in Eq. (18), N · P_{tc,m}, is the "transceiver-chain"
+or circuit power per AP. P_{tc,m} is the DC power consumed by ONE RF
+chain (oscillator, mixer, LNA, ADC/DAC, filter, etc.) to operate one
+antenna. This cost is paid EVEN IF the antenna is not radiating any
+signal — it is the cost of having the hardware switched on. For
+multiple-antenna APs, the circuit power scales linearly with N because
+each antenna needs its own chain.
+
+In the paper's Table I, P_{tc,m} = 0.2 W per antenna. A 4-antenna AP
+therefore continuously burns 0.8 W in hardware, whatever the data
+traffic happens to be.
+
+Formal summary:
+
+    P_m  =  (1/ν_m) · ρ_d · N₀ · N · Σ_k η_{m,k} γ_{m,k}    [PA-draw]
+         +  N · P_{tc,m}                                      [fixed
+                                                                circuit
+                                                                draw]
+
+─── 2.3  Backhaul power P_{bh,m} (Eq. 19) ─────────────────────────────
+
+This is the term that does NOT exist in the classical colocated
+massive-MIMO EE model of [11], and it is the physical reason this
+whole paper was written:
+
+    P_{bh,m}  =  P_{0,m}  +  B · S_e · P_{bt,m}                        (19)
+
+Three ingredients:
+
+  •  P_{0,m} — the "fixed" backhaul power (traffic-independent). This
+     is the power consumed by the backhaul transceiver just being
+     switched on: fiber transceivers, media converters, switching,
+     etc. It depends on the DISTANCE between AP m and the CPU, on
+     the link technology (fiber vs. copper vs. microwave), and on
+     the topology (star, daisy-chain, ring, …). It does NOT depend
+     on how much data is flowing through the link. In the paper's
+     default Table I, P_{0,m} = 0.825 W per AP.
+
+  •  P_{bt,m} — the "traffic-dependent" or "data-dependent" backhaul
+     power per unit data rate. Units: watts per (bit/s), or
+     equivalently joules per bit. The more bits you pipe from the
+     CPU to the AP, the more electricity the backhaul transceivers
+     and associated DSP burn. In the paper's Table I, P_{bt,m} =
+     0.25 W / (Gbit/s) = 2.5 · 10^{-10} W / (bit/s).
+
+  •  B · S_e — the total data rate (in bit/s) carried by the
+     backhaul. Here B is the system bandwidth (Hz) and S_e is the
+     sum spectral efficiency in bit/s/Hz (Eq. 16). For the default
+     B = 20 MHz and a sum SE of, say, 20 bit/s/Hz, that is 400 Mbit/s.
+
+Why is the traffic-dependent term proportional to B·S_e? Because in a
+cell-free TDD system the backhaul carries the SAME data symbols
+{q_1,…,q_K} to every AP (since every AP serves every user with the
+conjugate-beamforming weight). The downlink information rate delivered
+to the end users equals B · S_e bit/s, and every AP must receive ALL
+of that data from the CPU. Hence the per-AP backhaul data rate is also
+B · S_e, and multiplying by the per-bit/s cost P_{bt,m} gives the
+data-dependent power.
+
+(Later in Section V, the authors point out that if AP m only serves
+a SUBSET of the users, it only needs the sum rate of THOSE users on
+its backhaul link, which is strictly smaller than B·S_e. This is
+the argument behind AP selection.)
+
+One subtlety acknowledged in Footnote 1 of the paper: the backhaul
+also carries synchronization signals, power-control coefficients,
+and large-scale-fading updates. These are transmitted ONCE per
+large-scale-fading realization (i.e., roughly every second), and the
+information rate is vanishingly small compared to the user-data rate.
+So their power is neglected.
+
+─── 2.4  The all-in-one expression for P_total (Eq. 20) ────────────────
+
+Plugging (18) and (19) into (17):
+
+    P_total =   ρ_d · N₀ · Σ_{m=1}^{M} (1/ν_m) · N · Σ_{k=1}^{K} η_{m,k} γ_{m,k}
+                  ─────────────────────────────────────────────────────────────
+                          (total PA power across all APs — depends on η)
+
+             + Σ_{m=1}^{M} (N · P_{tc,m} + P_{0,m})
+                  ──────────────────────────────────
+                  (fixed constant = circuit draw + fixed backhaul)
+
+             + B · Σ_{m=1}^{M} P_{bt,m} · S_e({η_{m,k}})               (20)
+                 ──────────────────────────────────────
+                 (traffic-dependent backhaul, depends on η through S_e)
+
+It is useful to define the "background fixed" power
+
+    P̄_fix  ≝  Σ_{m=1}^{M} ( N · P_{tc,m}  +  P_{0,m} )
+
+which the paper introduces right after (23) to simplify notation. This
+is the power the network burns no matter what the users are doing —
+the baseline floor. With this shorthand,
+
+    P_total  =  ρ_d · N₀ · N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}
+              + P̄_fix
+              + B · (Σ_m P_{bt,m}) · S_e({η_{m,k}})
+
+Note the two "η-dependent" pieces: the first one grows with the power
+you put on air; the last one grows with the sum spectral efficiency
+you deliver. Both go up when you increase η. EE therefore faces a
+genuine trade-off — more η means both more bits AND more joules, and
+which effect wins depends on the numerical values of the coefficients.
+
+─── 2.5  The total energy efficiency E_e (Eq. 21) ─────────────────────
+
+Finally:
+
+         E_e   =   B · S_e / P_total                                   (21)
+
+This is the "bit per joule" figure of merit the rest of the paper
+maximizes.
+
+Units sanity check:
+  numerator:  [Hz] · [bit/s/Hz] = [bit/s]
+  denominator: [W] = [J/s]
+  ratio:      [bit/s] / [J/s] = [bit/J]   ✓
+
+Note the structure of (21): it is a RATIO of two functions of the
+power-control coefficients η, both of which are NON-CONVEX in η
+(S_e is a sum of log terms, and P_total has those same log terms in
+the backhaul piece). That is why Section IV needs SCA — you cannot
+directly throw (21) into a standard convex solver.
+
+Ratio objectives of this form are called "fractional programs." Two
+very famous tools exist for them:
+
+  (a) Dinkelbach's transform — introduces a parameter λ and
+      iteratively solves max {numerator − λ · denominator}, updating
+      λ until numerator = λ · denominator.
+  (b) Charnes–Cooper transformation — applicable when the numerator
+      and denominator are linear (which they are not here).
+
+The Ngo et al. paper uses a hybrid: they first transform (21) by
+DIVIDING numerator and denominator by B·S_e (a positive quantity)
+to absorb the traffic-dependent backhaul into the fixed part, and
+then apply SCA + SOCP to the transformed problem. We will see this
+in Section IV.
+
+─── 2.6  An early preview of the "divide and conquer" trick ───────────
+
+Because the paper refers to this trick in Section IV but introduces
+it right at the end of Section III, it is worth spelling out here so
+you can follow Section IV later.
+
+Divide the numerator and denominator of (21) by B·S_e (and note that
+B·S_e is strictly positive whenever any user actually gets some rate):
+
+                           1
+   E_e  =  ─────────────────────────────────────
+           P̄_fix / (B S_e)
+         + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k} / (B S_e)
+         + Σ_m P_{bt,m}
+
+Observe that the LAST term in the denominator, Σ_m P_{bt,m}, is now
+CONSTANT — it does NOT depend on η any more, because we divided the
+backhaul term B·S_e·Σ_m P_{bt,m} by B·S_e. So E_e is a monotonically
+decreasing function of the (still-η-dependent) quantity
+
+        Ẽ  ≝  P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}
+
+DIVIDED by B·S_e. In other words,
+
+        E_e  monotone in   B·S_e / Ẽ
+
+Therefore, maximizing E_e is EQUIVALENT to maximizing the fractional
+objective B·S_e / Ẽ, where Ẽ has KNOCKED OUT the non-linear (log)
+backhaul dependence and is simply an AFFINE function of the
+"quadratic power" variables (after the c_{m,k} ← √η_{m,k}
+substitution). This is why Section IV can reformulate the problem
+as a sequence of SOCPs.
+
+This "quotient-by-B·S_e" simplification is the single most important
+analytic trick of the whole paper, and it is enabled precisely by
+the specific shape of the backhaul-power model (19) — linear in S_e.
+If the backhaul power were, say, logarithmic in S_e (which is the
+case for information-theoretically optimal backhaul quantizers), the
+trick would not work and a much harder non-convex optimization would
+be needed.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. HISTORICAL / PRIOR DEVELOPMENTS
+───────────────────────────────────────────────────────────────────────────────
+
+The component-level EE power consumption modelling tradition goes
+back about 15 years. A brief timeline:
+
+▸ 2011 — Auer, Giannini, Desset, Gódor, Skillermark, et al., "How
+  much energy is needed to run a wireless network?" IEEE Wireless
+  Commun. Mag., Oct 2011. This is the EARTH project landmark paper
+  that introduced the "linear" power model for macro/micro/pico/femto
+  base stations:
+
+     P_{total}  =  N_{TRX} · ( P_0 + ΔP · P_{out}/P_{max} )
+
+  where N_{TRX} is the number of transceiver chains, P_0 is the
+  idle/no-load power, ΔP is the slope, P_{out} is the transmit
+  output, and P_{max} is the maximum. This paper measured empirical
+  data on commercial base stations and gave numerical values. It is
+  THE foundation of every EE paper afterwards, including Ngo et al.
+
+▸ 2011 — Tombaz, Västberg, Zander, "Energy- and cost-efficient
+  ultra-high-capacity wireless access," IEEE Wireless Commun. Mag.
+  (ref [13] in the Ngo paper). Extended EARTH to include backhaul
+  with a model very close to P_{bh} = P_0 + P_{bt}·R.
+
+▸ 2013 — Björnson, Jorswieck, Debbah, Ottersten, "Designing multi-
+  user MIMO for energy efficiency: When is massive MIMO the answer?"
+  arXiv:1310.3843. Introduced the rigorous problem formulation:
+  "given a component power model, choose the number of antennas,
+  number of users, and transmit power that maximize bit/J under a
+  gross-rate constraint."
+
+▸ 2015 — **Björnson, Sanguinetti, Hoydis, Debbah, "Optimal design
+  of energy-efficient multi-user MIMO systems: Is massive MIMO the
+  answer?" IEEE TWC, June 2015** (ref [11] in the Ngo paper).
+  THIS is the canonical reference. It refined the 2013 workshop
+  paper into a full TWC paper with closed-form optimal M, K, P,
+  using a component-level model of the form
+
+      P_total = P_fix + P_PA + P_cir(M, K) + P_coding + P_decoding
+              + P_BH + P_SP
+
+  where each piece has its own coefficient measured from industry
+  data (Auer 2011). This is the DIRECT parent of Eqs. (17)-(20)
+  in the Ngo paper. Observations from [11] that carry over here:
+
+     •  circuit power is linear in both M (number of antennas) and
+        K (number of users);
+     •  power amplifier draw is (1/ν) × transmit power;
+     •  backhaul is linear in data rate plus a fixed offset;
+     •  there is an OPTIMAL operating point — too few antennas
+        waste the array gain, too many antennas drown in circuit
+        power. This is the famous "U-shaped" EE curve.
+
+  The 2015 paper won the 2018 IEEE Marconi Prize Paper Award in
+  Wireless Communications, confirming its canonical status.
+
+▸ 2016 — Zuo, Zhang, Yuen, Jiang, Luo, "Energy efficient downlink
+  transmission for multi-cell massive DAS with pilot contamination,"
+  IEEE TVT, Apr 2016 (ref [14] in the Ngo paper). Adapted the
+  Björnson-2015 model to DAS (distributed antenna systems), which
+  is mathematically closest to cell-free. This is where the
+  specific parameter values (P_{tc}, P_0, P_{bt}, ν) adopted in
+  Table I of the Ngo paper are taken from.
+
+▸ 2016 — Dai and Yu, "Energy efficiency of downlink transmission
+  strategies for cloud radio access networks," IEEE JSAC, Apr 2016
+  (ref [15] in the Ngo paper). Applied the EE optimization to
+  C-RAN, explicitly separating fronthaul and backhaul power. C-RAN
+  is the architectural twin of cell-free, so this work was another
+  close cousin.
+
+▸ Feb 2017 — **This paper (Ngo et al.)**. First to apply the
+  Björnson-2015 component model to cell-free massive MIMO and
+  couple it with the closed-form SE of Section II, producing a
+  tractable optimization problem over power-control coefficients.
+
+▸ 2017 — Bashar, Cumanan, Burr, Matthaiou, Ngo, "Energy efficiency
+  of the cell-free massive MIMO uplink with optimal uniform
+  quantization," IEEE TGCN, Dec 2017. Extended the EE analysis to
+  the uplink with quantization.
+
+▸ 2018–present — A flood of CF-mMIMO EE papers: user-centric CF EE
+  (Nguyen, Duong, Ngo 2017); EE with low-resolution ADCs; EE under
+  fronthaul constraints; EE with RIS aiding; EE with user-centric
+  clustering (the scalable CF paper you already studied). All of
+  them either cite or directly build on Eqs. (17)–(21) of Ngo 2018.
+
+So Section III is not a new power model — it is the *application*
+of the by-then-standard component power model ([11], [13]–[15]) to
+the specific architecture of cell-free massive MIMO, with the
+critical addition of EXPLICIT backhaul terms that are the Achilles'
+heel of CF-mMIMO.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. MATHEMATICAL RECAP IN UNICODE
+───────────────────────────────────────────────────────────────────────────────
+
+Variables and constants:
+
+   M          number of APs
+   N          antennas per AP
+   K          number of users
+   ν_m        PA efficiency of AP m, ν_m ∈ (0,1]
+   ρ_d        maximum normalized DL transmit SNR
+   N₀         thermal noise power, W
+   γ_{m,k}    MMSE per-component variance (Sec. II, Eq. 5)
+   η_{m,k}    power control coefficient (≥ 0)
+   P_{tc,m}   per-antenna circuit/hardware power, W
+   P_{0,m}    fixed backhaul power of AP m, W
+   P_{bt,m}   traffic-dep. backhaul power, W / (bit/s)
+   B          system bandwidth, Hz
+   S_e        sum spectral efficiency, bit/s/Hz  (from Eq. 16)
+
+Equation (17): total power decomposition
+   P_total  =  Σ_{m=1}^{M} P_m  +  Σ_{m=1}^{M} P_{bh,m}
+
+Equation (18): AP hardware power
+   P_m  =  (1/ν_m) · ρ_d · N₀ · N · Σ_{k=1}^{K} η_{m,k} γ_{m,k}
+       +  N · P_{tc,m}
+
+Equation (19): backhaul power
+   P_{bh,m}  =  P_{0,m}  +  B · S_e · P_{bt,m}
+
+Equation (20): all-in-one
+   P_total  =  ρ_d · N₀ · Σ_{m=1}^{M} (1/ν_m) · N · Σ_{k=1}^{K} η_{m,k} γ_{m,k}
+             + Σ_{m=1}^{M} (N · P_{tc,m} + P_{0,m})
+             + B · Σ_{m=1}^{M} P_{bt,m} · S_e({η_{m,k}})
+
+Shorthand:
+   P̄_fix  ≝  Σ_{m=1}^{M} ( N · P_{tc,m}  +  P_{0,m} )
+
+so that
+   P_total  =  ρ_d · N₀ · N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}
+             + P̄_fix
+             + B · (Σ_m P_{bt,m}) · S_e({η_{m,k}})
+
+Equation (21): total energy efficiency
+   E_e  =  B · S_e({η_{m,k}})  /  P_total({η_{m,k}})      [bit / Joule]
+
+Equivalent "divide-by-S_e" form (used in Section IV):
+   E_e  ∝  B · S_e({η_{m,k}}) / [ P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k} ]
+   (modulo a constant additive Σ_m P_{bt,m} in the denominator, which
+    does not depend on η and so can be absorbed into the problem)
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. NUMERICAL WORKED EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+
+Let us use the default Table I parameters of the paper and work out
+P_total and E_e by hand for a mid-size configuration.
+
+  • M        = 100 APs
+  • N        = 4 antennas per AP  (total 400 service antennas)
+  • K        = 20 users
+  • ν_m      = 0.4  (PA efficiency)
+  • P_{tc,m} = 0.2 W   per antenna
+  • P_{0,m}  = 0.825 W per AP     (fixed backhaul)
+  • P_{bt,m} = 0.25 W/(Gbit/s) = 2.5 × 10⁻¹⁰ W/(bit/s)
+  • B        = 20 MHz = 2 × 10⁷ Hz
+  • ρ_d      = 1 W (in normalized units)
+  • N₀       ≈ 4 × 10⁻¹³ W  (at 9 dB NF, B = 20 MHz)
+  • sum SE   S_e = 20 bit/s/Hz  (i.e. 1 bit/s/Hz per user)
+
+Assume every AP operates at full transmit budget, i.e.,
+Σ_k η_{m,k} γ_{m,k} = 1/N = 0.25 for all m.
+
+─── Step 1. PA-draw part of each P_m ──────────────────────────────────
+
+Per-AP:
+   P_PA,m = (1/ν_m) · ρ_d · N₀ · N · (1/N)
+          = (1/0.4) · 1 · (4 × 10⁻¹³) · 1
+          ≈ 1 × 10⁻¹² W
+
+This is tiny because ρ_d and N₀ are normalized to noise — that is
+not the "real" transmit-power cost. Let us recompute using a REAL
+transmit power: in the paper, ρ_d = 1 is a *normalized* SNR, not
+1 W. The actual transmit budget is ρ_d · N₀ ≈ 4 × 10⁻¹³ W — i.e.
+the setting "ρ_d = 1" just means "the AP can transmit at 1 dB
+above noise floor," which is unphysically small. The paper's
+Table I fixes the PA-draw numbers by scaling things differently —
+in practice, the numerical experiments in Section VI use a
+transmit budget of a few hundred mW per AP, not 4×10⁻¹³ W.
+
+To get meaningful numbers, let us instead interpret "ρ_d · N₀" as
+"max RF output per AP" = 200 mW = 0.2 W (a reasonable small-cell
+AP output). Then:
+
+   P_PA,m = (1/0.4) · 0.2 · (sum η γ) / (1/N)       ← normalize
+          ≤ (1/0.4) · 0.2  =  0.5 W (at full load)
+
+─── Step 2. Circuit part of each P_m ──────────────────────────────────
+
+Per-AP circuit = N · P_{tc,m} = 4 · 0.2 = 0.8 W.
+
+So per-AP hardware P_m (at full PA load):
+   P_m = 0.5 + 0.8 = 1.3 W
+
+Across M = 100 APs:
+   Σ_m P_m = 130 W
+
+─── Step 3. Fixed backhaul Σ_m P_{0,m} ─────────────────────────────────
+
+Σ_m P_{0,m} = 100 · 0.825 = 82.5 W
+
+─── Step 4. Sum throughput B·S_e ──────────────────────────────────────
+
+B · S_e = 2 × 10⁷ · 20 = 4 × 10⁸ bit/s = 400 Mbit/s
+
+─── Step 5. Traffic-dep. backhaul ─────────────────────────────────────
+
+Σ_m P_{bt,m} · B · S_e
+   = 100 · (2.5 × 10⁻¹⁰) · (4 × 10⁸)
+   = 100 · 0.1
+   = 10 W
+
+─── Step 6. Total power ──────────────────────────────────────────────
+
+P_total = Σ_m P_m + Σ_m P_{0,m} + traffic backhaul
+        = 130 + 82.5 + 10
+        = 222.5 W
+
+─── Step 7. Energy efficiency ────────────────────────────────────────
+
+E_e = (4 × 10⁸) / 222.5
+    ≈ 1.798 × 10⁶ bit/J
+    ≈ 1.80 Mbit/J
+
+─── Observations ──────────────────────────────────────────────────────
+
+1. **Circuit + fixed backhaul dominate.** Out of 222.5 W, the PA only
+   accounts for 50 W (22.5%), the per-antenna circuit power accounts
+   for 80 W (36%), and the fixed backhaul accounts for another 82.5 W
+   (37%). The traffic-dependent backhaul is only 10 W (4.5%) at
+   S_e = 20 bit/s/Hz. This is the typical "fixed-cost-dominated"
+   regime of small/micro base stations.
+
+2. **Increasing N helps the data rate but inflates circuit power.**
+   Going from N = 1 to N = 4 at fixed total antennas MN = 400 means
+   M drops from 400 to 100, so:
+     • Σ_m N·P_{tc,m} = 400·0.2 = 80 W (unchanged!)
+     • Σ_m P_{0,m}    = 100·0.825 = 82.5 W  vs.  400·0.825 = 330 W
+     • Traffic BH     = 100·P_{bt}·B·S_e  vs.  400·P_{bt}·B·S_e
+   So going from M=400 to M=100 SLASHES the fixed backhaul from
+   330 W to 82.5 W (–247.5 W!) and the traffic backhaul from 40 W
+   to 10 W (–30 W), at the cost of some macro-diversity loss. This
+   is exactly the "number-of-antennas-per-AP trade-off" that the
+   paper will visualize in Fig. 5 of Section VI.
+
+3. **What if we ignored backhaul?** Removing P_{0,m} and P_{bt,m}
+   from P_total gives P_total = 130 W and E_e = 4×10⁸/130 ≈ 3.08
+   Mbit/J — an overestimate by 70 %. This is exactly why an EE
+   analysis without backhaul is misleading.
+
+─── PRACTICE PROBLEM ──────────────────────────────────────────────────
+
+Repeat the seven-step calculation for M = 200 APs, N = 2 antennas per
+AP, K = 40 users, ρ_d·N₀ (real transmit power) = 0.2 W at full load,
+ν_m = 0.4, P_{tc,m} = 0.2 W, P_{0,m} = 0.825 W, P_{bt,m} = 0.25 W/(Gbit/s),
+B = 20 MHz, sum SE S_e = 40 bit/s/Hz (i.e. 1 bit/s/Hz per user).
+
+(a) Σ_m P_m (hint: per-AP PA = 0.5 W, circuit = 0.4 W)
+(b) fixed backhaul Σ_m P_{0,m}
+(c) traffic-dep backhaul Σ_m P_{bt,m}·B·S_e
+(d) P_total
+(e) E_e in Mbit/J
+(f) Fraction of P_total attributable to backhaul
+
+[Expected answers:
+   (a) per-AP = 0.9 W × 200 = 180 W
+   (b) 200 × 0.825 = 165 W
+   (c) 200 × 2.5·10⁻¹⁰ × (2·10⁷ · 40)
+       = 200 × 2.5·10⁻¹⁰ × 8·10⁸
+       = 200 × 0.2
+       = 40 W
+   (d) 180 + 165 + 40 = 385 W
+   (e) B·S_e = 2·10⁷·40 = 8·10⁸ bit/s
+       E_e = 8·10⁸ / 385 ≈ 2.08 Mbit/J
+   (f) Backhaul = 165 + 40 = 205 W out of 385 ⇒ 53% !
+       More than half of the power is backhaul — the cell-free
+       "elephant in the room." ]
+
+Notice that doubling M from 100 to 200 (while halving N from 4 to 2
+so that MN stays at 400) REDUCED circuit power a bit (80→80, same)
+but DOUBLED the fixed backhaul from 82.5 to 165 W. EE actually did
+not change much because we also doubled B·S_e. Still, the backhaul
+share jumped from ~37% (M=100) to ~53% (M=200). This is the
+*quantitative* meaning of "backhaul kills EE at large M" that the
+paper keeps emphasizing.
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. SUMMARY OF SECTION III
+───────────────────────────────────────────────────────────────────────────────
+
+• Component-level power model. Section III adopts the now-standard
+  component-level power model of [11], [13]–[15] and specializes it
+  to cell-free massive MIMO. Total power has two parts:
+     P_total = Σ_m (P_m)         +  Σ_m (P_{bh,m})
+             AP hardware             backhaul
+  (Eq. 17).
+
+• AP hardware power (Eq. 18):
+     P_m = (1/ν_m) · ρ_d · N₀ · N · Σ_k η_{m,k} γ_{m,k}   [PA draw]
+         + N · P_{tc,m}                                     [circuit]
+  Two insights:
+     (i) per-AP PA draw is bounded by ρ_d·N₀/ν_m regardless of N
+         (because of the Σ η γ ≤ 1/N per-AP power constraint);
+     (ii) circuit power scales linearly with N and is paid even
+          when no data is transmitted.
+
+• Backhaul power (Eq. 19):
+     P_{bh,m} = P_{0,m} + B · S_e · P_{bt,m}
+  Fixed traffic-independent part + traffic-dependent part linear
+  in sum data rate. This is the NEW term (vs. colocated MIMO)
+  and the reason cell-free EE requires careful analysis.
+
+• All-in-one (Eq. 20): P_total = η-dependent PA + fixed (N·P_{tc}+
+  P_{0}) + η-dependent traffic backhaul (∝ S_e).
+
+• Total energy efficiency (Eq. 21):
+     E_e = B · S_e / P_total       [bit / J]
+  This is the objective maximized in Section IV.
+
+• The "elephant in the room." Fixed backhaul Σ_m P_{0,m} scales
+  linearly with M. Traffic-dependent backhaul also scales linearly
+  with M (through Σ_m P_{bt,m}). For large M the backhaul is THE
+  dominant power consumer, and naive deployment (more APs = better)
+  becomes counter-productive in joules/bit terms. This motivates
+  the AP-selection schemes of Section V.
+
+• "Divide by B·S_e" trick. Dividing numerator and denominator of
+  (21) by B·S_e removes the backhaul non-linearity and leaves an
+  equivalent fractional objective whose denominator is AFFINE in
+  the quadratic power variables. This is the analytic key that
+  will make Section IV's SCA-SOCP reformulation possible.
+
+• Default Table I parameters (used throughout the paper):
+     ν_m       = 0.4
+     P_{tc,m}  = 0.2 W per antenna
+     P_{0,m}   = 0.825 W per AP
+     P_{bt,m}  = 0.25 W / (Gbit/s)
+     B         = 20 MHz
+     noise figure = 9 dB  →  N₀ ≈ 4·10⁻¹³ W
+     τ_c       = 200 samples
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018]   H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou,
+                  E. G. Larsson, "On the Total Energy Efficiency of
+                  Cell-Free Massive MIMO," IEEE TGCN, 2018.
+                  arXiv: 1702.07601. DOI: 10.1109/TGCN.2017.2770215.
+
+[Bjornson-TWC-2015] E. Björnson, L. Sanguinetti, J. Hoydis,
+                  M. Debbah, "Optimal Design of Energy-Efficient
+                  Multi-User MIMO Systems: Is Massive MIMO the
+                  Answer?" IEEE TWC, vol. 14, no. 6, pp. 3059–3075,
+                  Jun. 2015.  (Canonical EE power-consumption model;
+                  the direct parent of Eqs. 17–20.)
+                  DOI: 10.1109/TWC.2015.2400437
+                  Code: github.com/emilbjornson/is-massive-MIMO-the-answer
+
+[Auer-2011]       G. Auer, V. Giannini, C. Desset, I. Gódor,
+                  P. Skillermark, et al., "How much energy is needed
+                  to run a wireless network?" IEEE Wireless Commun.
+                  Mag., vol. 18, no. 5, pp. 40–49, Oct. 2011. (EARTH
+                  project, the measured/empirical component-level
+                  power data that underpins every EE model.)
+
+[Tombaz-2011]     S. Tombaz, A. Västberg, J. Zander, "Energy- and
+                  cost-efficient ultra-high-capacity wireless
+                  access," IEEE Wireless Commun. Mag., vol. 18,
+                  no. 5, pp. 18–24, May 2011.  (Backhaul power
+                  included in the EE model; ref [13] in Ngo paper.)
+
+[Zuo-2016]        J. Zuo, J. Zhang, C. Yuen, W. Jiang, W. Luo,
+                  "Energy efficient downlink transmission for
+                  multi-cell massive DAS with pilot contamination,"
+                  IEEE Trans. Veh. Technol., Apr. 2016.
+                  (ref [14] in Ngo paper — source of numerical
+                   Table-I values for ν, P_tc, P_0, P_bt.)
+
+[Dai-2016]        B. Dai, W. Yu, "Energy efficiency of downlink
+                  transmission strategies for cloud radio access
+                  networks," IEEE JSAC, vol. 34, no. 4, pp. 1037–
+                  1050, Apr. 2016. (ref [15] in Ngo paper;
+                  fronthaul/backhaul separation for C-RAN.)
+
+[Bjornson-2013]   E. Björnson, E. Jorswieck, M. Debbah, B. Ottersten,
+                  "Designing multi-user MIMO for energy efficiency:
+                  When is massive MIMO the answer?"
+                  arXiv:1310.3843 (2013). (The workshop version that
+                  led to [Bjornson-TWC-2015].)
+
+[Bjornson-Book-2017] E. Björnson, J. Hoydis, L. Sanguinetti, "Massive
+                  MIMO Networks: Spectral, Energy, and Hardware
+                  Efficiency," Foundations and Trends® in Signal
+                  Processing, 2017. Comprehensive textbook on EE
+                  analysis of massive MIMO.

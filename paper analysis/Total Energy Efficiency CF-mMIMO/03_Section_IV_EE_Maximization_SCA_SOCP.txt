@@ -1,0 +1,1057 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+         H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G. Larsson
+         IEEE TGCN, vol. 2, no. 1, pp. 25–39, Mar. 2018.
+--------------------------------------------------------------------------------
+  SECTION COVERED: SECTION IV — TOTAL ENERGY EFFICIENCY MAXIMIZATION
+                    (Non-convex fractional program (P) → SOCP
+                     reformulation via SCA → Algorithm 1)
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL (LAYMAN) EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+We now know two things precisely:
+
+  •  The spectral efficiency S_e of cell-free massive MIMO as a function
+     of the power-control coefficients {η_{m,k}}  (Section II).
+  •  The total power consumption P_total as a function of those same
+     coefficients  (Section III).
+
+Their ratio
+
+     E_e  =  (B · S_e) / P_total                                       [bit/J]
+
+is the number we want to MAXIMISE. So Section IV asks:
+
+     "Which choice of {η_{m,k}} makes E_e as large as possible,
+      while still guaranteeing a minimum data rate S_{o,k} for
+      every user and respecting the per-AP transmit-power budget?"
+
+Why is this hard?
+
+     (i)    It is a RATIO of two complicated functions of η — so-called
+            "fractional programming." Ratios of sums of logs are nasty.
+     (ii)   The SPECTRAL EFFICIENCY is a log of an SINR, and the SINR is
+            a ratio of quadratic forms in η — so the SE constraint
+            SE_k ≥ S_{o,k} is itself a non-convex inequality.
+     (iii)  Even the OBJECTIVE is non-convex (it is a log in the
+            numerator over a linear-plus-log in the denominator).
+
+Standard convex solvers like Gurobi or MOSEK cannot touch problems like
+this directly. The paper therefore uses a three-step recipe borrowed
+from the convex-optimization toolbox:
+
+  STEP A — Transform the ratio into a non-fractional form. The trick
+           is the "divide by B·S_e" preview from Section III: the
+           resulting denominator is now AFFINE in the new variable
+           c_{m,k} ≝ √η_{m,k}. So the fractional objective becomes
+           "(sum of SE terms) / (affine function of c)". That is the
+           structure Charnes-Cooper-style transformations like best.
+
+  STEP B — Approximate the remaining non-convexities by CONVEX LOWER
+           BOUNDS. The non-convex pieces are:
+              (1) the numerator of the SE (a quadratic in c),
+              (2) the log in log₂(1 + SINR).
+           Both get replaced with tractable convex bounds:
+              (1) uses a first-order Taylor expansion of a quadratic-
+                  over-linear function,
+              (2) uses the logarithmic inequality  ln(x) ≥ 1 − 1/x.
+
+  STEP C — Solve the resulting approximation as a **Second-Order Cone
+           Program** (SOCP), which modern solvers can handle quickly.
+           Iterate: each iteration gives a new, better point; feed it
+           back into the Taylor expansion of the next iteration.
+
+The loop over STEPs B–C is called **Sequential Convex Approximation
+(SCA)**. It is the standard work-horse of wireless optimization
+whenever you face a non-convex problem with a nice "difference of
+convex" or "quadratic-over-linear" structure. The paper shows:
+
+  (a)  The sequence of objectives is MONOTONICALLY NON-DECREASING
+       (each iteration improves E_e, never worsens it).
+  (b)  The sequence is upper-bounded (total power has a floor
+       P̄_fix), so it converges.
+  (c)  Empirically it converges in ~10 iterations — fast.
+
+The deliverable of Section IV is therefore ALGORITHM 1: a sequence
+of SOCPs that the computer can solve in polynomial time per
+iteration. Sections V and VI plug this algorithm into a full
+cell-free simulation.
+
+The bottom-line intellectual point of Section IV is:
+
+    "Fractional, non-convex-looking EE maximization problems in
+     wireless communications almost always admit an SCA-SOCP
+     reformulation. The cell-free case is no exception."
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. DETAILED PHD-LEVEL EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+─── 2.1  The original problem (P)  (Eq. 22) ─────────────────────────────
+
+Given the per-user SE formula (15) and the total-power expression (20),
+the paper writes down the energy-efficiency maximization problem as
+
+                                     E_e({η_{m,k}})
+     (P) :     max   ─────────────────────────────
+             {η_{m,k}}                                                  (22)
+
+               s.t.    SE_k({η_{m,k}})  ≥  S_{o,k},  k = 1,…,K      [QoS]
+
+                       Σ_{k=1}^{K} η_{m,k} γ_{m,k}  ≤  1/N,  m = 1,…,M [per-AP]
+
+                       η_{m,k}  ≥  0,  k = 1,…,K,  m = 1,…,M.
+
+  •  S_{o,k} is the minimum spectral efficiency that user k must
+     receive, expressed in bit/s/Hz. This is the quality-of-service
+     (QoS) requirement — it guarantees nobody is starved for rate
+     in the quest to maximize the network-wide "bits per joule."
+  •  The per-AP constraint is the original (8) from Section II.
+  •  The non-negativity η_{m,k} ≥ 0 is trivial but necessary —
+     power-control coefficients are variances, not negative numbers.
+
+Where does this come from?
+  •  It is the CF-mMIMO analogue of the classical colocated massive-
+     MIMO EE problem of [11], except that now {η_{m,k}} has M·K free
+     variables (one per AP-user pair) rather than just K (one per
+     user). M is typically hundreds, so the problem has MK = tens of
+     thousands of variables. This is why the algorithm must scale
+     gracefully with problem size.
+
+Why is it non-convex?
+
+  (a) The objective E_e is a ratio of non-convex functions of η.
+      Even without the constraints, the numerator S_e is a SUM of
+      log-of-SINR terms, each of which is non-concave in η. And
+      dividing by P_total — which is itself a complicated function
+      of η — destroys any concavity that might have existed.
+
+  (b) The per-user SE constraint SE_k ≥ S_{o,k} is non-convex.
+      Expand it:
+          log₂(1 + num(η)/den(η))  ≥  S_{o,k} τ_c / (τ_c − τ_p)
+      ⇔   num(η)/den(η)  ≥  2^{…} − 1
+      ⇔   num(η)  ≥  (2^{…} − 1) · den(η).
+      Both num and den are quadratic forms in √η, and the inequality
+      is "quadratic ≥ quadratic" which is non-convex in general.
+
+  (c) The per-AP power constraint IS convex (it is a linear
+      inequality in η directly), so that one is fine.
+
+─── 2.2  First reformulation: absorb the backhaul into the denominator ─
+
+Plug (20) into E_e and write E_e explicitly:
+
+                          B · S_e({η_{m,k}})
+     E_e  =  ─────────────────────────────────────────
+             P̄_fix                                          ← constant
+            + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}   ← linear in η
+            + B · Σ_m P_{bt,m} · S_e({η_{m,k}})             ← ∝ S_e
+
+The paper then makes its key observation:
+
+    "Dividing the numerator and denominator of the objective by
+     B · S_e, we can see that the objective INCREASES as
+
+            B · S_e({η_{m,k}})
+       ─────────────────────────────────────────────
+       P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}
+
+     increases."
+
+The reasoning is:
+   After dividing by B·S_e, the denominator becomes
+
+      (P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}) / (B·S_e)
+         +  Σ_m P_{bt,m}             ← CONSTANT (does not depend on η)
+
+   Since 1/E_e = A/(B·S_e) + (constant), and B·S_e > 0, E_e is a
+   strictly decreasing function of A/(B·S_e). Minimizing A/(B·S_e)
+   is the same as maximizing (B·S_e)/A. Thus maximizing E_e is
+   equivalent to maximizing (B·S_e)/A where
+
+      A(η)  =  P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}
+
+   is an AFFINE function of η — not log-affine. This is the only
+   place where the linear-in-S_e structure of the backhaul power
+   (Eq. 19) is used; without it, the transformation would fail.
+
+The equivalent problem is therefore
+
+                                   B · S_e({η_{m,k}})
+     (P1) :   max   ──────────────────────────────────────────           (24a)
+             {η_{m,k}}                                                  ←
+             P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}        (24b)
+
+               s.t.   SE_k({η_{m,k}}) ≥ S_{o,k},   k = 1,…,K            (24c)
+
+                       Σ_k η_{m,k} γ_{m,k} ≤ 1/N,  m = 1,…,M            (24d)
+
+                       η_{m,k} ≥ 0,  ∀ m,k.
+
+Comparing with the original (P), the only difference is that the
+traffic-dependent backhaul has been cleanly REMOVED from the
+denominator — it is now absorbed into a constant that doesn't matter
+for the argmax. This is essentially a one-line Charnes-Cooper-like
+rearrangement, enabled by the backhaul model being linear in S_e.
+
+─── 2.3  Substitution c_{m,k} = √η_{m,k}  (Eq. 25, 26) ──────────────────
+
+The SE formula (15) contains TERMS LIKE √η_{m,k} inside quadratic
+forms. To get a cleaner algebra, the paper substitutes
+
+     c_{m,k}  ≝  √η_{m,k}  ≥  0,
+     c_k      ≝  [c_{1,k}, c_{2,k}, …, c_{M,k}]^T  ∈ ℝ^M,
+     c        ≝  [c_1^T, c_2^T, …, c_K^T]^T   ∈ ℝ^{MK}.
+
+Under this substitution, the numerator in (15) becomes
+|𝛄_{k,k}^T c_k|² (purely quadratic in c), the pilot-contamination
+term becomes |𝛄_{k,k'}^T c_{k'}|², and the per-AP power constraint
+Σ_k η_{m,k} γ_{m,k} ≤ 1/N becomes
+
+     Σ_{k=1}^{K} c_{m,k}² · γ_{m,k}  ≤  1/N,   m = 1,…,M        (25c)
+
+which is a quadratic — convex — constraint in c. The PA-draw term
+in the denominator of (24b) similarly becomes
+
+     Σ_m (1/ν_m) Σ_k c_{m,k}² γ_{m,k}
+
+which is a positive weighted sum of squares — also convex in c.
+
+Therefore, in the new variable c the problem becomes
+
+                                       B · S_e(c)
+     (P1)  :   max   ──────────────────────────────────────────         (25a)
+                c
+                      P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k c_{m,k}² γ_{m,k}  (25b)
+
+               s.t.  SE_k(c) ≥ S_{o,k},  k = 1,…,K                       (25c,paper)
+
+                     Σ_k c_{m,k}² γ_{m,k} ≤ 1/N,  m = 1,…,M              (25d,paper)
+
+                     c_{m,k} ≥ 0,  ∀ m, k.
+
+where
+
+                            1 − τ_p/τ_c
+     SE_k(c)  =  ───────  log₂ (  1  +
+
+                    ρ_d N² |𝛄_{k,k}^T c_k|²
+       ────────────────────────────────────────────────────────────   )  (26)
+       ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T c_{k'}|² + ρ_d N Σ_{k'} ‖𝐃_{k',k} c_{k'}‖² + 1
+
+The denominator (25b) is now **affine in the squared c-variables** —
+equivalently a positive-definite quadratic in c. Good. But the SE
+constraint is still the awful "log of ratio of quadratics ≥ constant"
+creature.
+
+─── 2.4  The per-user SE constraint as an SOC constraint  (Eq. 27) ─────
+
+The crucial observation: although SE_k ≥ S_{o,k} is non-convex in
+general, it happens to define a SECOND-ORDER CONE constraint in c
+if we stare at it carefully. Rewrite
+
+     SE_k(c)  ≥  S_{o,k}
+   ⇔  log₂(1 + (num/den))  ≥  S_{o,k} · τ_c/(τ_c − τ_p)
+   ⇔  1 + num/den  ≥  2^{ S_{o,k} τ_c/(τ_c − τ_p) }
+   ⇔  num ≥ (2^{Ŝ_{o,k}} − 1) · den
+   ⇔  ρ_d N² |𝛄_{k,k}^T c_k|²
+           ≥ (2^{Ŝ_{o,k}} − 1) · ( ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T c_{k'}|²
+                                  + ρ_d N Σ_{k'} ‖𝐃_{k',k} c_{k'}‖² + 1 )
+
+where Ŝ_{o,k} ≝ S_{o,k} · τ_c / (τ_c − τ_p).
+
+Now the key inequality: since c_{m,k} ≥ 0 and all entries of 𝛄_{k,k}
+are non-negative, we have 𝛄_{k,k}^T c_k ≥ 0 — i.e. the inner product
+is a non-negative REAL scalar. Therefore |𝛄_{k,k}^T c_k|² = (𝛄_{k,k}^T
+c_k)², and we can take the square root on both sides without losing
+information:
+
+       𝛄_{k,k}^T c_k  ≥  √(2^{Ŝ_{o,k}}−1)  ·
+
+         √(  Σ_{k'≠k} |𝛄_{k,k'}^T c_{k'}|²
+           + (1/N) Σ_{k'} ‖𝐃_{k',k} c_{k'}‖²
+           + 1/(N² ρ_d)  )                                          (27)
+
+where we have pulled out ρ_d N² as an overall scale factor. (The
+paper writes out (27) with the same algebra; I have rearranged to
+clarify the SOC structure.)
+
+Observation: the left-hand side is LINEAR in c. The right-hand side
+is the Euclidean norm of a vector whose entries are linear in c.
+So (27) has the form
+
+     linear ≥ constant · ‖affine vector‖
+
+which is exactly the definition of a second-order cone (SOC)
+constraint (also called Lorentz cone, or "ice-cream cone"):
+
+     Cone : { (t, v) ∈ ℝ × ℝ^n : t ≥ ‖v‖ }.
+
+SOC constraints are convex, SOCP solvers handle them efficiently in
+polynomial time, and EVERY modern solver (Gurobi, MOSEK, ECOS) has a
+dedicated SOCP backend. This is why the paper puts so much effort
+into getting the SE constraint into SOC form — once it is in SOC form,
+it is free to use.
+
+Note the subtle assumption: c_{m,k} ≥ 0. Since c_{m,k} = √η_{m,k} and
+η_{m,k} ≥ 0, this is automatic. If we had allowed complex precoders,
+we would lose the non-negativity and the SOC trick would not apply
+directly — one would need a more general semidefinite programming
+(SDP) relaxation. Conjugate beamforming with real power-control
+coefficients is therefore the sweet spot that makes the optimization
+tractable.
+
+─── 2.5  Second reformulation: (P̂1) with slack variables  (Eq. 28) ───
+
+The objective (25a)/(25b) is still a FRACTION. Convex solvers prefer
+LINEAR objectives. So the paper introduces slack variables t_k
+(one per user) and t_0 (one scalar for the denominator), and rewrites
+(P1) as
+
+                                    B · Σ_{k=1}^K t_k
+                                     ─────────────────
+     (P̂1)  :    max         t_0                                         (28a)
+                c,t,t_0
+                               s.t.  SE_k(c) ≥ t_k,   k = 1,…,K          (28b)
+
+                     P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k c_{m,k}² γ_{m,k}  ≤  t_0  (28c)
+
+                                   (25c), (25d), (27)                   (28d)
+
+where t ≝ [t_1, …, t_K]^T. Intuition:
+
+  •  t_k is a PROXY for SE_k (we want SE_k ≥ t_k, and at the optimum
+     this will hold with equality).
+  •  t_0 is a PROXY for the denominator (we want denominator ≤ t_0,
+     again with equality at the optimum).
+  •  The resulting objective Σ t_k / t_0 is still a ratio but now a
+     ratio of two LINEAR functions of (t, t_0) — it is a LINEAR
+     FRACTIONAL function, which is the classical form that the
+     Charnes-Cooper transformation handles beautifully.
+
+"Charnes-Cooper" recipe for max (cT x + α)/(dT x + β) with dT x + β > 0
+over a convex set:
+   Let y = x/(dT x + β)  and  z = 1/(dT x + β). Then the problem
+   becomes max (cT y + α z) s.t. dT y + β z = 1, (y/z) in the original
+   set, z > 0 — a LINEAR program!
+
+The paper does NOT invoke Charnes-Cooper by name, but the reasoning
+behind the (P̂1) reformulation is identical. Once (P̂1) is in this
+form, the remaining difficulty is the non-convex constraint (28b),
+because SE_k is a log of a RATIO of quadratics (convex over convex,
+hence non-convex in general). The rest of Section IV is about
+approximating (28b) using SCA.
+
+─── 2.6  The SCA step — slack variables u_k  (Eqs. 29–33) ───────────
+
+The troublesome constraint is (28b): SE_k(c) ≥ t_k. Expanding via
+(26), this reads
+
+    (1 − τ_p/τ_c) · log₂( 1 + num_k(c) / den_k(c) )  ≥  t_k
+
+where num_k is a quadratic in c (equal to ρ_d N² |𝛄_{k,k}^T c_k|²)
+and den_k is also a quadratic (the rest of the denominator of the
+SINR plus 1).
+
+The paper introduces a slack variable u_k and DECOMPOSES (28b) into
+TWO constraints:
+
+     1 + num_k(c)/den_k(c)   ≥   u_k                                    (29a)
+
+             log₂(u_k)           ≥   t_k · (τ_c − τ_p)/τ_c ≝ t_k·ε     (29b)
+
+The constraint (29a) captures the SINR lower bound, and (29b) applies
+the log-of-linear step on top. Notice that (29a) and (29b) together
+are equivalent to (28b) IF AND ONLY IF both hold with equality at the
+optimum (which they do, because u_k is a free slack variable).
+
+Step 1: convex bound for (29a).
+
+Rewrite (29a) as
+
+           num_k(c) + den_k(c)  ≥  u_k · den_k(c)
+
+which is equivalent to
+
+    f(c, u_k) ≝ (num_k(c) + den_k(c)) / u_k  ≥  den_k(c)                (30)
+
+rewriting once more with the paper's exact expression:
+
+            ρ_d N² |𝛄_{k,k}^T c_k|² + [ρ_d N² Σ_{k'≠k} + ρ_d N Σ_{k'}‖·‖² + 1]
+                                                                            (31)
+    f(c,u_k) = ──────────────────────────────────────────────────────────
+                                           u_k
+
+Here f(c, u_k) is a **quadratic-over-linear function** — a classical
+convex function when the numerator is a positive definite quadratic
+in c and u_k > 0. (Proof: take the Schur complement, or apply the
+perspective-function definition of quadratic-over-linear. Both
+arguments are in Boyd-Vandenberghe "Convex Optimization" Ch. 3.)
+
+A convex function is ALWAYS UPPER-BOUNDED BY its first-order Taylor
+expansion around any point (cⁿ, uⁿ_k):
+
+    f(c, u_k)  ≥  f(cⁿ, uⁿ_k) + ∇_c f(cⁿ, uⁿ_k)^T (c − cⁿ)
+                 + (∂f/∂u_k)(cⁿ, uⁿ_k) · (u_k − uⁿ_k)
+
+Wait — that is the LOWER bound for a convex function, which is
+exactly what we want here. (A convex function lies ABOVE any tangent
+line.) Writing F(c, u_k; cⁿ, uⁿ_k) for this tangent lower bound, (30)
+is replaced by
+
+     F(c, u_k; cⁿ, uⁿ_k)  ≥  den_k(c)                                   (32)
+
+This is a restrictive replacement (strictly tighter than the original
+inequality — any c feasible for (32) is also feasible for (30) but
+not vice versa). As the SCA iteration proceeds, the tangent point
+(cⁿ, uⁿ_k) is updated to the current iterate, so the approximation
+improves round by round.
+
+The explicit form of the Taylor expansion (Eq. 33 of the paper):
+
+     F(c, u_k; cⁿ, uⁿ_k)
+
+           = f(cⁿ, uⁿ_k)
+
+             + (2 ρ_d / uⁿ_k) · Σ_{k'=1}^{K} (cⁿ_{k'})^T
+                                              · [ N² 𝛄_{k,k'} 𝛄_{k,k'}^T
+                                                  + N 𝐃_{k',k}² ] · (c_{k'} − cⁿ_{k'})
+
+             − (f(cⁿ, uⁿ_k) / uⁿ_k) · (u_k − uⁿ_k)                      (33)
+
+where the middle line uses the matrix identity
+∇_x (x^T A x) = (A + A^T)x = 2A x for symmetric A.
+
+Note that the k'=k term in the sum captures the useful signal
+𝛄_{k,k}, while the k' ≠ k terms capture the pilot-contamination
+contribution. The 𝐃_{k',k}² matrices capture the non-coherent
+interference from the denominator of the SINR. All of these appear
+together because inside f(c, u_k), both "good" num_k and "bad"
+den_k pieces are present in the numerator of the quadratic-over-linear.
+
+Right-hand side den_k(c) in (30)/(32): a QUADRATIC in c (sum of
+squares). The constraint (32) therefore has the form
+
+      (affine in c, u_k)  ≥  (quadratic in c)
+
+which is an SOC-representable constraint (after some algebra
+detailed in Boyd-Vandenberghe App. B). The paper says "Note that (32)
+is SOC representable [20]" — that is ref [20] = Boyd-Vandenberghe.
+
+Step 2: convex bound for (29b), the log constraint.
+
+Now we have to deal with
+
+     log₂(u_k)  ≥  ε · t_k,    where  ε = (τ_c−τ_p)/τ_c.
+
+Here u_k, t_k are both scalar variables. The function log₂(u_k) is
+concave in u_k, so the constraint "log₂(u_k) ≥ linear" is CONVEX —
+nothing is broken. In principle we could leave it alone. But the
+authors want the whole program to be a SOCP (for speed and solver
+availability), and log constraints need "exponential cone" support
+which — in 2017 — was not yet implemented efficiently in Gurobi and
+MOSEK. So they replace log₂(u_k) with a convex LOWER BOUND that is
+ITSELF SOC-representable.
+
+The key inequality used is the classical logarithm inequality
+
+                ln(x)  ≥  1  −  1/x,   for all x > 0                   (‡)
+
+with equality at x = 1. This is a one-variable convex bound that is
+widely used in wireless SCA papers (for example, in Shen-Yu 2018
+"Fractional Programming Part II" it appears as a standard building
+block).
+
+Apply (‡) to x = u_k / uⁿ_k and convert to log₂:
+
+     log₂(u_k / uⁿ_k)  =  log₂(u_k) − log₂(uⁿ_k)
+                        =  ln(u_k / uⁿ_k) · log₂(e)
+
+and by (‡) with x = u_k/uⁿ_k,
+
+     ln(u_k / uⁿ_k)  ≥  1 − uⁿ_k/u_k.
+
+Therefore
+
+     log₂(u_k)  ≥  log₂(uⁿ_k) + log₂(e) · (1 − uⁿ_k/u_k)               (34)
+
+This is a linear-fractional lower bound in u_k. It is TIGHT at
+u_k = uⁿ_k and has the same first derivative at that point, which is
+exactly the SCA-"proper convex bound" condition (see Scutari-
+Facchinei-Lampariello 2016 [18] or Beck-Ben-Tal-Tetruashvili 2010
+[17]).
+
+Replacing log₂(u_k) with (34) in (29b) yields the convex bound
+
+     log₂(uⁿ_k) + log₂(e) · (1 − uⁿ_k/u_k)  ≥  ε · t_k                 (35)
+
+Rearranging: log₂(e)·uⁿ_k/u_k  ≤  log₂(uⁿ_k) + log₂(e) − ε·t_k, i.e.
+
+     u_k · (log₂(uⁿ_k) + log₂(e) − ε·t_k)  ≥  log₂(e) · uⁿ_k.
+
+This is a LINEAR-times-LINEAR hyperbolic constraint of the form
+x · y ≥ constant with x, y affine in variables. Such constraints
+are SOC-representable via
+
+      x · y ≥ z²   ⇔   (x + y)/2 ≥ ‖((x−y)/2, z)‖,
+
+which is a standard rotated-cone representation. So (35) is SOC
+representable — the authors say "this constraint can be reformulated
+as an SOC constraint [12]" where [12] is Alizadeh-Goldfarb "Second-
+Order Cone Programming" 2003.
+
+─── 2.7  The full SOCP at iteration n+1 (Eqs. 36, 37) ────────────────
+
+After substituting the two convex bounds (32) and (35) into (28b),
+the problem at iteration n+1 of the SCA loop becomes
+
+                                 K
+                         B · Σ_{k=1}^K t_k
+                         ───────────────────
+     (P̂1, n+1) :  max          t_0                                      (36a)
+                  c,t,u
+                                 s.t.  (25c), (25d), (27), (28c), (32), (35)   (36b)
+
+This is the OPTIMIZATION PROBLEM SOLVED AT EACH ITERATION. By a
+perspective transformation (treating 1/t_0 as a new variable) it is
+converted to an honest SOCP in Eq. (37) of the paper. The perspective
+transformation is simply:
+
+     Σ t_k / t_0   →    maximize w subject to w · t_0 ≤ Σ t_k
+
+but since we already have separate variables t_k, t_0, the only
+thing needed is to rewrite the linear-fractional objective Σ t_k / t_0
+as a linear objective over a slightly larger variable set using the
+Charnes-Cooper substitution (ỹ = t/t_0, z̃ = 1/t_0). The resulting
+program is a vanilla SOCP; the paper lists all the constraints (37b)–
+(37g) but the structural content is the same as (36).
+
+Remark: The authors note that (P̂1) could ALSO be solved to GLOBAL
+OPTIMALITY by a monotonic optimization method called "branch-and-
+reduce-and-bound" (BRB) [16]. They use it ONLY for small problems
+(M = 8, K = 2) as a sanity check, because BRB has exponential
+complexity in the problem dimension and is therefore hopeless for
+M = 100–200. SCA, in contrast, is polynomial per iteration and
+empirically converges to the BRB optimum in ~10 iterations.
+
+─── 2.8  Algorithm 1 — the SCA loop ──────────────────────────────────
+
+The final iterative algorithm is:
+
+  Algorithm 1 (SCA for (28))
+
+  1. Initialization:
+        n ← 1
+        choose feasible initial point (c¹, u¹) by solving a
+          FEASIBILITY SOCP (find any c with SE_k ≥ S_{o,k}
+          and Σ_k c_{m,k}² γ_{m,k} ≤ 1/N)
+        set tolerance ε_tol, max iterations N_I
+
+  2. Iteration n:
+        solve the SOCP (37) with tangent point (cⁿ, uⁿ)
+        let (c⁺, t⁺, u⁺) be its solution
+
+  3. Convergence check:
+        if  |Σ_k t⁺_k − Σ_k tⁿ_k|  <  ε_tol  or  n = N_I:
+            STOP
+        else:
+            go to Step 4.
+
+  4. Update:
+        (cⁿ⁺¹, uⁿ⁺¹) ← (c⁺, u⁺)
+        n ← n + 1
+        go to Step 2.
+
+With ε_tol = 0.01 and N_I = 10 (the paper's defaults), Algorithm 1
+converges in at most 10 iterations per large-scale fading
+realization.
+
+Remark 1 (initialization): For a given spectral efficiency target
+{S_{o,k}}, the feasible set of (P1) — i.e., SE_k ≥ S_{o,k} and the
+per-AP power constraints — is CONVEX (it is the intersection of SOC
+sets with a non-negative orthant). So finding an initial feasible
+point is itself an SOCP feasibility problem, which solvers handle
+directly. If infeasible (the target rates cannot be met by any
+power allocation), the authors simply set E_e = 0 and move on.
+
+─── 2.9  Convergence analysis ──────────────────────────────────────────
+
+The convergence is a standard SCA argument (see Beck-Ben-Tal-
+Tetruashvili 2010 [17] or Scutari-Facchinei-Lampariello 2016 [18]):
+
+  (i)   Monotone improvement. The convex bounds F(·) and (34) are
+        TIGHT at the tangent point (cⁿ, uⁿ): they equal the original
+        non-convex functions at (cⁿ, uⁿ) and have the same first
+        derivatives there. Therefore, (cⁿ, uⁿ) is feasible for the
+        (n+1)-th approximation, and by optimization the (n+1)-th
+        iterate must be at least as good as (cⁿ, uⁿ). Hence the
+        sequence of objective values is non-decreasing.
+
+  (ii)  Upper bound. The objective (24a), E_e, is upper bounded
+        because P_total ≥ P̄_fix > 0 and S_e is upper-bounded by a
+        constant for any feasible η (finite power → finite rate).
+        Therefore the sequence of E_e values is bounded.
+
+  (iii) Convergence. A monotonically non-decreasing, bounded-above
+        sequence converges. Algorithm 1 therefore produces a sequence
+        of E_e values that converges.
+
+NOTE: SCA converges to a KKT point of the original non-convex
+problem, NOT necessarily to the global optimum. The paper verifies
+empirically, by comparing with BRB on small problems, that SCA
+indeed finds the global optimum in most cases for CF-mMIMO of
+practical sizes (Fig. 1, M = 8, K = 2).
+
+─── 2.10  Computational complexity ──────────────────────────────────────
+
+Each iteration of Algorithm 1 solves an SOCP with:
+
+  •  Variables: c ∈ ℝ^{MK}_+, t ∈ ℝ^K, u ∈ ℝ^K, t_0 ∈ ℝ.
+     Total dimension: MK + 2K + 1.
+  •  Constraints: K SOC constraints from (27), K SOC constraints
+     from (32), K constraints from (35), 1 per-AP quadratic ×M =
+     M quadratic constraints from (25d), 1 linear constraint
+     (28c). So O(K + M) constraints.
+
+The interior-point complexity of an SOCP with n variables and m
+cone constraints is O((n + m)^{3.5}) — polynomial. For M = 100,
+K = 40 (a typical CF-mMIMO deployment), n = 4000 + 80 + 1 and
+the solver handles it in seconds on a laptop. This is why SCA is
+scalable while BRB (exponential) is not.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. HISTORICAL / PRIOR DEVELOPMENTS
+───────────────────────────────────────────────────────────────────────────────
+
+Section IV draws on four different threads of the optimization
+literature. A brief history:
+
+▸ 1962 — **Charnes, Cooper**, "Programming with linear fractional
+  functionals," Naval Res. Logistics Quarterly. The ORIGINAL
+  transformation for linear-fractional programs. Introduces the
+  variable change that turns (c^T x + α)/(d^T x + β) into a linear
+  program.
+
+▸ 1967 — **Dinkelbach**, "On nonlinear fractional programming,"
+  Management Science. The parametric algorithm: max f/g ↔ find λ
+  s.t. max (f − λ g) = 0. This is the other classical tool for
+  non-linear fractional programming, used heavily in EE papers.
+
+▸ 1978 — **Hoyer**, Isermann, "Successive approximation algorithms"
+  — seeds of the SCA idea for non-convex programming.
+
+▸ 1994 — Nesterov-Nemirovski "Interior-Point Polynomial Methods in
+  Convex Programming," SIAM. Establishes polynomial-time interior-
+  point methods for SOCP and SDP. This is the mathematical backbone
+  that makes all subsequent SCA-SOCP work practical.
+
+▸ 2003 — **Alizadeh, Goldfarb**, "Second-order cone programming,"
+  Math. Programming (ref [12] in Ngo paper). THE reference for
+  SOCP — formulations, duality, interior-point algorithms,
+  applications. This is the paper you cite whenever you say
+  "this is SOC representable."
+
+▸ 2004 — **Boyd, Vandenberghe**, "Convex Optimization," Cambridge
+  University Press (ref [20] in the Ngo paper). The bible of
+  practical convex optimization. Ch. 2–3 give the definitions of
+  cones and convex functions, Ch. 4 gives the SOC examples used
+  in the Ngo SCA derivation, App. B lists the SOC representations
+  of all standard convex functions.
+
+▸ 2010 — **Beck, Ben-Tal, Tetruashvili**, "A sequential parametric
+  convex approximation method with applications to nonconvex truss
+  topology design problems," J. Glob. Optim. (ref [17] in Ngo
+  paper). The seminal SCA convergence-analysis paper. Establishes
+  the conditions under which SCA converges to a KKT point of the
+  original non-convex problem.
+
+▸ 2012 — **Tran, Hanif, Tolli, Juntti**, "Fast converging algorithm
+  for weighted sum rate maximization in multicell MISO downlink,"
+  IEEE SPL (ref [19] in Ngo paper). The first paper to apply SCA
+  + SOCP to weighted-sum-rate maximization in wireless. The
+  methodology used in Ngo-TGCN-2018 is a direct generalization of
+  this work (and Tran is a co-author of both!).
+
+▸ 2015 — **Tervo, Tran, Juntti**, "Optimal energy-efficient transmit
+  beamforming for multi-user MISO downlink," IEEE TSP (ref [25] in
+  Ngo paper). Applies the same SCA-SOCP methodology to EE
+  maximization in colocated MIMO with BRB as a global-optimization
+  sanity check. The code from this paper is what Ngo et al. MODIFY
+  to build their BRB benchmark for the cell-free case.
+
+▸ 2016 — **Scutari, Facchinei, Lampariello**, "Parallel and
+  distributed methods for constrained nonconvex optimization—part
+  I: Theory," IEEE TSP (ref [18] in Ngo paper). A unifying
+  convergence theory for SCA, including sufficient conditions on
+  the "surrogate" convex functions that make the iteration a
+  proper descent / ascent method.
+
+▸ 2017 — **Ngo, Tran, Duong, Matthaiou, Larsson** (this paper).
+  Brings the whole machinery (SCA + SOCP + BRB benchmark) into
+  cell-free massive MIMO.
+
+▸ 2018 — **Shen, Yu**, "Fractional Programming for Communication
+  Systems—Parts I & II," IEEE JSAC. Survey + new technique
+  ("quadratic transform") for EE-like fractional programs, which
+  became the standard methodology after 2018. Ngo-2017-TGCN is
+  one of the last papers in the pre-Shen-Yu era that uses the
+  classical SCA + Taylor approach. Modern papers often use Shen-
+  Yu's quadratic transform instead, which is slightly simpler but
+  ultimately equivalent.
+
+▸ Industrial solvers used: **Gurobi** [22] (commercial, free
+  academic license) and **MOSEK** [23] (commercial, also free
+  academic license). Both have native SOCP support and solve
+  tens of thousands of variables in seconds. The paper's code
+  repository (github.com/tranlenam/cellfreeMIMOenergyefficiency)
+  shows that the authors call MOSEK via YALMIP from MATLAB.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. MATHEMATICAL RECAP IN UNICODE
+───────────────────────────────────────────────────────────────────────────────
+
+Original problem  (P):
+   max_{η}     B · S_e({η_{m,k}}) / P_total({η_{m,k}})
+   s.t.        SE_k ≥ S_{o,k},  ∀ k
+               Σ_k η_{m,k} γ_{m,k} ≤ 1/N,  ∀ m
+               η_{m,k} ≥ 0,  ∀ m,k.
+
+Equivalent (P1) after "divide by B·S_e":
+   max_{η}     B · S_e / [P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}]
+   s.t.        same constraints,  where  P̄_fix = Σ_m (N P_{tc,m} + P_{0,m}).
+
+Substitution:  c_{m,k} ≝ √η_{m,k},  c_k ≝ [c_{1,k},…,c_{M,k}]^T ∈ ℝ^M,
+                c ≝ [c_1^T,…,c_K^T]^T ∈ ℝ^{MK}_+.
+
+Per-AP power:  Σ_k c_{m,k}² γ_{m,k} ≤ 1/N,  ∀ m    (convex quadratic)
+
+SE in c :
+   SE_k(c) = (1−τ_p/τ_c) · log₂(1 +
+             ρ_d N² |𝛄_{k,k}^T c_k|² /
+             ( ρ_d N² Σ_{k'≠k}|𝛄_{k,k'}^T c_{k'}|² + ρ_d N Σ_{k'}‖𝐃_{k',k} c_{k'}‖² + 1 ))
+
+SE constraint as SOC  (27):
+   𝛄_{k,k}^T c_k ≥ √(2^{Ŝ_{o,k}}−1) · ‖v_k(c)‖
+   where v_k(c) is an affine function of c and Ŝ_{o,k}=S_{o,k}τ_c/(τ_c−τ_p).
+
+Linear-fractional reformulation  (P̂1):
+   max_{c,t,t_0}   B · Σ_k t_k / t_0
+   s.t.            SE_k(c) ≥ t_k,  k = 1,…,K                 ← non-convex
+                   P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k c_{m,k}² γ_{m,k} ≤ t_0
+                   per-AP power,   SE-SOC (27),   c ≥ 0.
+
+Slack-variable decomposition of the SE constraint:
+   1 + num_k(c)/den_k(c)  ≥  u_k                                  (29a)
+   log₂(u_k)              ≥  ε t_k,   ε ≝ (τ_c−τ_p)/τ_c           (29b)
+
+Convex lower bound for (29a) via Taylor of f(c,u_k) = (num_k+den_k)/u_k:
+   F(c,u_k; cⁿ,uⁿ_k) ≥ den_k(c)                                    (32)
+   where
+   F(c,u_k; cⁿ,uⁿ_k)
+     = f(cⁿ,uⁿ_k)
+       + (2ρ_d/uⁿ_k) · Σ_{k'=1}^K (cⁿ_{k'})^T
+                                · [N²𝛄_{k,k'}𝛄_{k,k'}^T + N 𝐃_{k',k}²]
+                                · (c_{k'} − cⁿ_{k'})
+       − (f(cⁿ,uⁿ_k)/uⁿ_k) · (u_k − uⁿ_k).                          (33)
+
+Convex lower bound for log₂(u_k) via ln(x) ≥ 1 − 1/x:
+   log₂(u_k) ≥ log₂(uⁿ_k) + log₂(e) · (1 − uⁿ_k/u_k)              (34)
+
+Convex approximation constraint at iteration n+1:
+   log₂(uⁿ_k) + log₂(e)·(1 − uⁿ_k/u_k) ≥ ε t_k                    (35)
+   (rotated-cone / hyperbolic constraint, SOC representable)
+
+Algorithm 1 iteration: solve SOCP (37), update (cⁿ,uⁿ), repeat.
+Convergence: objective values form a non-decreasing, bounded-above
+sequence → converges (typically within 10 iterations).
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. NUMERICAL WORKED MINI-EXAMPLE OF ONE SCA ITERATION
+───────────────────────────────────────────────────────────────────────────────
+
+Let us simulate ONE iteration of Algorithm 1 on a toy cell-free
+instance.
+
+Configuration (same as the Sec. II worked example):
+
+   M = 2 APs, K = 2 users, N = 1,   τ_p = τ_c = 10  (drop the prefactor),
+   orthogonal pilots, ρ_d = 1, ρ_p = 1.
+
+   Large-scale fading:
+        β_{1,1} = 0.1,  β_{1,2} = 0.01,
+        β_{2,1} = 0.01, β_{2,2} = 0.1.
+
+   From Eq. (5):
+        γ_{1,1} = γ_{2,2} = 10·0.01/(10·0.1+1) = 0.1/2 = 0.05
+        γ_{1,2} = γ_{2,1} = 10·0.0001/(10·0.01+1) = 0.001/1.1 ≈ 0.000909.
+
+   QoS target S_{o,1} = S_{o,2} = 0.1 bit/s/Hz, so
+        ε = 1,  Ŝ_{o,k} = 0.1 → 2^{0.1} − 1 ≈ 0.0718.
+
+   Per-AP power constraint: c_{m,1}² γ_{m,1} + c_{m,2}² γ_{m,2} ≤ 1
+   (since N = 1).
+
+   Power model: set P̄_fix = 10 (arbitrary units), ν_m = 0.4,
+   N₀ = 1, B = 1, P_{bt,m} = 0 (ignore traffic BH),
+   Σ_m (1/ν_m) = 5.
+
+Step 0 — Initial feasible point. Use equal power at each AP:
+   c_{1,1}² = c_{1,2}² = 1/(2·γ_{1,1}) = 10 (waits, need to check γ)
+
+Actually, let us use c_{m,k}² = 1/(N · (γ_{m,1} + γ_{m,2})).
+   AP 1: 1/(0.05+0.000909) ≈ 1/0.0509 ≈ 19.64
+         so c_{1,1}² = c_{1,2}² = 19.64/2 ≈ 9.82
+         c_{1,1} = c_{1,2} ≈ 3.133
+   Check (25d):  9.82·0.05 + 9.82·0.000909 ≈ 0.491 + 0.00893 ≈ 0.500 ≤ 1 ✓
+   Same for AP 2 by symmetry.
+
+   So c⁰ = [c¹⁰, c²⁰] with c¹⁰ = c²⁰ = [3.133, 3.133]^T
+   (stacked: c⁰ = [3.133, 3.133, 3.133, 3.133]^T).
+
+Step 1 — Compute num_1(c⁰), den_1(c⁰), u_1⁰.
+   𝛄_{1,1} = [γ_{1,1}, γ_{2,1}]^T = [0.05, 0.000909]^T
+   𝛄_{1,2} = 0 (orthogonal pilots)
+   𝐃_{1,1} = diag(√(β_{1,1}γ_{1,1}), √(β_{2,1}γ_{2,1}))
+            = diag(√0.005, √0.00000909)
+            ≈ diag(0.0707, 0.00302)
+   𝐃_{2,1} = diag(√(β_{1,1}γ_{1,2}), √(β_{2,1}γ_{2,2}))
+            = diag(√0.000909, √0.0005)
+            ≈ diag(0.0302, 0.02236)
+
+   num_1(c⁰) = ρ_d N² |𝛄_{1,1}^T c_1⁰|²
+             = 1 · 1 · |0.05·3.133 + 0.000909·3.133|²
+             = |0.1567 + 0.00285|²
+             = (0.1595)²
+             ≈ 0.02545
+
+   den_1(c⁰) = ρ_d N² Σ_{k'≠1}|𝛄_{1,k'}^T c_{k'}⁰|²
+               + ρ_d N Σ_{k'} ‖𝐃_{k',1} c_{k'}⁰‖² + 1
+             = 0                            ← orthogonal pilots
+             + 1·1· ( (0.0707·3.133)² + (0.00302·3.133)² )
+                  + ( (0.0302·3.133)² + (0.02236·3.133)² )
+                  + 1
+             = ((0.2216)² + (0.00947)²) + ((0.0946)² + (0.0700)²) + 1
+             ≈ (0.04910 + 0.0000897) + (0.00895 + 0.00490) + 1
+             ≈ 0.04919 + 0.01385 + 1
+             ≈ 1.063.
+
+   SINR_1(c⁰) = 0.02545 / 1.063 ≈ 0.02394
+   log₂(1 + 0.02394) ≈ 0.0342 bit/s/Hz.
+
+   So the initial feasible point actually FAILS the QoS target 0.1
+   bit/s/Hz for user 1. In a real run one would either lower S_{o,k}
+   or increase transmit power. For pedagogical purposes let us pretend
+   the target is 0.03 bit/s/Hz instead, so the point is feasible.
+
+   Set u_1⁰ = 1 + num_1/den_1 ≈ 1 + 0.02394 = 1.02394.
+
+Step 2 — Compute the tangent point functions f(c⁰, u_1⁰) and
+gradients. This is mechanical but tedious; the SOCP solver does it
+automatically once you hand it the closed-form (33).
+
+Step 3 — Build the SOCP (37) with the above Taylor-coefficient
+matrices, hand it to MOSEK, and read off the new iterate c¹, u¹.
+
+Step 4 — Check if Σ_k t_k has moved by less than ε_tol = 0.01; if
+not, go back to Step 1 with n ← 1.
+
+After roughly 5–10 iterations (for a toy problem with MK = 4
+variables, one typically converges in 3–5), the iterate (cⁿ, uⁿ)
+will stabilize at a KKT point of (P̂1), and the corresponding E_e
+is the answer.
+
+─── The "numerical lesson" ──────────────────────────────────────────
+
+Even for the smallest case M = 2, K = 2 the algebra is heavy —
+which is exactly why the paper reaches for a solver. The point of
+the worked example is NOT to compute the final answer by hand, but
+to see the STRUCTURE of what each iteration builds:
+
+  •  {γ_{m,k}}, {𝐃_{k',k}}, {𝛄_{k,k'}} are pre-computed once from
+     the large-scale fading.
+  •  At iteration n, the current iterate (cⁿ, uⁿ) plugs into (33)
+     and (35) to produce a CONVEX, SOC-representable approximation
+     of (28b).
+  •  The solver returns a new iterate c⁺, u⁺ which strictly improves
+     the objective (or stays the same if you are at a KKT point).
+  •  Stop when the improvement is smaller than ε_tol.
+
+─── PRACTICE PROBLEM ────────────────────────────────────────────────
+
+(a) Show that f(c, u) = x^T A x / u with A positive semidefinite and
+    u > 0 is JOINTLY convex in (x, u). Hint: use the Schur complement
+    definition of a positive-semidefinite matrix, or the perspective
+    function theorem from Boyd-Vandenberghe Ch. 3.
+
+(b) Derive inequality (34) from ln(x) ≥ 1 − 1/x by substituting
+    x = u/uⁿ and noting log₂(u) = log₂(uⁿ) + log₂(e)·ln(u/uⁿ).
+
+(c) For the toy example above with S_{o,k} = 0.03 bit/s/Hz,
+    compute 2^{Ŝ_{o,k}} − 1 with Ŝ_{o,k} = 0.03 · (10/10) = 0.03,
+    so 2^{0.03} − 1 ≈ 0.0210. Write out inequality (27) for
+    user 1 with c_1 = [c_{1,1}, c_{2,1}]^T as the only variable
+    (fix c_2 arbitrarily). Verify that it is a linear (LHS)
+    vs. norm (RHS) inequality — i.e., SOC.
+
+(d) Look up the MATLAB code at
+    github.com/tranlenam/cellfreeMIMOenergyefficiency and identify
+    the files that implement (i) the feasibility initialization,
+    (ii) the SCA loop, (iii) the SOCP handoff to MOSEK. Map the
+    lines of code back to Eqs. (25)–(37). This is the single best
+    way to grasp how the paper is actually run.
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. SUMMARY OF SECTION IV
+───────────────────────────────────────────────────────────────────────────────
+
+• Problem (P). Maximize E_e = B·S_e/P_total over power-control
+  coefficients η_{m,k} subject to per-user QoS (SE_k ≥ S_{o,k})
+  and per-AP power (Σ_k η_{m,k} γ_{m,k} ≤ 1/N). Non-convex
+  because (i) the objective is a ratio of two non-convex
+  functions, and (ii) the SE constraint is a log of a ratio of
+  quadratic forms.
+
+• Reformulation (P1). Divide numerator and denominator by B·S_e.
+  The traffic-dependent backhaul, being linear in S_e, turns into
+  a constant that does not affect the argmax. The new fractional
+  objective has an AFFINE denominator in the "squared power"
+  variables c_{m,k}² = η_{m,k}, which is the structure SOCP likes.
+
+• Substitution c_{m,k} = √η_{m,k} puts the per-AP power constraint
+  Σ_k c_{m,k}² γ_{m,k} ≤ 1/N into quadratic (convex) form and
+  makes the SE numerator a perfect square, which enables the
+  SOC-representation trick (27) for the SE constraint.
+
+• SOC representation of the SE constraint (27). Because c ≥ 0 and
+  all coefficients are real non-negative, 𝛄_{k,k}^T c_k ≥ 0 and the
+  SINR-lower-bound constraint admits a clean SOC form: linear-LHS
+  ≥ norm-of-vector-affine-in-c-RHS. All the hard work in Sec. IV
+  boils down to getting (28b) into this form.
+
+• Linear-fractional reformulation (P̂1). Introduce slack t_k for
+  SE_k and t_0 for the denominator. The objective becomes a
+  linear-fractional Σ t_k / t_0, treatable by Charnes-Cooper /
+  perspective transformations and converting to an honest LP-
+  style SOCP objective.
+
+• SCA approximation of the remaining non-convex constraint
+  (28b, i.e. SE_k ≥ t_k) in two steps:
+     (a) decouple using slack u_k via (29a)+(29b);
+     (b) convex bound (29a) by Taylor-expanding the quadratic-over-
+         linear f(c, u_k) around the current iterate (cⁿ, uⁿ_k),
+         giving (32)–(33) — SOC representable;
+     (c) convex bound log₂(u_k) below using ln(x) ≥ 1 − 1/x,
+         giving (34)–(35) — also SOC representable.
+
+• Algorithm 1. Iterate: solve (37) with current tangent point,
+  update (cⁿ,uⁿ), stop when |Σ_k t_k| stops improving (ε_tol)
+  or after N_I = 10 iterations.
+
+• Convergence. Objective is non-decreasing (because the convex
+  bounds are TIGHT at the tangent point, so the previous iterate
+  is feasible for the new SOCP), and upper-bounded (because E_e
+  is bounded for finite total power). Therefore the algorithm
+  converges (numerically, within ~10 iterations). SCA converges
+  to a KKT point in general; empirically on small CF-mMIMO it
+  matches the BRB global optimum.
+
+• Computational complexity. Per-iteration SOCP with MK + 2K + 1
+  variables and O(M + K) cones. Interior-point complexity is
+  polynomial. Tractable for M ≈ 100–200, K ≈ 20–40.
+
+• Intellectual take-away. EE maximization in cell-free massive
+  MIMO is a prototypical SCA-SOCP problem. Mastering this recipe —
+  (i) absorb the fractional objective into an equivalent non-
+  fractional form; (ii) substitute variables to make the power
+  constraint quadratic; (iii) decouple log-of-ratio constraints
+  by slack variables; (iv) Taylor-expand and log-inequality-bound
+  the remaining non-convexities — gives you a blueprint for
+  optimizing virtually any EE-like objective in wireless
+  communications. The same recipe (with minor variations) is
+  used in every subsequent CF-mMIMO EE paper.
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018]     H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou,
+                    E. G. Larsson, "On the Total Energy Efficiency of
+                    Cell-Free Massive MIMO," IEEE TGCN, 2018.
+                    arXiv: 1702.07601.
+                    Code: github.com/tranlenam/cellfreeMIMOenergyefficiency
+
+[Charnes-Cooper-1962] A. Charnes, W. W. Cooper, "Programming with
+                    linear fractional functionals," Naval Research
+                    Logistics Quarterly, vol. 9, pp. 181–186, 1962.
+
+[Dinkelbach-1967]   W. Dinkelbach, "On nonlinear fractional
+                    programming," Management Science, vol. 13,
+                    no. 7, pp. 492–498, 1967.
+
+[Boyd-Vandenberghe-2004] S. Boyd, L. Vandenberghe, Convex
+                    Optimization. Cambridge Univ. Press, 2004.
+                    (Ref [20] in Ngo paper. Ch. 3 for convex
+                    functions; Ch. 4 for SOC examples.)
+
+[Alizadeh-Goldfarb-2003] F. Alizadeh, D. Goldfarb, "Second-order
+                    cone programming," Math. Program. Ser. B,
+                    vol. 95, no. 1, pp. 3–51, 2003. (Ref [12] in
+                    Ngo paper. Canonical SOCP reference.)
+
+[Beck-2010]         A. Beck, A. Ben-Tal, L. Tetruashvili, "A
+                    sequential parametric convex approximation
+                    method with applications to nonconvex truss
+                    topology design problems," J. Glob. Optim.,
+                    vol. 47, pp. 29–51, May 2010. (Ref [17] in Ngo
+                    paper. Seminal SCA convergence analysis.)
+
+[Scutari-2016]      G. Scutari, F. Facchinei, L. Lampariello,
+                    "Parallel and distributed methods for constrained
+                    nonconvex optimization — Part I: Theory," IEEE
+                    TSP, vol. 65, no. 8, pp. 1929–1944, Dec. 2016.
+                    (Ref [18] in Ngo paper. Unifying SCA theory.)
+
+[Tran-2012]         L.-N. Tran, M.-F. Hanif, A. Tolli, M. Juntti,
+                    "Fast converging algorithm for weighted sum rate
+                    maximization in multicell MISO downlink," IEEE
+                    SPL, vol. 19, no. 12, pp. 872–875, Dec. 2012.
+                    (Ref [19] in Ngo paper. First SCA-SOCP for
+                    WSR; methodological predecessor.)
+
+[Tervo-2015]        O. Tervo, L.-N. Tran, M. Juntti, "Optimal
+                    energy-efficient transmit beamforming for
+                    multi-user MISO downlink," IEEE TSP, vol. 63,
+                    no. 20, pp. 5574–5587, Oct. 2015. (Ref [25]
+                    in Ngo paper. Provides the BRB code that the
+                    Ngo et al. paper modifies.)
+
+[Tuy-2005]          H. Tuy, F. Al-Khayyal, P. Thach, "Monotonic
+                    optimization: Branch and cut methods," in
+                    Essays and Surveys in Global Optimization,
+                    Springer, 2005. (Ref [16] in Ngo paper. BRB
+                    is a specialization of monotonic optimization.)
+
+[Gurobi]            I. Gurobi Optimization, "Gurobi Optimizer
+                    reference manual." (Ref [22] in Ngo paper.
+                    Commercial SOCP solver, free academic license.)
+
+[MOSEK]             MOSEK ApS. (Ref [23] in Ngo paper. Commercial
+                    SOCP solver, free academic license.)
+
+[Shen-Yu-2018]      K. Shen, W. Yu, "Fractional Programming for
+                    Communication Systems — Parts I and II," IEEE
+                    JSAC, 2018. The modern "quadratic transform"
+                    alternative to the classical SCA-SOCP approach.
+                    arXiv: 1802.10192 (Part I) and follow-up
+                    (Part II). Not cited by Ngo-TGCN-2018 (too
+                    recent) but widely used afterwards.

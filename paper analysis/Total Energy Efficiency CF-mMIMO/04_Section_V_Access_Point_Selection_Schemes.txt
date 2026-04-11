@@ -1,0 +1,822 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+         H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G. Larsson
+         IEEE TGCN, vol. 2, no. 1, pp. 25–39, Mar. 2018.
+--------------------------------------------------------------------------------
+  SECTION COVERED: SECTION V — ACCESS POINT SELECTIONS
+                    (A. Received-Power-Based Selection — Algorithm 2
+                     B. Largest-Large-Scale-Fading-Based Selection
+                        — Algorithm 3)
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL (LAYMAN) EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+Section IV gave us an algorithm that takes a fixed cell-free massive
+MIMO topology (M APs, K users, all APs serving all users) and squeezes
+maximum energy efficiency out of it by choosing the best power-control
+coefficients {η_{m,k}}. But the algorithm does not change the
+TOPOLOGY — it still assumes that EVERY AP serves EVERY user. This
+assumption is what Section III called the "elephant in the room":
+it inflates backhaul power linearly with M because every AP must
+receive every user's data from the CPU, whether or not that AP is
+actually close enough to contribute useful signal.
+
+Section V attacks the topology. The author's two observations are:
+
+  (i)  For a given user k, there are many APs that are located VERY
+       FAR AWAY. Their large-scale fading β_{m,k} is essentially zero,
+       so they contribute almost nothing to user k's desired signal.
+       Forcing them to participate (allocate nonzero η, send data
+       over backhaul) wastes power for no benefit.
+
+  (ii) If AP m only serves a SUBSET U_m of the users, then its
+       backhaul only needs to carry the data of THOSE users. Since
+       the traffic-dependent backhaul power is proportional to the
+       sum of the rates actually being served, reducing U_m shrinks
+       the second backhaul term proportionally.
+
+Combining the two: for each user k, let only a small GROUP A_k of
+nearby APs serve it. Equivalently, AP m only serves users in the set
+U_m = { k : m ∈ A_k }. How small can A_k be without hurting the
+desired signal too much? Numerically, the paper finds that only about
+10–20% of the APs per user are enough to deliver 95% of the received-
+signal power.
+
+Section V proposes two GROUPING heuristics:
+
+  (A) Received-power-based selection (Algorithm 2): rank APs by how
+      much useful power they actually contribute to user k given the
+      CURRENT optimal power-control solution, and keep the top few
+      that cumulatively deliver ≥ ρ% (typically ρ = 95%). This
+      requires running Algorithm 1 ONCE on the full system to get the
+      baseline power-control coefficients, so it is more accurate but
+      more expensive.
+
+  (B) Largest-large-scale-fading-based selection (Algorithm 3): rank
+      APs simply by β_{m,k} (the deterministic large-scale fading
+      coefficient) and keep the top few whose β's sum to ≥ ρ% of the
+      total. This does NOT require running Algorithm 1 first — it
+      uses only the slowly-varying large-scale fading that is
+      anyway needed to compute γ_{m,k}. Much cheaper, almost as good.
+
+After choosing the sets A_k, the optimization problem becomes a
+MODIFIED version of (P) where η_{m,k} is FORCED to zero if k ∉ U_m,
+and the backhaul term sums only over the users actually served by
+each AP. The paper shows that, up to an upper-bound approximation,
+this modified problem can be solved by the SAME Algorithm 1 from
+Section IV — you just zero out the "inactive" coefficients.
+
+The practical headline from Section V is:
+
+    "For each user, you only need to listen to the closest ~15% of
+     APs. The rest can be shut off, which slashes backhaul power
+     and nearly doubles EE without appreciably hurting SE."
+
+This is the PRECURSOR to the modern "user-centric cell-free massive
+MIMO" paradigm (Buzzi–D'Andrea 2017, Björnson–Sanguinetti 2020
+scalable CF, etc.) that has since become the dominant way to deploy
+CF-mMIMO. Ngo-2018-TGCN is one of the earliest papers to formalize
+the idea.
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. DETAILED PHD-LEVEL EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+─── 2.1  The motivation — re-read the EE denominator (Eq. 39) ───────────
+
+Section V opens by reconsidering the EE expression (21) after the
+trick "divide numerator and denominator by B·S_e" that we already
+used in Section IV:
+
+                                         1
+    E_e   =   ────────────────────────────────────────────────────    (39)
+              [P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}]
+              ────────────────────────────────────────────────────
+                                    B · S_e
+            + Σ_m P_{bt,m}
+
+(Actually this is the reciprocal of (39) — the paper writes E_e
+directly in (39), but the structure is the same.)
+
+Look at the second term of the denominator of 1/E_e: Σ_m P_{bt,m}.
+This is the TRAFFIC-DEPENDENT BACKHAUL POWER per unit throughput.
+It is a SUM over ALL M APs, whether the AP actively contributes or
+not. Even if AP m is 500 meters from user k, it still pays the full
+backhaul cost P_{bt,m} to receive user k's data symbol at the CPU.
+
+Observation: the paper points out that this "elephant" term scales
+linearly with M. Doubling the number of APs doubles Σ_m P_{bt,m}.
+For small M and small ρ_d (low-power regime), P_{bt,m} is dwarfed by
+the PA draw and nobody cares. But for large M and moderate-to-high
+ρ_d, Σ_m P_{bt,m} becomes the DOMINANT denominator term, and the
+algorithm of Section IV is powerless to reduce it — because
+Algorithm 1 only tunes {η_{m,k}} and {η_{m,k}} does NOT appear in
+Σ_m P_{bt,m}. You could set ALL η's to zero and the traffic-backhaul
+power would still be B·Σ_m P_{bt,m}·S_e, which goes down only if
+S_e goes down (i.e., if you stop serving users) — which defeats the
+purpose of the system.
+
+Conclusion: to reduce Σ_m P_{bt,m}, you must either reduce M (fewer
+physical APs) or more cleverly reduce the SET of users each AP
+actually serves, so that the backhaul cost is only proportional to
+the sum rate of the ACTIVE service relationships, not to the
+hypothetical M·K full-mesh.
+
+─── 2.2  The per-AP backhaul modification (Eq. 40) ─────────────────────
+
+Let U_m ⊆ {1,…,K} be the set of users served by AP m. Then the
+backhaul between AP m and the CPU only needs to carry the data
+symbols of those users — whose sum rate is Σ_{k∈U_m} SE_k, not
+Σ_k SE_k. The backhaul power expression (19) therefore becomes
+
+     P_{bh,m}  =  P_{0,m}  +  B · P_{bt,m} · Σ_{k∈U_m} SE_k            (40)
+
+Compared to the original (19):
+
+   (original) P_{bh,m} = P_{0,m} + B · P_{bt,m} · Σ_{k=1}^K SE_k
+
+The fixed part P_{0,m} does NOT shrink — the backhaul transceiver
+still has to be powered on — but the traffic-dependent part shrinks
+whenever U_m ⊊ {1,…,K}. If U_m = {1,…,K} for all m, (40) reduces to
+(19) — full cell-free, no AP selection.
+
+─── 2.3  The two observations that justify AP selection ───────────────
+
+The authors list two guiding principles (the paper's bullet points
+at the start of Section V):
+
+  (O1) "If the mth AP serves only some users, then it needs to send
+       only the data corresponding to these users. As a result, the
+       backhaul power consumption depends only on the spectral
+       efficiencies of these users."
+
+  (O2) "For a given user, there are many APs which are located very
+       far away. These APs will not add significantly to the overall
+       spatial diversity gains. This implies that not all APs really
+       participate in serving this user."
+
+(O1) is a power argument (backhaul), (O2) is a signal-processing
+argument (diversity). Together they imply that each user k should be
+served by a SMALL set A_k ⊂ {1,…,M} of nearby APs, and the dual set
+U_m = { k : m ∈ A_k } defines which users AP m actually serves.
+
+The rest of Section V is about HOW to choose A_k.
+
+─── 2.4  Scheme A: Received-power-based selection  (Section V-A) ─────────
+
+This scheme uses the optimal power-control coefficients {η^*_{m,k}}
+returned by Algorithm 1 (Sec IV) to compute how much desired-signal
+power each AP actually delivers to each user.
+
+From the proof of Proposition 1 (Appendix A, Eq. (48) of the paper),
+the expected desired-signal power DS_k can be written as
+
+     DS_k  =  √ρ_d · E[ Σ_m √η_{m,k} g_{m,k}^T ĝ_{m,k}^* ]
+
+The magnitude squared of DS_k, using E[g_{m,k}^T ĝ_{m,k}^*] = N γ_{m,k},
+gives the total USEFUL power of user k at the receiver (before the
+N² coherent combining and after the initial expectation):
+
+     |DS_k|²  =  ρ_d · N² · ( Σ_m √η_{m,k} γ_{m,k} )²  ≡  ρ_d N² · (...)
+
+But the paper makes a clever simplification: it writes the TOTAL
+received desired-signal power across APs as
+
+     DS_k  =  ρ_d · N · Σ_{m=1}^{M}  γ_{m,k}  η_{m,k}                  (41)
+
+where now we use η_{m,k} (not √η_{m,k}) because (41) is recast in
+terms of the INSTANTANEOUS-average received power, not the amplitude
+in the SE expression. (The paper's (41) is a high-level summary, not
+a fully rigorous expression — the rigor lives in Eq. (15). But the
+point is that you can identify, AP by AP, how much of the total
+received-power budget each AP contributes.)
+
+Specifically, the fraction of the desired-signal power that AP m
+contributes to user k is:
+
+     p(m, k)  ≝  γ_{m,k} · η_{m,k}  /  Σ_{m'=1}^{M} γ_{m',k} · η_{m',k}   (42)
+
+This is a probability-like quantity: p(m,k) ≥ 0, and
+Σ_m p(m,k) = 1 by construction. Think of it as the PERCENTAGE OF
+DESIRED-SIGNAL POWER that AP m is responsible for, given that user k
+receives SUM p(·, k) across all APs.
+
+The algorithm picks A_k to be the set of APs that cumulatively
+deliver at least ρ% of the desired-signal power, with the SMALLEST
+cardinality. Formally:
+
+   1.  Sort p(m, k) in descending order:
+       p(π_k(1), k) ≥ p(π_k(2), k) ≥ ... ≥ p(π_k(M), k)
+       where π_k is a permutation of {1,...,M}.
+
+   2.  Find the smallest integer M_k such that
+       Σ_{i=1}^{M_k} p(π_k(i), k)  ≥  ρ/100.
+
+   3.  Set A_k = { π_k(1), π_k(2), ..., π_k(M_k) }.
+
+With ρ = 95 (paper's default), you keep the top-M_k APs that jointly
+deliver 95% of the desired-signal power. The remaining 5% is dropped
+to save backhaul.
+
+After A_1, ..., A_K are chosen, we derive U_m = { k : m ∈ A_k },
+i.e., U_m is the set of users who have AP m in their serving set.
+
+─── 2.5  The modified optimization problem (P2)  (Eq. 43) ───────────────
+
+With the U_m sets fixed, the EE-maximization problem becomes
+
+                                 B · S_e({η_{m,k}})
+              max   ──────────────────────────────────────────────────
+   (P2) :  {η_{m,k}}   P̄_fix
+                     + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ_{m,k}
+                     + B · Σ_{m=1}^M P_{bt,m} · Σ_{k∈U_m} SE_k         (43)
+              s.t.   SE_k ≥ S_{o,k}
+                     Σ_{k∈U_m} η_{m,k} γ_{m,k} ≤ 1/N,  m=1,…,M
+                     η_{m,k} ≥ 0, for k ∈ U_m, m = 1,…,M
+                     η_{m,k} = 0, for k ∉ U_m, m = 1,…,M.
+
+Comparing with the original (P) (Eq. 22):
+
+   •  The per-AP power constraint now sums only over k ∈ U_m. APs
+      that don't serve user k will have η_{m,k} = 0, so this is
+      EQUIVALENT to restricting the summation to U_m.
+   •  A new explicit equality constraint η_{m,k} = 0 for k ∉ U_m
+      is added.
+   •  The backhaul term in the objective denominator now uses (40)
+      instead of (19), summing only over k ∈ U_m per AP.
+
+The per-AP power budget is UNCHANGED at 1/N. This means that an AP
+that serves fewer users can concentrate its entire transmit power on
+those users, which actually helps SE.
+
+─── 2.6  Trick: absorb the zero-forcing into modified γ's  (Eq. 44) ─────
+
+The equality constraints η_{m,k} = 0 for k ∉ U_m are not nice for an
+SOCP. The paper does a clever rewrite: define a new modified γ:
+
+     γ̂_{m,k}  =  γ_{m,k}    if  k ∈ U_m
+              =  0           if  k ∉ U_m
+
+Under this definition, the power-control coefficient η_{m,k} for
+k ∉ U_m NEVER APPEARS in the optimization (because γ̂_{m,k} = 0
+multiplies it everywhere) — it is effectively projected out. Then
+(43) can be written in the SAME form as (P) but with γ_{m,k}
+replaced by γ̂_{m,k}:
+
+                                        B · S_e
+            max      ──────────────────────────────────────────────
+   (P2):  {η_{m,k}}  P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ̂_{m,k}
+                            + B · Σ_m P_{bt,m} · Σ_{k∈U_m} SE_k       (44)
+            s.t.    SE_k ≥ S_{o,k}
+                    Σ_k η_{m,k} γ̂_{m,k}  ≤  1/N,   m = 1,…,M
+                    η_{m,k} ≥ 0, ∀ m, k.
+
+Now the only remaining structural difference from (P) is the backhaul
+term Σ_m P_{bt,m} Σ_{k∈U_m} SE_k instead of Σ_m P_{bt,m} Σ_k SE_k.
+
+─── 2.7  The upper-bound approximation ───────────────────────────────────
+
+The new backhaul term in (44) involves discrete sets U_m, which makes
+the problem combinatorial and hard to solve directly. The paper
+side-steps this by USING A SIMPLE UPPER BOUND:
+
+    Σ_{m=1}^{M} P_{bt,m} · Σ_{k∈U_m} SE_k   ≤   Σ_{m=1}^{M} P_{bt,m} · Σ_{k=1}^{K} SE_k
+                                              =   Σ_{m=1}^{M} P_{bt,m} · S_e
+
+(since U_m ⊆ {1,…,K}, the inner sum is bounded by the full sum.)
+
+With this upper bound, the backhaul term in the denominator of (44)
+becomes Σ_m P_{bt,m} · S_e — exactly the same as in the ORIGINAL
+problem (P)/(P1). But now γ̂_{m,k} has been substituted for γ_{m,k},
+and the coefficients η_{m,k} for k ∉ U_m are effectively zero.
+
+So the approximate EE maximization problem with AP selection is:
+
+    max       B · S_e / [ P̄_fix + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ̂_{m,k}
+                          + B · Σ_m P_{bt,m} · S_e ]
+
+    s.t.      SE_k({η_{m,k}, γ̂}) ≥ S_{o,k}
+              Σ_k η_{m,k} γ̂_{m,k}  ≤  1/N
+              η_{m,k} ≥ 0.
+
+This is EXACTLY the form solvable by Algorithm 1 — just replace the
+original γ's by the selection-modified γ̂'s. No new solver is needed.
+
+Why is the upper-bound approximation OK? Two reasons:
+
+  (i)  The bound is tight when U_m = {1,…,K} (no selection). As more
+       APs are pruned, the bound becomes looser, but the OBJECTIVE
+       of the original (exact) problem is LARGER than what the bound
+       suggests — so the approximated problem is PESSIMISTIC about
+       EE and the true EE gain from AP selection is UNDERESTIMATED.
+       That is a desirable direction for the approximation.
+
+  (ii) Empirically, the authors verify in Section VI that the EE
+       produced by this approximation is very close to the exact EE
+       that would be obtained by directly optimizing (43) (they
+       can check this with BRB on small problems).
+
+─── 2.8  Algorithm 2: Received-power-based selection (Sec V-A) ─────────
+
+Put it all together:
+
+  Algorithm 2 (Received-power-based selection)
+
+  Step 1. Choose ρ% (e.g. ρ = 95).
+          Run Algorithm 1 on the FULL (no-selection) problem (P) to
+          obtain the optimal power-control coefficients {η^*_{m,k}}.
+          Compute the fractions p(m, k) from (42).
+
+  Step 2. For each user k = 1,…,K:
+             •  Sort p(m, k) in descending order.
+             •  Initialize A_k ← { the top AP }.
+             •  Walk down the sorted list, adding each next AP to A_k,
+                until Σ_{m ∈ A_k} p(m, k) ≥ ρ/100.
+             •  Done: A_k is now the minimal serving set for user k.
+
+  Step 3. Derive U_m = { k : m ∈ A_k } for each AP m. Define
+          γ̂_{m,k} = γ_{m,k} if k ∈ U_m and 0 otherwise.
+
+  Step 4. Run Algorithm 1 AGAIN with γ̂ in place of γ. The result
+          is the new {η^**_{m,k}} optimized for AP-selected operation.
+
+Notes:
+  •  Algorithm 2 requires TWO runs of Algorithm 1 (one to get the
+     baseline {η^*}, one with γ̂) — roughly double the computational
+     cost of Algorithm 1 alone.
+  •  The {A_k}, {U_m} sets are recomputed whenever the large-scale
+     fading {β_{m,k}} changes (i.e., slowly).
+  •  The quality of Algorithm 2 depends on the choice of ρ. The
+     paper uses ρ = 95, which typically selects 10–20% of the M APs.
+     Smaller ρ → fewer APs but some useful signal is lost;
+     larger ρ → more APs but less backhaul savings.
+
+─── 2.9  Algorithm 3: Largest-large-scale-fading-based selection (Sec V-B) ─
+
+The second scheme avoids the first run of Algorithm 1 by ranking APs
+directly on their LARGE-SCALE FADING β_{m,k}. The intuition: if
+AP m has a very large β_{m,k}, it is physically close to user k and
+can contribute strongly regardless of η_{m,k}. Conversely, if β_{m,k}
+is very small (far AP), no amount of power control will rescue it.
+
+The criterion mirrors (42) but replaces p(m,k) with β_{m,k}:
+
+     ┌── sorted in descending order ──┐
+     β̃_{1,k}  ≥  β̃_{2,k}  ≥  …  ≥  β̃_{M,k}    (the sorted β's for user k)
+
+Define A_k as the smallest set of APs satisfying:
+
+     Σ_{m=1}^{M_{0,k}}  β̃_{m,k}  /  Σ_{m=1}^{M} β_{m,k}  ≥  ρ/100       (45)
+
+i.e., the cumulative fraction of the sum of the largest M_{0,k} β's
+must reach at least ρ%. The paper writes it as
+
+          M_{0,k}    β̃_{m,k}
+           Σ         ─────────   ≥   ρ%
+         m = 1      Σ_{m=1}^{M} β_{m,k}
+
+where M_{0,k} ≤ M is to be determined.
+
+The rest of the algorithm is identical to Algorithm 2 from Step 3
+onwards.
+
+  Algorithm 3 (Largest-LSF-based selection)
+
+  Step 1. Using criterion (45), each user k chooses a group of
+          M_{0,k} serving APs corresponding to the M_{0,k} largest
+          β_{m,k}. Determine the dual sets U_m.
+
+  Step 2. Define γ̂_{m,k} = γ_{m,k} if k ∈ U_m and 0 otherwise.
+
+  Step 3. Run Algorithm 1 once with γ̂ to find the optimal power-
+          control coefficients {η^*_{m,k}}.
+
+Advantages over Algorithm 2:
+
+  •  Only ONE run of Algorithm 1, not two. Roughly half the compute.
+  •  The set A_k depends only on {β_{m,k}}, which is LONG-TERM-STATIONARY
+     information that the CPU already has (it is needed for computing
+     γ_{m,k}). No power allocation is required first.
+  •  The sets A_k are simpler to explain: "choose the closest APs."
+
+Disadvantage: A_k is chosen without regard for power control or
+interference. So the selected set can be slightly sub-optimal
+compared to Algorithm 2. However, Section VI shows that the
+EE gap between Algorithms 2 and 3 is SMALL in practice.
+
+─── 2.10  Complexity and practical implications ───────────────────────
+
+  •  Algorithm 2: 2× run of Algorithm 1, plus a K-sort (each of M
+     numbers). Dominant cost is the two SOCP-SCA iterations —
+     O(N_I × (MK)^3.5) each. For M = 100, K = 40 and N_I = 10
+     iterations, this is roughly ~seconds on a standard laptop.
+
+  •  Algorithm 3: 1× run of Algorithm 1 plus a K-sort. Half the time.
+
+  •  Both schemes REDUCE the effective dimensionality of the
+     optimization variable c ∈ ℝ^{MK} to a smaller set (the nonzero
+     entries). For typical ρ = 95%, only ~15% of η_{m,k} are nonzero,
+     so the effective MK is ~0.15·MK. Since the per-iteration SOCP
+     cost is polynomial in the dimension, AP selection also SPEEDS UP
+     the solver by a large factor.
+
+  •  The "sets U_m" change only when the large-scale fading changes
+     (i.e., on a ~second timescale in typical outdoor deployments).
+     So Algorithms 2 and 3 are run infrequently. In between, the APs
+     just apply the stored power-control coefficients.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. HISTORICAL / PRIOR DEVELOPMENTS
+───────────────────────────────────────────────────────────────────────────────
+
+Section V is the birthplace — together with the roughly concurrent
+Buzzi–D'Andrea 2017 paper — of what is now called "user-centric
+cell-free massive MIMO." A brief timeline:
+
+▸ 2010 — Heath, Wu, Kwon, Soong, "Multiuser MIMO in distributed
+  antenna systems with out-of-cell interference," IEEE TSP. Early
+  treatment of AP subset selection in distributed antenna systems
+  (DAS), based on SINR/throughput maximization.
+
+▸ 2013 — Ngo, Larsson, Marzetta, "Energy and spectral efficiency
+  of very large multiuser MIMO systems," IEEE TCom. Showed that,
+  in colocated massive MIMO, AP selection is moot because there is
+  only ONE AP. The paper is often cited for the "everything-on"
+  nature of colocated massive MIMO.
+
+▸ 2015 — Dai, Yu (ref [15] in Ngo paper), "Energy efficiency of
+  downlink transmission strategies for cloud radio access networks."
+  Explicitly formulates JOINT user association and power control for
+  energy efficiency in C-RAN. The algorithmic approach (decomposing
+  association + power-control via an MILP-like step and a convex-
+  optimization step) is a precursor of the Ngo V/IV combination.
+
+▸ Jan 2017 — Ngo, Ashikhmin, Yang, Larsson, Marzetta, IEEE TWC (ref
+  [6] in Ngo paper): original cell-free paper. Does NOT use AP
+  selection; all M APs serve all K users. So this Section V is the
+  first formal AP selection in the CF-mMIMO literature.
+
+▸ Feb 2017 — **Ngo-Tran-Duong-Matthaiou-Larsson (this paper,
+  arXiv:1702.07601).** First explicit AP selection in CF-mMIMO,
+  justified by energy-efficiency arguments.
+
+▸ Dec 2017 — **Buzzi, D'Andrea, "Cell-free massive MIMO: User-
+  centric approach," IEEE WCL**. This is the canonical "user-centric
+  CF-mMIMO" paper. It proposes that each user k is served by only a
+  subset of APs (called the user-centric CF approach). The selection
+  criterion is similar in spirit to Algorithm 3 here — based on
+  large-scale fading — but targeted at SE maximization with a
+  different algorithmic framework. Ngo-2018-TGCN and Buzzi-2017-WCL
+  are the two most-cited papers that launched user-centric CF-mMIMO.
+
+▸ 2018–2019 — A wave of user-centric CF papers: Bashar-Cumanan-Burr
+  (EE with user-centric clustering), Interdonato-Björnson-Ngo-Frenger-
+  Larsson (scalable distributed precoding), Attarifar-Abbasfar-
+  Lozano (modulation-constrained user-centric CF), etc. All cite
+  Ngo-2018-TGCN and Buzzi-2017-WCL as precursors.
+
+▸ 2020 — **Björnson, Sanguinetti, "Scalable Cell-Free Massive MIMO
+  Systems," IEEE TCom**. Formalizes "scalability" as a property of
+  CF-mMIMO deployments and proves that any CF-mMIMO variant where
+  each AP serves all users (like the original [6]) is NOT scalable.
+  Proposes Dynamic Cooperation Clustering (DCC) based on pilot
+  assignment — a more sophisticated cousin of the Ngo-Section-V
+  heuristics. You have already studied this paper (memory).
+
+▸ 2021–present — A lot of ML-based AP selection (deep reinforcement
+  learning, graph neural networks) to handle user mobility. All
+  inherit the basic idea that each user should be served by a
+  small subset of nearby APs, which Section V pioneered.
+
+So Section V is historically important as one of the first two
+papers to formalize user-centric AP selection in cell-free massive
+MIMO. Its AP-selection heuristics (received-power-based and
+largest-LSF-based) remain standard baselines that newer papers
+compare against.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. MATHEMATICAL RECAP IN UNICODE
+───────────────────────────────────────────────────────────────────────────────
+
+Notation:
+   A_k   ⊆ {1,…,M}      set of APs that serve user k
+   U_m   ⊆ {1,…,K}      set of users served by AP m
+                         (note: m ∈ A_k  ⇔  k ∈ U_m)
+   ρ     ∈ (0, 100]      threshold percent (paper default 95)
+   γ̂_{m,k}              modified γ:  γ̂_{m,k} = γ_{m,k} if k ∈ U_m, 0 otherwise
+
+Modified per-AP backhaul power  (40):
+   P_{bh,m}  =  P_{0,m}  +  B · P_{bt,m} · Σ_{k ∈ U_m} SE_k
+
+Received-power fraction at AP m from user k  (42):
+   p(m, k)  =  γ_{m,k} · η_{m,k}  /  Σ_{m'=1}^{M} γ_{m',k} · η_{m',k}
+
+Received-power-based selection criterion:
+   find smallest M_k such that
+   Σ_{i=1}^{M_k} p(π_k(i), k)  ≥  ρ/100,
+   where π_k sorts p(·, k) in descending order.
+   Set A_k = {π_k(1),…,π_k(M_k)}.
+
+Largest-LSF-based selection criterion  (45):
+   find smallest M_{0,k} such that
+   Σ_{i=1}^{M_{0,k}} β̃_{i,k}  /  Σ_{m=1}^{M} β_{m,k}  ≥  ρ/100,
+   where β̃ sorts β_{·,k} in descending order.
+
+Modified optimization problem (P2), after γ̂-substitution (44):
+   max       B · S_e({η_{m,k}; γ̂})   /   [ P̄_fix
+                                + ρ_d N₀ N · Σ_m (1/ν_m) Σ_k η_{m,k} γ̂_{m,k}
+                                + B · (Σ_m P_{bt,m}) · S_e ]
+   s.t.      SE_k({η_{m,k}; γ̂}) ≥ S_{o,k}
+             Σ_k η_{m,k} γ̂_{m,k} ≤ 1/N,   m = 1,…,M
+             η_{m,k} ≥ 0.
+
+Backhaul upper-bound approximation:
+   Σ_m P_{bt,m} Σ_{k ∈ U_m} SE_k  ≤  Σ_m P_{bt,m} · S_e
+
+After approximation, (44) reduces to the form of (P1) in Section IV
+with γ̂ in place of γ. Algorithm 1 solves it directly.
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. NUMERICAL WORKED EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+
+Let us walk through Algorithm 3 on a moderate-size toy with M = 10
+APs, K = 3 users, ρ = 95%.
+
+─── Setup ──────────────────────────────────────────────────────────────
+
+Large-scale fading (in linear scale):
+
+        β_{m,1}  β_{m,2}  β_{m,3}
+   m=1   0.50     0.003    0.002
+   m=2   0.30     0.005    0.001
+   m=3   0.20     0.010    0.005
+   m=4   0.050    0.40     0.003
+   m=5   0.020    0.30     0.006
+   m=6   0.010    0.20     0.010
+   m=7   0.002    0.05     0.40
+   m=8   0.003    0.02     0.30
+   m=9   0.005    0.01     0.20
+   m=10  0.001    0.003    0.10
+
+The topology is three "clusters" of strong APs for the three users.
+User 1's strong APs are m = 1, 2, 3; user 2's are m = 4, 5, 6;
+user 3's are m = 7, 8, 9, 10.
+
+─── Step 1: sum of β's per user ────────────────────────────────────────
+
+   Σ_m β_{m,1}  =  0.50 + 0.30 + 0.20 + 0.050 + 0.020 + 0.010
+                   + 0.002 + 0.003 + 0.005 + 0.001  =  1.091
+   Σ_m β_{m,2}  =  0.003 + 0.005 + 0.010 + 0.40 + 0.30 + 0.20
+                   + 0.05 + 0.02 + 0.01 + 0.003  =  1.001
+   Σ_m β_{m,3}  =  0.002 + 0.001 + 0.005 + 0.003 + 0.006 + 0.010
+                   + 0.40 + 0.30 + 0.20 + 0.10  =  1.027
+
+─── Step 2: choose A_k with ρ = 95% ────────────────────────────────────
+
+User 1:
+   Sort descending: 0.50, 0.30, 0.20, 0.050, 0.020, 0.010, 0.005, 0.003,
+                    0.002, 0.001.
+   Cumulative:      0.50, 0.80, 1.00, 1.05, 1.07, 1.08, 1.085, 1.088,
+                    1.090, 1.091.
+   Target:          0.95 · 1.091  =  1.036.
+   Smallest M_{0,1}:  first index where cumulative ≥ 1.036, which is
+                     i=4 (cumulative 1.05 after adding AP m=4 with β=0.05).
+   So A_1 = {1, 2, 3, 4}, four APs out of ten.
+
+User 2:
+   Sort descending: 0.40, 0.30, 0.20, 0.05, 0.02, 0.01, 0.010, 0.005,
+                    0.003, 0.003.
+   Cumulative:      0.40, 0.70, 0.90, 0.95, 0.97, 0.98, 0.99, 0.995,
+                    0.998, 1.001.
+   Target:          0.95 · 1.001  =  0.951.
+   Smallest M_{0,2}: i=4 (cumulative 0.95) FAILS, i=5 (cumulative 0.97)
+                    PASSES.
+   Wait — 0.95 < 0.951. So we need i=5.
+   Actually, 0.95 ≈ 0.951, barely under the target. Let us pick i=5:
+   cumulative = 0.97, safely above 0.951. So M_{0,2} = 5.
+   A_2 = {4, 5, 6, 7, 3} — i.e. the 5 APs corresponding to the 5
+   largest β_{m,2}. Looking at the unsorted list, the top 5 are
+   AP 4 (0.40), AP 5 (0.30), AP 6 (0.20), AP 7 (0.05), AP 3 (0.01).
+   So A_2 = {3, 4, 5, 6, 7}.
+
+User 3:
+   Sort descending: 0.40, 0.30, 0.20, 0.10, 0.010, 0.006, 0.005, 0.003,
+                    0.002, 0.001.
+   Cumulative:      0.40, 0.70, 0.90, 1.00, 1.010, 1.016, 1.021, 1.024,
+                    1.026, 1.027.
+   Target:          0.95 · 1.027  =  0.976.
+   Smallest M_{0,3}: i=4 (cumulative 1.00) PASSES (since 1.00 ≥ 0.976).
+   So A_3 = {7, 8, 9, 10}.
+
+─── Step 3: build U_m ──────────────────────────────────────────────────
+
+   m=1:  U_1 = {1}         (in A_1 only)
+   m=2:  U_2 = {1}
+   m=3:  U_3 = {1, 2}      (in A_1 and A_2)
+   m=4:  U_4 = {1, 2}
+   m=5:  U_5 = {2}
+   m=6:  U_6 = {2}
+   m=7:  U_7 = {2, 3}      (in A_2 and A_3)
+   m=8:  U_8 = {3}
+   m=9:  U_9 = {3}
+   m=10: U_10 = {3}
+
+─── Step 4: count active associations ─────────────────────────────────
+
+Without AP selection: M × K = 10 × 3 = 30 (m, k) pairs.
+
+With selection: count |A_1| + |A_2| + |A_3| = 4 + 5 + 4 = 13.
+
+That is a reduction of (30 − 13)/30 ≈ 57% in the number of active
+power-control coefficients — and therefore ~57% reduction in the
+traffic-dependent backhaul power. In a larger system (M = 100 APs,
+ρ = 95), the paper reports that typically only 10–20% of APs per
+user are active, i.e. a reduction of 80–90%!
+
+─── Step 5: backhaul savings estimate ──────────────────────────────────
+
+Suppose B = 20 MHz, S_e = 3 bit/s/Hz (one per user), Pbt,m = 0.25
+W/(Gbit/s) for all m, so Σ_m Pbt,m = 2.5 W/(Gbit/s).
+
+Without selection:
+   traffic BH = B · S_e · Σ_m Pbt,m = 0.06 Gbit/s · 2.5 W/(Gbit/s)
+             = 0.15 W.
+
+With selection (upper bound approximation):
+   approximately the same 0.15 W as above (because the upper
+   bound replaces U_m by {1,...,K}).
+
+But the ACTUAL traffic backhaul, computed AP-by-AP:
+   m=1:  Pbt · B · SE_1                  = 0.25·0.02·1 = 0.005 W
+   m=2:  0.005 W
+   m=3:  Pbt · B · (SE_1 + SE_2)         = 0.25·0.02·2 = 0.010 W
+   m=4:  0.010 W
+   m=5:  Pbt · B · SE_2                  = 0.005 W
+   m=6:  0.005 W
+   m=7:  Pbt · B · (SE_2 + SE_3)         = 0.010 W
+   m=8:  0.005 W
+   m=9:  0.005 W
+   m=10: 0.005 W
+   Total = 0.065 W.
+
+So actual BH is 0.065 W, whereas the upper-bound used in (44) is
+0.15 W. The approximation is conservative, as predicted. The true
+EE is HIGHER than what Algorithm 3 reports — i.e., Algorithm 3
+underestimates the benefit of selection. In practice this is fine
+because the approximation is still much better than doing no
+selection at all, AND it keeps the SOCP form simple.
+
+─── PRACTICE PROBLEM ────────────────────────────────────────────────────
+
+Same β matrix as above, but now set ρ = 80% (instead of 95%).
+
+(a) Recompute |A_k| for each user.
+(b) What is the total number of active (m, k) associations?
+(c) Compute the actual traffic-dependent backhaul power under the
+    assumption SE_k = 1 bit/s/Hz, B = 20 MHz, P_{bt,m} = 0.25 W /
+    (Gbit/s).
+(d) What fraction of the "no selection" traffic BH remains?
+
+[Sketch of expected answers:
+ (a) Probably |A_1| = |A_2| = |A_3| = 3 (the three strongest APs
+     for each user).
+ (b) 9 active pairs.
+ (c) Every active AP serves exactly 1 user, so BH = 9 · 0.25 ·
+     0.02 · 1 = 0.045 W.
+ (d) 0.045 / 0.15 = 30% of the no-selection BH. A 70% saving,
+     at the cost of some signal loss because ρ = 80% < 95%. ]
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. SUMMARY OF SECTION V
+───────────────────────────────────────────────────────────────────────────────
+
+• Motivation. Section IV's Algorithm 1 only tunes power-control
+  coefficients — it cannot reduce the Σ_m P_{bt,m} backhaul term,
+  because that term depends only on M (number of APs) and S_e
+  (sum rate), not on η. For large M the backhaul dominates the
+  total power and the only way to reduce it is to REDUCE the
+  number of active (m,k) associations.
+
+• Two guiding observations.
+     (O1) If AP m only serves users in U_m, its backhaul only
+          carries those users' rates → backhaul becomes
+          P_{bh,m} = P_{0,m} + B · P_{bt,m} · Σ_{k∈U_m} SE_k.
+     (O2) For any given user k, far-away APs contribute negligible
+          desired-signal power anyway, so dropping them barely
+          hurts SE.
+  Together, they motivate a user-centric serving set A_k for
+  each user.
+
+• Scheme A: Received-power-based selection (Algorithm 2).
+     – Run Algorithm 1 once to get baseline η^*.
+     – Compute received-power fraction p(m,k) from γ and η^*.
+     – Sort p(·, k) descending, pick the top-M_k APs cumulatively
+       ≥ ρ% (ρ = 95 by default). Set A_k = those.
+     – Derive U_m = {k : m ∈ A_k}.
+     – Re-run Algorithm 1 with γ̂_{m,k} = γ_{m,k}·1_{k∈U_m}.
+  Advantage: more accurate because it uses the actual optimal η.
+  Disadvantage: two Algorithm-1 runs.
+
+• Scheme B: Largest-large-scale-fading-based selection (Algorithm 3).
+     – Rank APs by β_{m,k} directly (no power control needed).
+     – Pick the top M_{0,k} APs cumulatively ≥ ρ% of Σ_m β_{m,k}.
+     – Derive U_m and γ̂.
+     – Run Algorithm 1 once with γ̂.
+  Advantage: only one run, uses long-term-stationary information.
+  Disadvantage: slightly sub-optimal (does not see η).
+
+• Backhaul upper-bound approximation. The selection-modified
+  objective has Σ_m P_{bt,m} Σ_{k ∈ U_m} SE_k, which is combinatorial.
+  The paper upper-bounds it by Σ_m P_{bt,m} · S_e, which recovers
+  the same form as the original (P)/(P1) — so Algorithm 1 can be
+  reused without modification, just with γ̂ in place of γ. The
+  bound is pessimistic about EE and tight when U_m = {1,…,K}.
+
+• Practical implications.
+     – With ρ = 95%, only ~10–20% of the M APs per user are active.
+     – Backhaul power is slashed by roughly 80–90%.
+     – Per-SOCP dimensionality is reduced to ~15% of the full MK,
+       speeding up the solver.
+     – The sets A_k, U_m change only when β changes (~second scale),
+       so selection is run infrequently.
+
+• Historical significance. Together with Buzzi-D'Andrea 2017
+  (IEEE WCL), Section V pioneered the "user-centric cell-free
+  massive MIMO" paradigm that is now the dominant CF-mMIMO
+  deployment philosophy. Every scalable CF-mMIMO paper since
+  (including Björnson-Sanguinetti 2020) is a descendant of these
+  ideas.
+
+• The one-line takeaway.
+     "Each user should be served by the ~15% of nearest APs.
+      Everybody wins: lower backhaul power, smaller optimization,
+      same spectral efficiency — and cell-free massive MIMO
+      finally becomes scalable."
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018]     H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou,
+                    E. G. Larsson, "On the Total Energy Efficiency of
+                    Cell-Free Massive MIMO," IEEE TGCN, 2018.
+                    arXiv: 1702.07601.
+
+[Buzzi-2017]        S. Buzzi, C. D'Andrea, "Cell-free massive MIMO:
+                    User-centric approach," IEEE Wireless Commun.
+                    Lett., vol. 6, no. 6, pp. 706–709, Dec. 2017.
+                    DOI: 10.1109/LWC.2017.2745578.  (First paper to
+                    coin "user-centric CF-mMIMO". Concurrent to and
+                    methodologically complementary to Section V.)
+
+[Bjornson-2020]     E. Björnson, L. Sanguinetti, "Scalable cell-free
+                    massive MIMO systems," IEEE TCom, vol. 68, no. 7,
+                    pp. 4247–4261, Jul. 2020. (arXiv:1908.03119)
+                    Formal scalability framework; generalizes the
+                    Ngo-V / Buzzi-2017 user-centric approaches.
+
+[Dai-2016]          B. Dai, W. Yu, "Energy efficiency of downlink
+                    transmission strategies for cloud radio access
+                    networks," IEEE JSAC, Apr. 2016. (Ref [15] in
+                    the Ngo paper. Precursor AP-selection +
+                    power-control joint optimization in C-RAN.)
+
+[Heath-2010]        R. W. Heath, S. W. Peters, Y. Wang, J. Zhang,
+                    "A current perspective on distributed antenna
+                    systems for the downlink of cellular systems,"
+                    IEEE Commun. Mag., vol. 51, no. 4, pp. 161–167,
+                    Apr. 2013. (Earlier DAS user-association
+                    literature; precursor thinking.)
+
+[Bashar-2018]       M. Bashar, K. Cumanan, A. G. Burr, H. Q. Ngo,
+                    M. Debbah, "Cell-free massive MIMO with limited
+                    backhaul," IEEE ICC, May 2018. (Follow-up paper
+                    with alternative backhaul-aware optimization.)
+
+[Interdonato-2019]  G. Interdonato, E. Björnson, H. Q. Ngo, P. Frenger,
+                    E. G. Larsson, "Ubiquitous cell-free massive MIMO
+                    communications," EURASIP JWCN, vol. 2019, no. 197,
+                    2019. (Survey paper — places Ngo-V in the user-
+                    centric CF landscape.)
+
+[Alonzo-Buzzi-2017] M. Alonzo, S. Buzzi, "Cell-free and user-centric
+                    massive MIMO at millimeter wave frequencies,"
+                    IEEE PIMRC 2017. DOI: 10.1109/PIMRC.2017.8292302.
+                    (mmWave version of user-centric CF.)
+
+[User-centric DRL 2023] Y. Li, G. Dandachi, G. Kaddoum, "User-centric
+                    AP Clustering with Deep Reinforcement Learning for
+                    Cell-Free Massive MIMO," ACM MobiWac 2023. DOI:
+                    10.1145/3616390.3618291.  (Modern learning-based
+                    CF-mMIMO user-association — descendant of
+                    Section V.)

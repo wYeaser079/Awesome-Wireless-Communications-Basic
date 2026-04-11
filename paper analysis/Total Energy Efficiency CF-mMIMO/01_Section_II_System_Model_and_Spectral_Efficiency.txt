@@ -1,0 +1,810 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+         H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G. Larsson
+         IEEE TGCN, vol. 2, no. 1, pp. 25–39, Mar. 2018.
+--------------------------------------------------------------------------------
+  SECTION COVERED:  SECTION II — SYSTEM MODEL AND SPECTRAL EFFICIENCY
+                    (A. System Model — uplink training & downlink payload
+                     B. Spectral Efficiency — capacity bound and
+                        closed-form Proposition 1)
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL (LAYMAN) EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+Section II does TWO things:
+
+(A) It precisely defines the cell-free massive MIMO set-up: who transmits
+    what, when, and with what noise. There are three pieces of the clock
+    to worry about:
+
+        uplink training  → uplink data (ignored here) → downlink payload
+        └── τ_p samples     (skipped)                    └── τ_c − τ_p samples
+                                                           (the rest of the
+                                                            coherence block)
+
+    • During UPLINK TRAINING, every user simultaneously transmits a
+      known "pilot" sequence to every AP. Each AP listens and estimates
+      the channel between itself and every user using a standard
+      statistical technique called Minimum Mean Square Error (MMSE)
+      estimation. These estimates are NEVER shared between APs — every
+      AP keeps its own.
+
+    • During DOWNLINK PAYLOAD, every AP multiplies each user's data
+      symbol by the *conjugate* of its local channel estimate — this
+      is called "conjugate beamforming" or "matched-filter precoding".
+      Intuition: when the real channel multiplies this conjugate on
+      the way to the user, the two phases cancel, and the signal
+      arrives "in phase". Summed over many APs, the phases still add
+      coherently, so user k receives a strong clean version of q_k.
+
+(B) It computes the DATA RATE (spectral efficiency, SE) that user k can
+    achieve. Because the user does not know the exact effective
+    channel (it only knows statistical averages — no downlink pilots!),
+    one has to use a classical "use-and-forget" capacity bound from
+    the massive-MIMO textbook. Think of it as:
+
+         "Trust the average channel. Treat the deviation around
+          the average as extra noise. Then apply Shannon."
+
+    This produces a lower bound on SE that is a function of the power
+    control coefficients {η_{m,k}}. The key technical result is
+    Proposition 1, which gives this SE in a *clean closed form* — no
+    integrals, no Monte-Carlo — so that Sections III–V can plug it into
+    an optimization problem.
+
+The big takeaways you should carry out of Section II are:
+
+   1.  The precise definition of γ_{m,k} = mean-square of each MMSE
+       channel estimate component. This quantity packages path-loss,
+       shadowing, pilot length, and pilot-contamination all into one
+       positive number.
+   2.  The per-AP power constraint Σ_k η_{m,k} γ_{m,k} ≤ 1/N.
+   3.  The closed-form SE in Proposition 1 (Equation 15) — this is the
+       mathematical object that the rest of the paper optimizes.
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. DETAILED PHD-LEVEL EXPLANATION — PART A: SYSTEM MODEL
+───────────────────────────────────────────────────────────────────────────────
+
+─── 2.1  Geometry, numbers, and the coherence block ─────────────────────
+
+  •  M APs, each with N antennas      → total of MN service antennas
+  •  K single-antenna users
+  •  Assumption: M ≫ K (the "massive" regime, otherwise channel
+     hardening and favourable propagation do not kick in)
+  •  TDD operation — uplink and downlink share the same frequency band,
+     time-duplexed, so channel reciprocity holds inside each coherence
+     block.
+  •  Coherence interval length τ_c samples. By definition τ_c is the
+     number of time-frequency samples over which the channel is
+     approximately constant. If Doppler spread is B_d and delay spread
+     is T_d, then τ_c ≈ 1 / (B_d · T_d) in samples.
+  •  Out of these τ_c samples, τ_p < τ_c are reserved for uplink pilot
+     training. The remaining τ_c − τ_p samples are used for downlink
+     payload (the authors neglect uplink payload because the paper
+     is downlink-only).
+
+  Why do pilots live IN the coherence interval? Because the channel
+  evolves with time-frequency, the pilots must be transmitted often
+  enough that the estimate is still valid when the payload arrives.
+  That is the whole massive-MIMO "coherence-interval budget" concept.
+
+─── 2.2  Large-scale vs. small-scale fading ─────────────────────────────
+
+The channel from AP m to user k is modelled as
+
+                    𝐠_{m,k} = β_{m,k}^{1/2} · 𝐡_{m,k}          (2)
+
+where
+
+  •  β_{m,k} ∈ ℝ₊ is the large-scale fading = distance-dependent path
+     loss × log-normal shadowing. It does NOT depend on which antenna
+     at AP m we are looking at — all N antennas of AP m share the same
+     β_{m,k} because their spatial separation is tiny compared to the
+     distance to user k.
+  •  𝐡_{m,k} ∈ ℂ^{N×1} is the small-scale fading vector. Every entry
+     is i.i.d. 𝒞𝒩(0, 1) — Rayleigh, uncorrelated across antennas.
+
+Consequence:
+      𝐠_{m,k} ~ 𝒞𝒩(𝟎_N, β_{m,k} · 𝐈_N)
+
+so each component is circularly symmetric complex Gaussian with
+variance β_{m,k}, and components are independent. This is the "IID
+Rayleigh" assumption, standard in cell-free literature.
+
+  The factor β_{m,k} will be modelled numerically in Sec VI as a
+  three-slope path loss (near, intermediate, far field) times a
+  log-normal shadow term. For now the math only uses β_{m,k}.
+
+─── 2.3  Uplink training: the received pilot signal at AP m ─────────────
+
+Let 𝛗_k ∈ ℂ^{τ_p × 1} be the pilot vector transmitted by user k.
+It is normalized so that ‖𝛗_k‖² = 𝛗_k^H 𝛗_k = 1. This normalization
+is important — it means "the total energy of the pilot over τ_p
+symbols is 1 unit". The complex conjugate is denoted 𝛗_k^H (since
+𝛗_k is a column vector, 𝛗_k^H is a row vector).
+
+All K users transmit their τ_p-length pilot SIMULTANEOUSLY. Each of
+the N antennas of AP m observes a superposition. Stacking the N
+antenna observations into rows gives an N × τ_p matrix:
+
+    𝐘_{p,m} = √(τ_p ρ_p) · Σ_{k=1}^{K}  𝐠_{m,k} · 𝛗_k^H  +  𝐖_{p,m}     (1)
+
+Dimensional check:
+  •  𝐠_{m,k}  is N × 1
+  •  𝛗_k^H   is 1 × τ_p
+  •  their outer product 𝐠_{m,k} 𝛗_k^H is N × τ_p   ✓
+  •  𝐖_{p,m} is the additive Gaussian noise matrix, also N × τ_p, with
+     i.i.d. 𝒞𝒩(0,1) entries.
+  •  ρ_p is the NORMALIZED uplink training SNR per pilot symbol — it
+     is "normalized" because the 𝒞𝒩(0,1) noise has been absorbed into
+     the definition. The factor √(τ_p ρ_p) reflects the effective
+     energy per pilot symbol (processing gain τ_p from matched filter).
+
+Interpretation. If only user k were transmitting, the AP would see
+√(τ_p ρ_p) 𝐠_{m,k} 𝛗_k^H on every row. With K users, everything is
+linearly superimposed.
+
+─── 2.4  Pilot despreading at AP m: the de-facto matched filter ──────
+
+To isolate user k's pilot contribution, AP m multiplies 𝐘_{p,m} on the
+right by 𝛗_k (NOT 𝛗_k^H — that would be redundant because the pilots
+live in a sequence space, not a frequency-signal space). Since each
+AP stores its own pilots, this is a fully local operation. Result:
+
+  𝐲_{p,m,k} = 𝐘_{p,m} 𝛗_k
+
+             = √(τ_p ρ_p) 𝐠_{m,k} 𝛗_k^H 𝛗_k
+
+                 + √(τ_p ρ_p) Σ_{k'≠k} 𝐠_{m,k'} 𝛗_{k'}^H 𝛗_k
+
+                 + 𝐖_{p,m} 𝛗_k
+
+             = √(τ_p ρ_p) 𝐠_{m,k}
+
+                 + √(τ_p ρ_p) Σ_{k'≠k} 𝐠_{m,k'} (𝛗_{k'}^H 𝛗_k)
+
+                 + 𝐰̃_{p,m,k}                                                 (3)
+
+where 𝐰̃_{p,m,k} ≝ 𝐖_{p,m} 𝛗_k is an N × 1 vector. Since 𝛗_k is a
+deterministic unit vector, 𝐰̃_{p,m,k} is 𝒞𝒩(𝟎, 𝐈_N).
+
+The three terms in (3) have a crucial interpretation:
+
+   term 1:  the clean pilot of user k, scaled by √(τ_p ρ_p). Good.
+   term 2:  **pilot contamination** — contributions from OTHER users
+            k'≠k whose pilots are not orthogonal to 𝛗_k. The coupling
+            coefficient 𝛗_{k'}^H 𝛗_k is nonzero because, in CF-mMIMO,
+            M+K is too large for the pilot book to be fully orthogonal.
+            If the pilots were fully orthogonal (τ_p ≥ K), this term
+            would vanish.
+   term 3:  post-despread noise, still 𝒞𝒩(𝟎, 𝐈_N).
+
+─── 2.5  MMSE channel estimate ──────────────────────────────────────────
+
+Given 𝐲_{p,m,k}, AP m computes the MMSE estimate of 𝐠_{m,k}. For jointly
+Gaussian vectors, MMSE is just a linear least-squares projection:
+
+  ĝ_{m,k} = 𝔼{𝐠_{m,k} · 𝐲_{p,m,k}^H} · (𝔼{𝐲_{p,m,k} 𝐲_{p,m,k}^H})^{-1} · 𝐲_{p,m,k}
+
+Let us unpack both expectations. We need the fact that 𝐠_{m,k} and
+𝐠_{m,k'} are independent for k ≠ k' (different users → different
+channels).
+
+   𝔼{𝐠_{m,k} 𝐲_{p,m,k}^H}
+     = 𝔼{ 𝐠_{m,k} · [ √(τ_p ρ_p) 𝐠_{m,k}
+                      + √(τ_p ρ_p) Σ_{k'≠k} 𝐠_{m,k'} (𝛗_k^H 𝛗_{k'})
+                      + 𝐰̃_{p,m,k} ]^H }
+     = √(τ_p ρ_p) · 𝔼{𝐠_{m,k} 𝐠_{m,k}^H}    ← only this survives
+     = √(τ_p ρ_p) · β_{m,k} · 𝐈_N.
+
+   𝔼{𝐲_{p,m,k} 𝐲_{p,m,k}^H}
+     = τ_p ρ_p · Σ_{k'=1}^{K} β_{m,k'} · |𝛗_{k'}^H 𝛗_k|² · 𝐈_N
+       + 𝐈_N
+     = ( τ_p ρ_p Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|² + 1 ) · 𝐈_N.
+
+So both matrices are scalars times 𝐈_N, and inverting the second is
+trivial. Substituting:
+
+                        √(τ_p ρ_p) β_{m,k}
+     ĝ_{m,k}  = ────────────────────────────────────────── · 𝐲_{p,m,k}
+                τ_p ρ_p Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|² + 1                (4)
+
+This is Equation (4) of the paper. Two observations:
+
+  (i)  ĝ_{m,k} is a *scalar multiple* of the despread pilot
+       𝐲_{p,m,k}. That is why all N components of ĝ_{m,k} share the
+       same statistics — they are IID scalings of IID Gaussians.
+  (ii) The denominator includes the pilot-contamination interference.
+       The more other users share a non-orthogonal pilot with user k,
+       the more the denominator inflates, and the more the estimate is
+       BIASED towards that pilot-cluster subspace rather than the pure
+       channel. This is exactly pilot contamination.
+
+─── 2.6  Second-order statistics of the estimate: γ_{m,k} ────────────────
+
+Define
+
+     γ_{m,k}  ≝  𝔼{ |[ĝ_{m,k}]_n|² }     (6, inside Eq. (5) of paper)
+
+which is the mean square of any single component of the N-dimensional
+estimate ĝ_{m,k} (they all have the same by symmetry). A short
+calculation — take the squared magnitude of the scalar multiplier in
+(4), multiply by 𝔼{|[𝐲_{p,m,k}]_n|²}, simplify — gives:
+
+                    τ_p ρ_p  β_{m,k}²
+     γ_{m,k}  = ─────────────────────────────────────────                  (5)
+                 τ_p ρ_p Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|² + 1
+
+Equation (5) of the paper. This γ_{m,k} is THE central parameter of the
+entire paper — it compresses large-scale fading, pilot length, pilot
+power, pilot contamination, and receiver noise into a single scalar.
+Every power-allocation and every SE formula below will be written as a
+function of {γ_{m,k}}.
+
+Sanity check:
+   (a) If there is no pilot contamination (|𝛗_{k'}^H 𝛗_k| = 0 for all
+       k'≠k), then γ_{m,k} = τ_p ρ_p β_{m,k}² / (τ_p ρ_p β_{m,k} + 1).
+       For large τ_p ρ_p this tends to β_{m,k}. i.e., the estimator
+       recovers the true variance — perfect CSI limit.
+   (b) With heavy pilot contamination (Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|²
+       ≫ β_{m,k}), γ_{m,k} drops below β_{m,k} — the estimator is hurt.
+   (c) Setting τ_p = K with orthonormal pilots 𝛗_k recovers the
+       "ideal orthogonal pilot" limit.
+
+Estimation error: by the MMSE orthogonality principle, the error
+𝐠̃_{m,k} ≝ 𝐠_{m,k} − ĝ_{m,k} is independent of ĝ_{m,k}, and has entries
+𝒞𝒩(0, β_{m,k} − γ_{m,k}). (Notice γ_{m,k} ≤ β_{m,k}, always.)
+
+─── 2.7  Downlink transmit signal and conjugate beamforming ─────────────
+
+During the payload phase, AP m transmits the N × 1 vector
+
+     𝐱_m  =  √ρ_d  Σ_{k=1}^K  √η_{m,k} · ĝ_{m,k}^*  ·  q_k                (6)
+
+The symbols:
+   •  q_k is the unit-power data symbol for user k:  𝔼{|q_k|²} = 1.
+   •  ρ_d is the maximum downlink transmit SNR, normalized by noise
+      power N₀. "Normalized" again means the 𝒞𝒩(0,1) receiver noise.
+   •  η_{m,k} ≥ 0 is the POWER CONTROL COEFFICIENT at AP m for user k.
+      These are the variables we will optimize in Section IV.
+   •  ĝ_{m,k}^* is the *element-wise complex conjugate* of the local
+      channel estimate to user k. This is what makes it "conjugate
+      beamforming": in the inner product 𝐠_{m,k}^T · ĝ_{m,k}^*,
+      the phase of 𝐠_{m,k} will be cancelled by the conjugate of
+      ĝ_{m,k} if the estimate is close to the true channel.
+
+Why conjugate and not ĝ itself? Because the channel from AP to user
+is the transpose/conjugate viewpoint: if the uplink channel is
+𝐠_{m,k}, reciprocity gives downlink = 𝐠_{m,k}^T. Hence the matched
+filter for user k's downlink signal uses ĝ_{m,k}^* so that
+𝐠_{m,k}^T · ĝ_{m,k}^* ≈ ‖𝐠_{m,k}‖² (a positive real number, up to
+estimation error).
+
+Expected transmit power at AP m:
+
+     𝔼{‖𝐱_m‖²}  =  ρ_d Σ_k η_{m,k} · 𝔼{‖ĝ_{m,k}‖²}
+                =  ρ_d Σ_k η_{m,k} · (N · γ_{m,k})
+                =  ρ_d · N · Σ_k η_{m,k} γ_{m,k}.                           (7)
+
+We require this to be ≤ ρ_d (i.e. AP m has a unit normalized-power
+budget). Dividing by ρ_d · N:
+
+     Σ_{k=1}^{K}  η_{m,k} γ_{m,k}   ≤   1 / N,    m = 1, …, M               (8)
+
+This is the per-AP power constraint. Observe that N has entered the
+upper bound — more antennas per AP means LESS power per antenna is
+allowed, so the TOTAL AP power stays fixed. This is the "fair" way
+to compare different values of N.
+
+─── 2.8  Received signal at user k ──────────────────────────────────────
+
+User k receives the superposition over all M APs:
+
+     r_k = Σ_{m=1}^M 𝐠_{m,k}^T · 𝐱_m  +  w_k
+         = √ρ_d Σ_{m=1}^M √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* · q_k
+             + √ρ_d Σ_{k'≠k} Σ_{m=1}^M √η_{m,k'} 𝐠_{m,k}^T ĝ_{m,k'}^* · q_{k'}
+             + w_k                                                          (9)
+
+where w_k ~ 𝒞𝒩(0, 1) is additive noise at the user. Note that the
+downlink channel from AP m to user k is 𝐠_{m,k}^T (a row vector), so
+𝐠_{m,k}^T 𝐱_m is a scalar.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. DETAILED PHD-LEVEL EXPLANATION — PART B: SPECTRAL EFFICIENCY
+───────────────────────────────────────────────────────────────────────────────
+
+─── 3.1  The "use-and-then-forget" capacity bound ───────────────────────
+
+User k has no downlink pilots — there is no way to measure the
+instantaneous effective channel Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^*. All
+user k knows are channel STATISTICS (the β's and γ's). So for
+detection, the user treats the MEAN of the effective channel as the
+true gain and lumps the deviation into a Gaussian-equivalent "effective
+noise." This is the standard technique in all massive-MIMO SE papers
+(Marzetta-Larsson-Yang-Ngo textbook [7], Ch. 2).
+
+Rewrite (9) by adding and subtracting √ρ_d · 𝔼{Σ_m √η_{m,k} 𝐠_{m,k}^T
+ĝ_{m,k}^*} · q_k:
+
+     r_k =  DS_k · q_k        (desired signal, deterministic gain)
+          + BU_k · q_k        (beamforming uncertainty)
+          + Σ_{k'≠k} UI_{k,k'} · q_{k'}   (inter-user interference)
+          + w_k               (thermal noise)                              (10)
+
+where, with √ρ_d folded in,
+
+     DS_k  ≝ √ρ_d · 𝔼{ Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* }                  (12)
+
+     BU_k  ≝ √ρ_d · ( Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^*
+                       - 𝔼{ Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* } )          (13)
+
+     UI_{k,k'} ≝ √ρ_d · Σ_m √η_{m,k'} 𝐠_{m,k}^T ĝ_{m,k'}^*                (14)
+
+Now the key lemma (see e.g. Marzetta et al. textbook [7, Sec 2.3]):
+conditional on the true channel, if the "self-noise" BU_k + Σ_{k'≠k}
+UI_{k,k'} q_{k'} + w_k is uncorrelated with q_k (true here by linearity
+of expectation and independence of q_k, q_{k'}, ĝ's), then
+treating it as independent Gaussian noise gives an ACHIEVABLE lower
+bound on the true capacity:
+
+     SE_k  ≥  (1 − τ_p/τ_c) · log₂( 1 + SINR_k )   [bit/s/Hz]              (11)
+
+with
+
+                            |DS_k|²
+     SINR_k  = ───────────────────────────────────────────
+               𝔼{|BU_k|²} + Σ_{k'≠k} 𝔼{|UI_{k,k'}|²} + 1
+
+The prefactor (1 − τ_p/τ_c) accounts for the τ_p pilot samples "lost"
+per coherence block (only (τ_c−τ_p)/τ_c of the block carries payload).
+The "+1" at the end of the denominator is the normalised thermal
+noise variance w_k.
+
+The bound is called "use-and-then-forget" because the receiver
+"uses" the channel to receive the signal but "forgets" everything
+about the instantaneous realization when decoding — only means are
+kept. The looseness of this bound decreases as M grows, because
+channel hardening makes BU_k small compared to DS_k.
+
+─── 3.2  Proposition 1 — the closed-form SE ──────────────────────────────
+
+After careful expectation of (12)–(14) using the Gaussianity of the
+channels and the MMSE estimates (see Appendix A), the bound in (11)
+becomes an *explicit, closed-form* expression. Define
+
+     𝛈_k  ≝ [η_{1,k}, η_{2,k}, …, η_{M,k}]^T   ∈ ℝ₊^M            (vector of
+                                                                  power-ctrl
+                                                                  coeffs. of
+                                                                  user k)
+
+     𝛄_{k',k}  ≝ |𝛗_{k'}^H 𝛗_k| · [ γ_{1,k'} · √(β_{1,k}/β_{1,k'}),
+                                      γ_{2,k'} · √(β_{2,k}/β_{2,k'}),
+                                      ⋯,
+                                      γ_{M,k'} · √(β_{M,k}/β_{M,k'}) ]^T
+                                                                    ∈ ℝ^M
+
+                 (Eq. just before (15) in the paper;  𝛄_{k,k} = 𝛄_k with
+                  components [𝛄_{k,k}]_m = γ_{m,k})
+
+     𝐃_{k',k}  ≝ diag(  √(β_{1,k} γ_{1,k'}),
+                         √(β_{2,k} γ_{2,k'}),
+                         …,
+                         √(β_{M,k} γ_{M,k'}) )   ∈ ℝ^{M×M}
+                                                                 (diagonal
+                                                                  matrix)
+
+Then Proposition 1 states that the achievable SE of user k is
+
+     SE_k({η_{m,k}}) = (1 − τ_p/τ_c) · log₂(  1  +
+
+                       ρ_d N² |𝛄_{k,k}^T 𝛈_k|²
+         ─────────────────────────────────────────────────────────────
+         ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|² + ρ_d N Σ_{k'} ‖𝐃_{k',k} 𝛈_{k'}‖² + 1
+                                                                          )     (15)
+
+where the inner sum Σ_{k'} at the second denominator term runs from
+k' = 1 to K (including k' = k — that sum is NOT minus {k}).
+
+Interpretation of each piece:
+
+  (numerator)   ρ_d N² |𝛄_{k,k}^T 𝛈_k|²
+      This is the *coherent array gain*. The N² (not N) is the
+      signature of "coherent" combining across N antennas within
+      each AP + across M APs. Note N² × (something independent of
+      N) — THIS is the massive-MIMO power gain that makes simple
+      conjugate beamforming work.
+
+  (denom, 1st term)  ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|²
+      This is the *pilot-contamination-induced inter-user
+      interference*. It scales as N², like the useful signal —
+      meaning that pilot contamination is the ONE interference
+      that does NOT average out with more antennas. This is the
+      famous "pilot contamination curse" of massive MIMO.
+      Note that 𝛄_{k,k'} is zero if user k and user k' use fully
+      orthogonal pilots (|𝛗_{k'}^H 𝛗_k| = 0).
+
+  (denom, 2nd term)  ρ_d N Σ_{k'} ‖𝐃_{k',k} 𝛈_{k'}‖²
+      This is the *non-coherent interference* (beamforming
+      uncertainty + cross-user interference). It scales linearly
+      in N, so it is dominated by the N² useful signal as N grows
+      — this is precisely the array gain that makes conjugate
+      beamforming effective.
+
+  (denom, 3rd term)  1
+      Thermal noise at the user.
+
+  (prefactor)  (1 − τ_p/τ_c)
+      The penalty for spending τ_p samples on pilots.
+
+Special cases (sanity checks the authors highlight):
+
+  • N = 1 (single-antenna APs): (15) reduces exactly to Eq. (24) of
+    the Ngo 2017 TWC paper [6], the canonical single-antenna
+    CF-mMIMO SE.
+  • M = 1, N → M' (colocated case with M' antennas at ONE AP): (15)
+    reduces to Table 3.2 of the Marzetta-Larsson-Yang-Ngo textbook [7].
+
+─── 3.3  Sum spectral efficiency ────────────────────────────────────────
+
+     S_e({η_{m,k}})  =  Σ_{k=1}^{K}  SE_k({η_{m,k}})                        (16)
+
+This is what enters the backhaul term B · S_e · P_{bt,m} in Section III.
+The paper will maximize energy efficiency with respect to {η_{m,k}}
+under the constraint SE_k ≥ S_{o,k} ∀k and Σ_k η_{m,k} γ_{m,k} ≤ 1/N
+∀m.
+
+─── 3.4  Why "closed form" matters ──────────────────────────────────────
+
+Before [6, 7] and this paper, typical CF-mMIMO / distributed MIMO SE
+formulas required Monte-Carlo evaluation (sample the random channels,
+average). The closed-form (15) depends only on deterministic
+quantities {β_{m,k}, γ_{m,k}, η_{m,k}, τ_p, τ_c, ρ_d}. This means:
+
+  • power control {η_{m,k}} can be OPTIMIZED without running any
+    channel simulation inside the loop,
+  • the large-scale fading {β_{m,k}} (and therefore {γ_{m,k}}) varies
+    on a much slower time scale than small-scale fading, so the
+    optimization needs to be re-done only once per ~100–1000
+    coherence blocks.
+
+This is what makes the SCA-SOCP optimization of Section IV
+computationally feasible.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. HISTORICAL CONTEXT FOR THE TECHNIQUES USED IN SECTION II
+───────────────────────────────────────────────────────────────────────────────
+
+• MMSE channel estimation for massive MIMO with pilot contamination
+  was fully worked out by Hoydis-ten Brink-Debbah (IEEE JSAC 2013) in
+  their classical paper on the deterministic equivalents approach.
+  The single-cell IID case used here is a direct application of
+  Kay, "Fundamentals of Statistical Signal Processing, Vol. 1:
+  Estimation Theory," Prentice Hall 1993, chapter on Bayesian
+  Gaussian estimation.
+
+• The "use-and-then-forget" capacity bound comes from Medard (IEEE
+  TIT 2000) "The effect upon channel capacity in wireless
+  communications of perfect and imperfect knowledge of the channel"
+  — the mutual-information lower bound with worst-case Gaussian
+  noise replacing the true non-Gaussian effective noise. Marzetta
+  popularized its use for massive MIMO starting with his 2010 paper,
+  and the textbook [7] Ch. 2.3 is the cleanest modern treatment.
+
+• Conjugate / matched-filter beamforming is the oldest linear
+  precoder in wireless (it goes back to radar detection theory in
+  the 1940s). Its renaissance for massive MIMO is due to the fact
+  that, under channel hardening, ‖𝐠‖²/N → β almost surely, so
+  matched filtering is asymptotically optimal in the number of
+  antennas. Marzetta 2010 established this formally.
+
+• The pilot-contamination phenomenon in cellular massive MIMO was
+  identified and named by Marzetta (2010). The cell-free massive
+  MIMO papers [6, 8, 9] extended the analysis. A clean treatment of
+  pilot contamination in the cell-free downlink using MMSE estimation
+  is given in the original Ngo-2017 TWC paper [6]; Section II of the
+  present paper is essentially a multi-antenna generalization.
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. MATHEMATICAL RECAP IN UNICODE
+───────────────────────────────────────────────────────────────────────────────
+
+Equations (1)-(16) restated cleanly for the terminal:
+
+  (1)  𝐘_{p,m} = √(τ_p ρ_p) Σ_{k=1}^{K} 𝐠_{m,k} 𝛗_k^H + 𝐖_{p,m}
+
+  (2)  𝐠_{m,k} = √β_{m,k} · 𝐡_{m,k},   𝐡_{m,k} ~ 𝒞𝒩(𝟎_N, 𝐈_N)
+
+  (3)  𝐲_{p,m,k} = 𝐘_{p,m} 𝛗_k
+             = √(τ_p ρ_p) 𝐠_{m,k}
+             + √(τ_p ρ_p) Σ_{k'≠k} 𝐠_{m,k'} (𝛗_{k'}^H 𝛗_k)
+             + 𝐰̃_{p,m,k}
+
+                                          √(τ_p ρ_p) β_{m,k}
+  (4)  ĝ_{m,k}  = ─────────────────────────────────────────────── · 𝐲_{p,m,k}
+                     τ_p ρ_p Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|² + 1
+
+                      τ_p ρ_p β_{m,k}²
+  (5)  γ_{m,k}  = ─────────────────────────────────────────
+                     τ_p ρ_p Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|² + 1
+
+  (6)  𝐱_m  = √ρ_d Σ_{k=1}^{K} √η_{m,k} · ĝ_{m,k}^* · q_k
+
+  (7)  𝔼{‖𝐱_m‖²} = ρ_d · N · Σ_k η_{m,k} γ_{m,k}
+
+  (8)  Σ_{k=1}^{K} η_{m,k} γ_{m,k} ≤ 1/N,  m = 1, …, M
+
+  (9)  r_k = √ρ_d Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* q_k
+           + √ρ_d Σ_{k'≠k} Σ_m √η_{m,k'} 𝐠_{m,k}^T ĝ_{m,k'}^* q_{k'}  + w_k
+
+  (10) r_k = DS_k q_k + BU_k q_k + Σ_{k'≠k} UI_{k,k'} q_{k'} + w_k
+
+  (11) SE_k = (1 − τ_p/τ_c) log₂(1 + |DS_k|² / (𝔼{|BU_k|²}+Σ_{k'≠k}𝔼{|UI_{k,k'}|²}+1))
+
+  (12) DS_k       ≝ √ρ_d · 𝔼{ Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* }
+  (13) BU_k       ≝ √ρ_d · (Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* − 𝔼{…})
+  (14) UI_{k,k'}  ≝ √ρ_d · Σ_m √η_{m,k'} 𝐠_{m,k}^T ĝ_{m,k'}^*
+
+  (15) SE_k({η_{m,k}}) = (1 − τ_p/τ_c) · log₂( 1 +
+                       ρ_d N² |𝛄_{k,k}^T 𝛈_k|²
+         ─────────────────────────────────────────────────────────────
+         ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|² + ρ_d N Σ_{k'} ‖𝐃_{k',k} 𝛈_{k'}‖² + 1
+                                                                            )
+
+  (16) S_e({η_{m,k}}) = Σ_{k=1}^{K} SE_k({η_{m,k}})
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. NUMERICAL WORKED EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+
+Let us compute γ_{m,k}, per-AP power, and SE by hand for a tiny
+scenario: **M = 2 APs, K = 2 users, N = 2 antennas per AP,
+τ_p = τ_c = 200** (we will neglect the prefactor for simplicity,
+τ_p/τ_c = 0.005 small), τ_c = 200 (so 1-τ_p/τ_c ≈ 0.995).
+
+Large-scale fading (in linear scale):
+
+           β_{1,1} = 0.1   β_{1,2} = 0.01
+           β_{2,1} = 0.01  β_{2,2} = 0.1
+   (i.e. AP 1 is close to user 1, AP 2 is close to user 2; the classic
+    "diagonal" topology.)
+
+Assume orthogonal pilots, so 𝛗_1^H 𝛗_2 = 0, and ρ_p = 1, ρ_d = 1.
+
+Step 1 — compute γ_{m,k} from (5):
+
+   γ_{1,1} = τ_p ρ_p β_{1,1}² / ( τ_p ρ_p β_{1,1} + 1 )
+           = 200 · 1 · 0.01 / (200 · 0.1 + 1)
+           = 2 / 21
+           ≈ 0.0952
+
+   γ_{1,2} = 200 · 0.0001 / (200 · 0.01 + 1)  = 0.02 / 3  ≈ 0.00667
+
+   γ_{2,1} = 200 · 0.0001 / (200 · 0.01 + 1)  = 0.02 / 3  ≈ 0.00667
+
+   γ_{2,2} = 200 · 0.01 / (200 · 0.1 + 1)     = 2 / 21    ≈ 0.0952
+
+Step 2 — pick power control coefficients. Full-power equal allocation:
+
+   η_{1,k} = η_{2,k} = 1/(N Σ_k γ_{m,k})
+           = 1 / (2 · (0.0952 + 0.00667)) = 1/0.2038 ≈ 4.908
+   (for each AP, equal across users)
+
+   But for a cleaner number, let us instead split equally between the
+   two users at each AP: η_{m,1} = η_{m,2}. Then (8) says
+        η_{m,1}·γ_{m,1} + η_{m,2}·γ_{m,2} ≤ 1/N = 0.5
+
+        AP 1:  η·(0.0952 + 0.00667) ≤ 0.5 ⇒ η ≤ 4.908
+        AP 2:  η·(0.00667 + 0.0952) ≤ 0.5 ⇒ η ≤ 4.908
+
+   Pick η_{m,1} = η_{m,2} = 4.908, so both constraints are active.
+
+Step 3 — compute |𝛄_{1,1}^T 𝛈_1|² (numerator of SINR for user 1):
+
+   𝛄_{1,1} = [γ_{1,1}, γ_{2,1}]^T = [0.0952, 0.00667]^T
+   𝛈_1 = [η_{1,1}, η_{2,1}]^T = [√4.908, √4.908]^T ≈ [2.215, 2.215]^T
+
+   Wait — 𝛈_k in Proposition 1 holds √η, not η. Let me re-check.
+   Looking at (6): 𝐱_m = √ρ_d Σ_k √η_{m,k} ĝ_{m,k}^* q_k.
+   The power control coefficient η_{m,k} enters with a square root.
+   In Proposition 1's notation, 𝛈_k = [η_{1,k}, …, η_{M,k}]^T is the
+   vector of √-ROOTS? Let us re-read Eq. (15) and the paragraph just
+   before.
+
+   [Paper quote: "𝛈_k ≝ [η_{1,k}, …, η_{M,k}]^T … power control
+    coefficients associated with user k"]
+
+   So 𝛈_k is the η's themselves. But then the numerator
+   ρ_d N² |𝛄_{k,k}^T 𝛈_k|² has units (linear-power-coeff × √-power?).
+   Looking at the proof in Appendix A, one can see that the authors
+   collapse the √η_{m,k} back into the c_{m,k} = √η_{m,k} in Sec IV.
+   So in the SE formula as written, the symbol η_{m,k} in Eq. (15)
+   actually is √η_{m,k}! The authors are reusing notation — this is
+   a minor inconsistency in the paper. In Sec IV they fix it by
+   defining c_{m,k} = √η_{m,k} explicitly.
+
+   Therefore, in the formula (15), we should read η_{m,k} as the
+   SQUARE ROOT of the power coefficient. Let us use that:
+
+   Redefine  𝛈_1 := [√4.908, √4.908]^T ≈ [2.215, 2.215]^T.
+
+   Numerator for user 1:
+     |𝛄_{1,1}^T 𝛈_1|² = |0.0952 · 2.215 + 0.00667 · 2.215|²
+                      = |0.2108 + 0.01478|²
+                      = |0.2256|²
+                      ≈ 0.05090
+
+   With N² = 4 and ρ_d = 1:  ρ_d N² · 0.05090 = 0.2036
+
+Step 4 — denominator terms (still for user 1):
+
+  • Pilot-contamination term Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|² :
+    Since pilots are orthogonal, 𝛄_{1,2} = 0 (all components), so
+    this sum is 0.
+
+  • Non-coherent term Σ_{k'} ‖𝐃_{k',1} 𝛈_{k'}‖² :
+    𝐃_{k',1} = diag( √(β_{1,1} γ_{1,k'}), √(β_{2,1} γ_{2,k'}) )
+    For k' = 1: 𝐃_{1,1} = diag(√(0.1·0.0952), √(0.01·0.00667))
+                        = diag(√0.00952, √0.0000667)
+                        = diag(0.09757, 0.008165)
+        ‖𝐃_{1,1} 𝛈_1‖² = (0.09757·2.215)² + (0.008165·2.215)²
+                        = (0.2161)² + (0.01809)²
+                        ≈ 0.04670 + 0.000327
+                        ≈ 0.04703
+    For k' = 2: 𝐃_{2,1} = diag(√(0.1·0.00667), √(0.01·0.0952))
+                        = diag(√0.000667, √0.000952)
+                        = diag(0.02583, 0.03086)
+        ‖𝐃_{2,1} 𝛈_2‖² = (0.02583·2.215)² + (0.03086·2.215)²
+                        = (0.05723)² + (0.06836)²
+                        ≈ 0.003275 + 0.004673
+                        ≈ 0.007948
+    Sum ≈ 0.04703 + 0.00795 ≈ 0.05498
+    With ρ_d N = 2:  ρ_d N · 0.05498 ≈ 0.10995
+
+  • Thermal noise:  1
+
+Step 5 — SINR_1 and SE_1:
+
+     SINR_1 = 0.2036 / (0 + 0.10995 + 1) = 0.2036 / 1.10995 ≈ 0.1834
+
+     SE_1 = (1 - 0.005) · log₂(1 + 0.1834)
+          ≈ 0.995 · log₂(1.1834)
+          ≈ 0.995 · 0.2429
+          ≈ 0.2417 bit/s/Hz
+
+The SINR is very low because the example is tiny (small M, N) and the
+desired user has only 0.1 average path gain. With M = 100, N = 4 this
+number would be orders of magnitude larger due to the coherent N²
+scaling of the useful signal.
+
+By symmetry SE_2 = SE_1 ≈ 0.2417 bit/s/Hz. Sum SE:
+     S_e = 2 · 0.2417 ≈ 0.4834 bit/s/Hz.
+
+─── PRACTICE PROBLEM ────────────────────────────────────────────────────
+
+Consider M = 4 APs, N = 1, K = 2 users. Large-scale fading:
+
+       β_{m,k}  | k=1  |  k=2
+       ─────────┼──────┼──────
+       m=1      | 0.20 | 0.02
+       m=2      | 0.10 | 0.05
+       m=3      | 0.05 | 0.10
+       m=4      | 0.02 | 0.20
+
+Pilots are orthogonal (|𝛗_k'^H 𝛗_k| = 0 for k' ≠ k), τ_p = τ_c = 100,
+ρ_p = 1, ρ_d = 1.
+
+Tasks:
+(a) Compute γ_{m,k} for all (m, k).
+(b) Choose equal-power allocation η_{m,k} = 1/(N · γ_{m,max}) where
+    γ_{m,max} = max_k γ_{m,k}, so that (8) is satisfied with equality.
+(c) Compute |𝛄_{1,1}^T 𝛈_1|², the non-coherent interference term for
+    user 1, and SE_1.
+
+[Hint: orthogonal pilots ⇒ pilot-contamination term vanishes. Using
+ N = 1 makes 𝐃_{k',k} scalar, so ‖𝐃 𝛈‖² is easy.]
+
+[Answers for verification:
+ (a) γ_{m,k} values with 1/N = 1 and τ_p ρ_p = 100:
+     γ_{m,k} = 100 β_{m,k}² / (100 β_{m,k} + 1)
+     γ_{1,1} = 4/21 ≈ 0.1905,  γ_{1,2} = 4/6 · 0.01 ≈ 0.00667  (recompute)
+     — exact values left to you.
+ (b) Equal-split: η_{m,k} = 1 / (2 max_k γ_{m,k}) ensures (8).
+ (c) SE_1 in the few-tenths bit/s/Hz range because N = 1 and M = 4 is
+     a toy scale.]
+
+
+───────────────────────────────────────────────────────────────────────────────
+7. SUMMARY OF SECTION II
+───────────────────────────────────────────────────────────────────────────────
+
+• Setup. M APs (each N antennas), K single-antenna users, TDD with
+  coherence τ_c and pilot length τ_p < τ_c. IID Rayleigh small-scale
+  fading, deterministic large-scale fading β_{m,k}.
+
+• Uplink training (Eq. 1). Users transmit τ_p-symbol pilots 𝛗_k
+  simultaneously; AP m receives a superposition corrupted by noise.
+
+• Despreading + MMSE estimation (Eqs. 3, 4). AP m despreads by 𝛗_k
+  and applies an MMSE scalar to get ĝ_{m,k}. All components share
+  the same per-component variance γ_{m,k} (Eq. 5). γ_{m,k} is the
+  single scalar that captures path-loss, pilot power, pilot length,
+  and pilot contamination. The residual error is independent and
+  has variance β_{m,k} − γ_{m,k}.
+
+• Conjugate beamforming (Eq. 6). AP m transmits ĝ_{m,k}^* · q_k for
+  each user, scaled by local power-control coefficients η_{m,k}.
+  Per-AP total transmit power (Eq. 7) gives the constraint
+  Σ_k η_{m,k} γ_{m,k} ≤ 1/N (Eq. 8).
+
+• Received signal at user k (Eq. 9). Superposition of all APs; three
+  ingredients: desired signal, inter-user interference, thermal noise.
+
+• "Use-and-forget" SE bound (Eq. 10-11). User k knows only channel
+  statistics, so it treats 𝔼{effective channel} as the known gain
+  and lumps everything else into Gaussian "effective noise." Result:
+  an achievable SE lower bound that is tight in the massive-MIMO limit.
+
+• Proposition 1 (Eq. 15). The SE bound is written as an explicit
+  closed form in {γ_{m,k}}, {β_{m,k}}, and the (√)power-control
+  vectors {𝛈_k}. Key structural features:
+
+      • numerator ∝ ρ_d N² · (coherent combining term)²
+      • pilot-contamination term ∝ ρ_d N² (does NOT vanish with N!)
+      • non-coherent interference term ∝ ρ_d N (washes out as N →∞)
+
+  Reduces to Ngo 2017 TWC (single-antenna CF) when N = 1 and to
+  colocated massive MIMO (ref [7, Table 3.2]) when M = 1.
+
+• Why closed form matters. No Monte-Carlo needed inside the
+  optimization loop. The subsequent power control (Sec IV) can
+  operate purely on deterministic β's and γ's, which change slowly.
+
+• Small notational subtlety. Proposition 1 uses 𝛈_k to denote the
+  vector of *power-control coefficients* but the formula internally
+  needs the square root √η_{m,k}. In Section IV the paper introduces
+  c_{m,k} ≝ √η_{m,k} to avoid confusion.
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018]   H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou,
+                  E. G. Larsson, "On the Total Energy Efficiency of
+                  Cell-Free Massive MIMO," IEEE TGCN, Mar. 2018.
+                  arXiv: 1702.07601.
+
+[Ngo-TWC-2017]    H. Q. Ngo et al., "Cell-free Massive MIMO versus
+                  Small Cells," IEEE TWC, Mar. 2017.
+
+[Marzetta-2016]   T. L. Marzetta, E. G. Larsson, H. Yang, H. Q. Ngo,
+                  "Fundamentals of Massive MIMO," Cambridge Univ.
+                  Press, 2016. (Ch. 2 for the use-and-then-forget
+                  bound.)
+
+[Marzetta-2010]   T. L. Marzetta, "Noncooperative Cellular Wireless
+                  with Unlimited Numbers of Base Station Antennas,"
+                  IEEE TWC, Nov. 2010.
+
+[Medard-2000]     M. Medard, "The effect upon channel capacity in
+                  wireless communications of perfect and imperfect
+                  knowledge of the channel," IEEE TIT, 2000.
+
+[Kay-1993]        S. M. Kay, Fundamentals of Statistical Signal
+                  Processing, Vol. I: Estimation Theory. Prentice
+                  Hall, 1993. (Ch. 10–12 for MMSE of Gaussian
+                  vectors.)
+
+[Hoydis-JSAC-2013] J. Hoydis, S. ten Brink, M. Debbah, "Massive MIMO
+                  in the UL/DL of cellular networks: How many antennas
+                  do we need?" IEEE JSAC, Feb. 2013. (Deterministic-
+                  equivalent analysis of pilot contamination.)

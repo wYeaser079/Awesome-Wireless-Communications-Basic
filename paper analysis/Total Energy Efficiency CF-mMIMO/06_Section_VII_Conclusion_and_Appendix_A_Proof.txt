@@ -1,0 +1,1060 @@
+================================================================================
+  PAPER: On the Total Energy Efficiency of Cell-Free Massive MIMO
+         H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou, E. G. Larsson
+         IEEE TGCN, vol. 2, no. 1, pp. 25–39, Mar. 2018.
+--------------------------------------------------------------------------------
+  SECTION COVERED: SECTION VII — CONCLUSION
+                   APPENDIX A — PROOF OF PROPOSITION 1
+                    (Closed-form derivation of the downlink SE)
+                   FULL-PAPER SYNTHESIS
+================================================================================
+
+
+───────────────────────────────────────────────────────────────────────────────
+1. HIGH-LEVEL (LAYMAN) EXPLANATION
+───────────────────────────────────────────────────────────────────────────────
+
+The paper is essentially done by the end of Section VI. Section VII
+is a one-paragraph summary of what was shown and what it means.
+Appendix A then backs up the central closed-form result
+(Proposition 1, Eq. 15) with a careful computation of the three
+statistical moments that define the "use-and-forget" capacity bound:
+
+   •  DS_k        = expected desired-signal gain at user k
+   •  E[|BU_k|²]  = variance of the beamforming-uncertainty term
+   •  E[|UI_{kk'}|²] = variance of the inter-user interference
+                       caused by user k' upon user k
+
+Plugging these three into the Shannon-style SE expression (Eq. 11),
+you land squarely at the closed-form expression (Eq. 15) — the
+cornerstone of the entire paper, because every optimization in
+Sections IV and V treats (15) as a deterministic function of the
+power-control coefficients.
+
+The mathematical tools used in Appendix A are ENTIRELY ELEMENTARY
+— independence of MMSE estimate and estimation error, fourth
+moments of complex Gaussian vectors, and the identity that makes
+matched-filter combining look coherent. But the bookkeeping is
+tricky, and several cancellations produce the simple final
+formula. The appendix is about half a page of algebra for a
+lifetime of optimization work.
+
+In layman terms, Appendix A answers:
+
+   "I said in Section II that the per-user spectral efficiency has
+    a clean closed form. How do I actually PROVE that, starting
+    from the channel model?"
+
+And Section VII answers:
+
+   "Now that we have seen everything work, what's the practical
+    bottom line for building cell-free massive MIMO networks?"
+
+
+───────────────────────────────────────────────────────────────────────────────
+2. SECTION VII — CONCLUSION (full content and elaboration)
+───────────────────────────────────────────────────────────────────────────────
+
+─── 2.1  Literal content of the conclusion ─────────────────────────────
+
+The paper's conclusion (one paragraph, Eq. 1–6 of Sec VII) states
+essentially the following claims:
+
+   (a) We investigated the total energy efficiency of a cell-free
+       massive MIMO system WITH MULTIPLE-ANTENNA APs, taking into
+       account four realistic effects:
+         (i) channel-estimation errors,
+         (ii) power control optimized for EE,
+         (iii) non-orthogonality of pilot sequences (pilot
+              contamination),
+         (iv) backhaul power consumption.
+
+   (b) We proposed TWO AP-selection schemes (received-power-based
+       and largest-large-scale-fading-based) to reduce the backhaul
+       power consumption, which is the dominant term at large M.
+
+   (c) We showed that our power-allocation algorithm together with
+       the AP-selection schemes can improve EE significantly.
+
+   (d) For a given user, only a small number of APs really
+       participate in serving it — on the order of 10-20% of M.
+
+   (e) With a 1 bit/s/Hz per-user QoS requirement, cell-free
+       massive MIMO can improve EE by AN ORDER OF MAGNITUDE
+       compared to colocated massive MIMO.
+
+─── 2.2  What each claim really says (the subtext) ─────────────────────
+
+Let us elaborate each of these five claims to extract the deeper
+implication that the paper is making.
+
+(a) MULTIPLE ANTENNAS PER AP ARE A FIRST-CLASS CITIZEN.
+
+    Before this paper, the CF-mMIMO literature (Ngo 2017 TWC,
+    Nayebi 2015, Interdonato 2016) treated APs as having only a
+    SINGLE antenna. The present paper is the first to derive an
+    EXACT closed-form SE for the multi-antenna case. Multi-antenna
+    APs matter because:
+       •  they amortize the per-AP fixed backhaul across more
+          antennas, reducing the fixed-cost-per-antenna (which
+          is what the EE optimizer cares about);
+       •  they deliver a coherent N² array gain within each AP,
+          which has no analog in the single-antenna case;
+       •  they provide a degree of freedom — N — that the network
+          designer can tune to balance macro-diversity against
+          backhaul cost (as shown in Fig. 5 of Section VI).
+    A single AP with multiple antennas is the RIGHT abstraction
+    layer between a true distributed antenna system (one antenna
+    per AP) and a colocated massive-MIMO base station (one AP
+    with many antennas).
+
+(b) BACKHAUL IS THE ELEPHANT AND AP SELECTION IS THE CURE.
+
+    Without the AP-selection schemes of Sec V, the backhaul term
+    would crush EE at large M. Sections III and V framed this
+    observation mathematically; Section VI quantified it (Fig. 3:
+    EE with no selection collapses at high P_bt; EE with selection
+    is nearly constant). The conclusion now frames it as a DESIGN
+    PRINCIPLE: any serious CF-mMIMO deployment must include an
+    AP-selection layer, otherwise backhaul will eat the benefits.
+
+    Importantly, the authors propose TWO schemes of different
+    complexity, allowing the system designer to choose between
+    them. This is good practice for a paper aimed at practitioners.
+
+(c) POWER CONTROL IS "FREE."
+
+    The EE-maximizing power control of Algorithm 1 requires NO
+    hardware changes — only a software update that runs once per
+    large-scale-fading realization (~1 s). Yet it improves EE by a
+    factor of 2.6-3×. In any deployment-optimization meeting, this
+    is the single most persuasive argument for turning on
+    Algorithm 1 by default.
+
+(d) "ONLY A SMALL NUMBER OF APs PARTICIPATE" = SCALABILITY.
+
+    This is the claim that launched the user-centric CF-mMIMO
+    paradigm. In a subsequent literature (Buzzi-D'Andrea 2017,
+    Björnson-Sanguinetti 2020, Interdonato 2019), this observation
+    became formalized as a SCALABILITY property: a CF-mMIMO
+    deployment is "scalable" if the per-user computational,
+    backhaul, and CSI overhead does not grow with the TOTAL
+    system size, only with the LOCAL cluster size. The present
+    paper is one of the first to empirically document this
+    scalability via the constant |A_k| ~ 10-20 APs regardless of
+    M (Fig. 4). The 2020 Björnson-Sanguinetti paper you have
+    already studied formalizes scalability as an exact
+    mathematical property.
+
+(e) ORDER-OF-MAGNITUDE EE IMPROVEMENT OVER COLOCATED MASSIVE MIMO.
+
+    This is the marketing-friendly headline: "cell-free is 10×
+    more green than 4G+ massive MIMO, under a 1 bit/s/Hz QoS
+    requirement, at MN = 128 service antennas." The claim
+    dissolves somewhat at larger MN (2.2× at MN = 256) because
+    colocated eventually gets enough array gain, but at moderate
+    antenna counts — the regime of interest for early 6G
+    deployments — CF-mMIMO wins decisively. This is THE reason
+    the paper is widely cited.
+
+─── 2.3  What Section VII does NOT discuss (limitations) ───────────────
+
+The conclusion is intentionally brief, and several important
+limitations of the paper are NOT flagged. A PhD student should
+be aware of them:
+
+  •  Uplink not analyzed. The whole paper is downlink-only. The
+     uplink has its own power-consumption model (cheaper PAs on
+     the user side, but more ADCs at the AP side) and its own
+     SE formula. A follow-up paper (Bashar-Cumanan-Burr-Ngo 2017)
+     extends the EE analysis to the uplink.
+
+  •  No CSI-sharing cost. The paper assumes each AP estimates its
+     own channels locally and uses them for conjugate beamforming
+     — "distributed" processing. If instead the CPU were to
+     perform centralized precoding (e.g. MMSE), CSI would have
+     to be transmitted over the backhaul, adding a CSI-overhead
+     term to P_bh,m that the paper does not model. The 2019
+     Björnson-Sanguinetti MMSE paper (which you have studied)
+     addresses exactly this centralized-processing regime.
+
+  •  Fronthaul vs backhaul distinction ignored. The paper calls
+     the link between AP and CPU a "backhaul", but in C-RAN
+     terminology it is more accurately a "fronthaul" (carrying
+     baseband or quantized baseband data). The difference
+     matters for the traffic-dependent term — a fronthaul
+     carrying CPRI-style baseband samples is MUCH more expensive
+     per bit/s than a backhaul carrying user data. The paper's
+     P_bt,m is an abstraction that can absorb either case,
+     but the numerical values of Table I correspond closer to
+     a backhaul than a fronthaul.
+
+  •  Only conjugate beamforming. The paper does NOT consider
+     zero-forcing (ZF) or MMSE precoding, which would give
+     higher SE at the cost of more centralized processing. The
+     choice is conservative — conjugate gives the lowest bound
+     on SE, so the EE numbers are a lower bound as well. ZF
+     cell-free was analyzed in Nayebi 2015 [8]; MMSE cell-free
+     was analyzed in Björnson-Sanguinetti 2019.
+
+  •  Pilot contamination is only partially analyzed. The paper
+     uses random pilot assignment; more sophisticated schemes
+     (graph-coloring, location-aware) would reduce pilot
+     contamination and boost EE. This was an open question
+     in 2017 and has been addressed in several follow-up papers.
+
+  •  No user mobility. The large-scale fading is treated as
+     static during each run. Real users move, and the sets A_k
+     must be re-computed over time; the dynamics are not
+     analyzed. This is the motivation for the ML-based AP
+     selection papers of 2022-2024.
+
+Knowing these limitations is how you can plan a follow-up paper of
+your own — they are the natural entry points for subsequent
+research.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. APPENDIX A — PROOF OF PROPOSITION 1
+───────────────────────────────────────────────────────────────────────────────
+
+─── 3.1  What we need to compute ────────────────────────────────────────
+
+Recall the use-and-forget SE bound (Eq. 11):
+
+                          |DS_k|²
+  SE_k = (1 − τ_p/τ_c) · log₂(1 + ─────────────────────────────────)
+                         E{|BU_k|²} + Σ_{k'≠k} E{|UI_{kk'}|²} + 1
+
+with
+
+   DS_k      ≝ √ρ_d · E{ Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^* }           (12)
+
+   BU_k      ≝ √ρ_d · ( Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^*
+                       − E{Σ_m √η_{m,k} 𝐠_{m,k}^T ĝ_{m,k}^*} )       (13)
+
+   UI_{kk'}  ≝ √ρ_d · Σ_m √η_{m,k'} 𝐠_{m,k}^T ĝ_{m,k'}^*              (14)
+
+We will compute |DS_k|², E[|BU_k|²], and E[|UI_{kk'}|²] in that
+order, then substitute into (11) to obtain (15).
+
+Throughout the proof we use the following facts:
+
+  F1. MMSE orthogonality: ĝ_{m,k} and 𝐠̃_{m,k} ≝ 𝐠_{m,k} − ĝ_{m,k}
+      are STATISTICALLY INDEPENDENT, not just uncorrelated. This
+      is because jointly Gaussian + uncorrelated implies
+      independent.
+
+  F2. ĝ_{m,k} has entries 𝒞𝒩(0, γ_{m,k}), and 𝐠̃_{m,k} has entries
+      𝒞𝒩(0, β_{m,k} − γ_{m,k}). All entries independent within
+      each vector.
+
+  F3. For any m ≠ m' and any k, k': 𝐠_{m,k}, ĝ_{m,k}, 𝐠_{m',k'},
+      ĝ_{m',k'} involve different AP indices and hence different
+      pilot noise realizations. In particular the channels across
+      different APs are independent (because the underlying
+      physical channels are modelled as independent across AP
+      locations).
+
+  F4. Cross AP-index terms have zero mean once you take the
+      expectation E{·}, so they VANISH when you compute the second
+      moment of a sum across APs.
+
+  F5. Complex Gaussian fourth moments: if 𝐱 ~ 𝒞𝒩(𝟎, σ² 𝐈_N), then
+         E{‖𝐱‖²}  = N σ²
+         E{‖𝐱‖^4} = N(N+1) σ^4
+      (This is a special case of the Wishart/Gamma fourth-moment
+      identity.)
+
+  F6. The identity ĝ_{m,k} = b_{m,k} · y_{p,m,k}, where
+
+         b_{m,k}  ≝  √(τ_p ρ_p) · β_{m,k}
+                   ─────────────────────────────────────────────── (52)
+                   τ_p ρ_p Σ_{k'} β_{m,k'} |𝛗_{k'}^H 𝛗_k|² + 1
+
+      and y_{p,m,k} is the despread received pilot from Eq. (3).
+
+─── 3.2  Computing DS_k  (Eq. 48 of the paper) ────────────────────────
+
+Because ĝ_{m,k} ⊥ 𝐠̃_{m,k} (fact F1), and because 𝐠_{m,k} =
+ĝ_{m,k} + 𝐠̃_{m,k}, we have
+
+  DS_k = √ρ_d · E{ Σ_m √η_{m,k} (ĝ_{m,k} + 𝐠̃_{m,k})^T ĝ_{m,k}^* }
+       = √ρ_d · Σ_m √η_{m,k} · E{ ĝ_{m,k}^T ĝ_{m,k}^* }
+                                     + E{ 𝐠̃_{m,k}^T ĝ_{m,k}^* }
+       = √ρ_d · Σ_m √η_{m,k} · (E{ ‖ĝ_{m,k}‖² } + 0)
+       = √ρ_d · Σ_m √η_{m,k} · N γ_{m,k}
+       = √ρ_d · N · Σ_m √η_{m,k} γ_{m,k}.                                    (48)
+
+Two observations:
+
+  (i)  The cross term E{𝐠̃_{m,k}^T ĝ_{m,k}^*} vanishes because 𝐠̃ is
+       independent of ĝ and has zero mean. This is the clean
+       consequence of orthogonality + Gaussianity.
+
+  (ii) The AP index m appears inside √η_{m,k} and γ_{m,k} only;
+       the N comes out as a factor. So |DS_k|² scales like:
+
+         |DS_k|² = ρ_d · N² · (Σ_m √η_{m,k} γ_{m,k})²
+
+       where the sum inside the parenthesis is exactly
+       𝛄_{k,k}^T · [√η_{1,k}, …, √η_{M,k}]^T, which is the paper's
+       compact form 𝛄_{k,k}^T 𝛈_k when the symbol η_k is taken to
+       mean the vector of SQUARE ROOTS. This is the notational
+       subtlety I flagged back in Section II.
+
+─── 3.3  Computing E[|BU_k|²]  (Eqs. 49–50 of the paper) ─────────────
+
+From (13),
+
+  BU_k = √ρ_d · ( Σ_m √η_{m,k} (X_{m} − E{X_{m}}) )
+
+where X_m ≝ 𝐠_{m,k}^T ĝ_{m,k}^*. Then
+
+  E{|BU_k|²}
+   = ρ_d · E{ |Σ_m √η_{m,k} (X_m − E{X_m})|² }
+
+Expand the magnitude squared:
+   = ρ_d · Σ_m Σ_{m'} √η_{m,k} √η_{m',k} · E{(X_m − E{X_m})·(X_{m'} − E{X_{m'}})^*}
+
+The expectation is zero UNLESS m = m', because X_m and X_{m'}
+involve different APs with independent channels (fact F3). So all
+m ≠ m' terms vanish:
+
+   = ρ_d · Σ_m η_{m,k} · Var(X_m).                                           (49)
+
+(The paper writes this as Eq. (49).)
+
+We now compute Var(X_m) = E{|X_m|²} − |E{X_m}|². Use X_m =
+(ĝ_{m,k} + 𝐠̃_{m,k})^T ĝ_{m,k}^* = ĝ_{m,k}^T ĝ_{m,k}^* +
+𝐠̃_{m,k}^T ĝ_{m,k}^*:
+
+  E{X_m}   = E{‖ĝ_{m,k}‖²} + 0 = N γ_{m,k}
+
+  |X_m|²  = |‖ĝ_{m,k}‖²|² + |𝐠̃_{m,k}^T ĝ_{m,k}^*|²
+            + 2 Re( ‖ĝ_{m,k}‖² · (𝐠̃_{m,k}^T ĝ_{m,k}^*)^* )
+          = ‖ĝ_{m,k}‖^4 + |𝐠̃_{m,k}^T ĝ_{m,k}^*|² + 2 Re( ‖ĝ‖² 𝐠̃^T ĝ* )
+
+Take expectations. Since ĝ and 𝐠̃ are independent and 𝐠̃ has zero
+mean, the cross term 2 Re(‖ĝ‖² E[𝐠̃^T ĝ*]) = 0. Hence
+
+  E{|X_m|²} = E{‖ĝ_{m,k}‖^4} + E{|𝐠̃_{m,k}^T ĝ_{m,k}^*|²}.
+
+Compute each:
+
+  (a) E{‖ĝ_{m,k}‖^4} = N(N+1) γ_{m,k}^2  (Gaussian fourth moment, F5)
+
+  (b) E{|𝐠̃_{m,k}^T ĝ_{m,k}^*|²}
+      = Σ_n E{ |[𝐠̃_{m,k}]_n|² · |[ĝ_{m,k}]_n|² }
+        (components n ≠ n' vanish by independence across entries)
+      = Σ_n ( E{|[𝐠̃_{m,k}]_n|²} ) · ( E{|[ĝ_{m,k}]_n|²} )
+        (because 𝐠̃ and ĝ are independent random vectors)
+      = N · (β_{m,k} − γ_{m,k}) · γ_{m,k}
+      = N β_{m,k} γ_{m,k} − N γ_{m,k}^2.
+
+So
+
+  E{|X_m|²} = N(N+1) γ_{m,k}^2 + N β_{m,k} γ_{m,k} − N γ_{m,k}^2
+            = N² γ_{m,k}^2 + N γ_{m,k}^2 + N β_{m,k} γ_{m,k} − N γ_{m,k}^2
+            = N² γ_{m,k}^2 + N β_{m,k} γ_{m,k}.
+
+And
+
+  Var(X_m) = E{|X_m|²} − |E{X_m}|²
+           = N² γ_{m,k}^2 + N β_{m,k} γ_{m,k} − N² γ_{m,k}^2
+           = N β_{m,k} γ_{m,k}.
+
+A clean result! The N² γ² from the fourth moment cancels exactly
+with the square of the mean N² γ², leaving only the N β γ
+contribution.
+
+Substituting back into (49):
+
+  E{|BU_k|²} = ρ_d N · Σ_m η_{m,k} β_{m,k} γ_{m,k}.                          (50)
+
+This is Eq. (50) of the paper. Intuitively, E{|BU_k|²} is
+proportional to N (not N²), because the variance of a sum of N IID
+complex Gaussians grows linearly with N. This is the reason the BU
+term is "washed out" by channel hardening as N grows large — the
+desired signal grows as N², the uncertainty only as N.
+
+─── 3.4  Computing E[|UI_{kk'}|²]  (Eqs. 51–55 of the paper) ──────────
+
+This is the most involved of the three computations because of
+pilot contamination. Let us unfold it carefully.
+
+From (14) and the identity ĝ_{m,k'} = b_{m,k'} · y_{p,m,k'}
+(fact F6), we can write
+
+  UI_{kk'}  =  √ρ_d · Σ_m √η_{m,k'} · b_{m,k'} · 𝐠_{m,k}^T · y_{p,m,k'}^*
+
+Now substitute the expansion of y_{p,m,k'} from Eq. (3) (with k
+replaced by k'):
+
+  y_{p,m,k'}  =  √(τ_p ρ_p) 𝐠_{m,k'}
+               + √(τ_p ρ_p) Σ_{k''≠k'} 𝐠_{m,k''} (𝛗_{k''}^H 𝛗_{k'})
+               + 𝐰̃_{p,m,k'}.
+
+Taking the conjugate transpose (element-wise) and multiplying by
+𝐠_{m,k}^T:
+
+  𝐠_{m,k}^T · y_{p,m,k'}^*
+   = √(τ_p ρ_p) 𝐠_{m,k}^T 𝐠_{m,k'}^*
+     + √(τ_p ρ_p) Σ_{k''≠k'} 𝐠_{m,k}^T 𝐠_{m,k''}^* (𝛗_{k''}^H 𝛗_{k'})^*
+     + 𝐠_{m,k}^T 𝐰̃_{p,m,k'}^*.
+
+Two cases for the middle sum:
+
+  •  k'' = k:  the coefficient is √(τ_p ρ_p) 𝐠_{m,k}^T 𝐠_{m,k}^*
+             = √(τ_p ρ_p) ‖𝐠_{m,k}‖² · (𝛗_k^H 𝛗_{k'})^*
+    (PILOT CONTAMINATION CONTRIBUTION — survives expectation)
+  •  k'' ≠ k, k'': the coefficient is √(τ_p ρ_p) 𝐠_{m,k}^T 𝐠_{m,k''}^*
+    (non-contaminating — zero mean, behaves like noise)
+
+Note that the first term √(τ_p ρ_p) 𝐠_{m,k}^T 𝐠_{m,k'}^* is itself
+also zero mean (since k ≠ k' by definition of UI_{kk'}), so it
+behaves like noise too.
+
+So we can split:
+
+  𝐠_{m,k}^T y_{p,m,k'}^*
+   = √(τ_p ρ_p) ‖𝐠_{m,k}‖² · (𝛗_k^H 𝛗_{k'})^*        [pilot contamination]
+     + "other terms with zero mean"                   [non-contaminating]
+
+And accordingly:
+
+  UI_{kk'}
+   = √ρ_d · Σ_m √η_{m,k'} · b_{m,k'}
+     · [ √(τ_p ρ_p) ‖𝐠_{m,k}‖² (𝛗_k^H 𝛗_{k'})^*
+         + other zero-mean terms ].
+
+Taking |·|² and expectation:
+
+  E{|UI_{kk'}|²}
+   = ρ_d · τ_p ρ_p · E{ |Σ_m √η_{m,k'} b_{m,k'} ‖𝐠_{m,k}‖² (𝛗_k^H 𝛗_{k'})^*|² }
+   + ρ_d · τ_p ρ_p · [other-terms contribution]
+   + ρ_d · [noise contribution]                                             (51)
+
+The paper writes this as the three terms in Eq. (51) of the paper:
+
+   E{|UI_k|²}
+    = ρ_d · τ_p ρ_p · |𝛗_k^H 𝛗_{k'}|² · E{ |Σ_m √η_{m,k'} b_{m,k'} ‖𝐠_{m,k}‖²|² }
+    + ρ_d · τ_p ρ_p · E{ |Σ_m √η_{m,k'} b_{m,k'} 𝐠_{m,k}^T (other sum)|² }
+    + ρ_d · E{ |Σ_m √η_{m,k'} b_{m,k'} 𝐠_{m,k}^T 𝐰̃_{p,m,k'}^*|² }.
+
+Let's compute each piece.
+
+(i) The pilot-contamination term (first line of Eq. 51):
+
+    We need E{|Σ_m √η_{m,k'} b_{m,k'} ‖𝐠_{m,k}‖²|²}.
+
+    Expand as Σ_m Σ_{m'} √η_{m,k'}√η_{m',k'} b_{m,k'} b_{m',k'}
+    E{‖𝐠_{m,k}‖² ‖𝐠_{m',k}‖²}.
+
+    The diagonal (m = m') terms contribute:
+       E{‖𝐠_{m,k}‖^4} = N(N+1) β_{m,k}^2.
+
+    The off-diagonal (m ≠ m') terms:
+       E{‖𝐠_{m,k}‖² ‖𝐠_{m',k}‖²} = E{‖𝐠_{m,k}‖²} · E{‖𝐠_{m',k}‖²}
+                                  = N β_{m,k} · N β_{m',k}
+                                  = N² β_{m,k} β_{m',k}
+       (independent channels across APs, fact F3).
+
+    Summing:
+       diag:  Σ_m η_{m,k'} b_{m,k'}^2 · N(N+1) β_{m,k}^2
+       off-diag: Σ_m Σ_{m'≠m} √(η_{m,k'} η_{m',k'}) b_{m,k'} b_{m',k'}
+                   · N² β_{m,k} β_{m',k}
+
+    Together (using the identity Σ_m Σ_{m'} = diag + off-diag):
+       = N² (Σ_m √η_{m,k'} b_{m,k'} β_{m,k})²
+         + N Σ_m η_{m,k'} b_{m,k'}^2 β_{m,k}^2.
+
+    (The N(N+1) − N² = N extra term gives the residual.)
+
+    Multiplying by the factor ρ_d · τ_p ρ_p · |𝛗_k^H 𝛗_{k'}|²:
+       (pilot-contamination contribution)
+       =  ρ_d τ_p ρ_p |𝛗_k^H 𝛗_{k'}|² · N² · (Σ_m √η_{m,k'} b_{m,k'} β_{m,k})²
+        + ρ_d τ_p ρ_p |𝛗_k^H 𝛗_{k'}|² · N · Σ_m η_{m,k'} b_{m,k'}^2 β_{m,k}^2
+
+    Substituting b_{m,k'} from (52) and using γ_{m,k'} = √(τ_p ρ_p)·β_{m,k'}·b_{m,k'}
+    (from Eq. 5), one can verify that the first term simplifies to:
+
+       ρ_d N² · (Σ_m √η_{m,k'} · γ_{m,k'} β_{m,k}/β_{m,k'})^2 · |𝛗_k^H 𝛗_{k'}|²
+
+    which matches the first term in the pilot contamination
+    quadratic form of Eq. (15), after noting that
+
+       [𝛄_{k,k'}]_m = |𝛗_{k'}^H 𝛗_k| · γ_{m,k'} · √(β_{m,k}/β_{m,k'}).
+
+    So the pilot-contamination term in the SINR denominator is
+    captured.
+
+(ii) The non-contaminating cross-term (second line of Eq. 51):
+
+    This is the contribution from the sum over k'' ≠ k', k of
+    𝐠_{m,k}^T 𝐠_{m,k''}^*. Each such term has zero mean and variance
+    that depends on the product of ‖𝐠_{m,k}‖² and ‖𝐠_{m,k''}‖².
+    The paper computes it explicitly using the formula (Eq. 54)
+
+       E{|Σ_m √η_{m,k'} b_{m,k'} 𝐠_{m,k}^T Σ_{k''≠k'} 𝐠_{m,k''}^* · ...|²}
+        = N · Σ_m Σ_{k''≠k'} η_{m,k'} b_{m,k'}^2 β_{m,k} β_{m,k''}
+
+    which after multiplication by ρ_d τ_p ρ_p becomes
+
+       ρ_d τ_p ρ_p · N · Σ_m η_{m,k'} b_{m,k'}^2 β_{m,k}
+                        · (Σ_{k''≠k'} β_{m,k''})
+
+(iii) The noise cross-term (third line of Eq. 51):
+
+     E{|Σ_m √η_{m,k'} b_{m,k'} 𝐠_{m,k}^T 𝐰̃_{p,m,k'}^*|²}
+
+     Using the independence of 𝐰̃ (white) and 𝐠, this simplifies
+     to
+         Σ_m η_{m,k'} b_{m,k'}^2 · N β_{m,k}.
+
+     Multiplying by ρ_d gives
+         ρ_d N · Σ_m η_{m,k'} b_{m,k'}^2 β_{m,k}.
+
+(iv) Combining (i), (ii), (iii), (iv) and grouping terms by powers
+    of N, one ends up with the clean form
+
+     E{|UI_{kk'}|²}
+       = ρ_d N² · |𝛗_k^H 𝛗_{k'}|² · (Σ_m √η_{m,k'} γ_{m,k'} √(β_{m,k}/β_{m,k'}))^2
+         + ρ_d N · Σ_m η_{m,k'} γ_{m,k'} β_{m,k}                                (55)
+
+    which is Eq. (55) of the paper — precisely the form needed to
+    produce (15).
+
+    Observe the two terms:
+      •  N² term with |𝛗_k^H 𝛗_{k'}|² — the pilot-contamination
+         interference, which DOES NOT VANISH with more antennas
+         and is zero only if the pilots of users k and k' are
+         orthogonal. This becomes Σ_{k'≠k}|𝛄_{k,k'}^T 𝛈_{k'}|² in (15).
+      •  N term — the non-coherent interference, which washes out
+         relative to the N² desired signal as N grows. This becomes
+         Σ_{k'} ‖𝐃_{k',k} 𝛈_{k'}‖² in (15).
+
+─── 3.5  Assembling Proposition 1 (the final step) ─────────────────────
+
+Substituting (48), (50), and (55) into (11):
+
+   |DS_k|² = ρ_d N² |𝛄_{k,k}^T 𝛈_k|²
+
+   E{|BU_k|²} = ρ_d N · Σ_m η_{m,k} β_{m,k} γ_{m,k}
+              = ρ_d N · ‖𝐃_{k,k} 𝛈_k‖²
+                          (where [𝐃_{k,k}]_{m,m} = √(β_{m,k} γ_{m,k}))
+
+   E{|UI_{kk'}|²} = ρ_d N² |𝛄_{k,k'}^T 𝛈_{k'}|²
+                  + ρ_d N · ‖𝐃_{k',k} 𝛈_{k'}‖²
+                                 (for k' ≠ k)
+
+Summing E{|BU_k|²} + Σ_{k'≠k} E{|UI_{kk'}|²} gives
+
+   ρ_d N² · Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|²
+   + ρ_d N · ‖𝐃_{k,k} 𝛈_k‖²
+   + ρ_d N · Σ_{k'≠k} ‖𝐃_{k',k} 𝛈_{k'}‖²
+
+   = ρ_d N² · Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|²
+   + ρ_d N · Σ_{k'=1}^K ‖𝐃_{k',k} 𝛈_{k'}‖²
+
+which absorbs the BU term into the full sum over k' (note that
+the BU term is exactly the k' = k instance of the non-coherent
+interference sum — they have the same form). Plugging into (11)
+with the "+1" for thermal noise yields exactly (15):
+
+  SE_k({η_{m,k}})
+    = (1 − τ_p/τ_c) · log₂( 1 +
+                            ρ_d N² |𝛄_{k,k}^T 𝛈_k|² /
+         ( ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|²
+         + ρ_d N Σ_{k'=1}^K ‖𝐃_{k',k} 𝛈_{k'}‖² + 1) ).                      □
+
+Q.E.D. The entire closed-form SE of Section II is now rigorously
+derived.
+
+─── 3.6  Why this is a beautiful proof ─────────────────────────────────
+
+Despite its bookkeeping burden, the proof has several elegant
+features:
+
+  (i)  The DS_k computation is a one-liner by orthogonality of
+       ĝ and 𝐠̃. The expected gain is just N·γ_{m,k} per AP,
+       weighted by √η_{m,k}. This is the simplest part.
+
+  (ii) The BU_k variance involves a surprising cancellation: the
+       N² γ² from the fourth moment of ‖ĝ‖² cancels exactly with
+       (E{‖ĝ‖²})² = N² γ², leaving only the linear-in-N residual
+       N β γ. This is the reason channel hardening exists — the
+       variance of the channel norm grows as O(N) while its mean
+       grows as O(N), so the relative uncertainty |BU|/|DS| ~
+       1/√N vanishes in the large-N limit.
+
+  (iii) The UI_{kk'} calculation exposes pilot contamination
+       cleanly: the N² term survives if and only if 𝛗_k^H 𝛗_{k'}
+       ≠ 0, and its magnitude is proportional to the CORRELATED
+       part of 𝐠_{m,k}^T 𝐠_{m,k'}^* — i.e., to ‖𝐠_{m,k}‖² scaled
+       by the pilot inner product. This is where "pilot contamination"
+       as a phrase gets its precise mathematical meaning.
+
+  (iv) All three contributions (DS_k, BU_k, UI_{kk'}) end up
+       sharing the SAME matrices (𝛄_{k,k'} and 𝐃_{k',k}), which
+       is why the final SE expression (15) has such a compact
+       quadratic-form look. The γ_{m,k'} β_{m,k}/β_{m,k'} factor
+       that appears inside 𝛄_{k,k'} is the "effective gain" of the
+       contaminated component.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. HISTORICAL / PRIOR DEVELOPMENTS
+───────────────────────────────────────────────────────────────────────────────
+
+The proof technique used in Appendix A is entirely standard in
+the massive-MIMO capacity literature. Key historical references:
+
+▸ 1960 — Raiffa-Schlaifer and Kailath develop the algebra of
+  MMSE estimation for jointly Gaussian vectors. The orthogonality
+  principle (F1) dates from this era.
+
+▸ 2000 — Médard, "The effect upon channel capacity in wireless
+  communications of perfect and imperfect knowledge of the
+  channel," IEEE TIT. The "use-and-then-forget" bound.
+
+▸ 2010 — Marzetta, "Noncooperative cellular wireless with
+  unlimited numbers of base station antennas," IEEE TWC. First
+  application of the bound to massive MIMO; first formal
+  identification of pilot contamination as the N²-scaling
+  interference term.
+
+▸ 2013 — Hoydis, ten Brink, Debbah, "Massive MIMO in the UL/DL
+  of cellular networks: How many antennas do we need?" IEEE
+  JSAC. Extends the use-and-forget analysis with deterministic-
+  equivalent tools from random matrix theory, giving exact
+  asymptotic expressions.
+
+▸ 2016 — Marzetta-Larsson-Yang-Ngo, "Fundamentals of Massive
+  MIMO," Cambridge Univ. Press (ref [7] in Ngo paper). Chapter 2
+  contains the canonical derivation of the use-and-forget bound
+  and its application to colocated massive MIMO. Appendix A of
+  the Ngo paper essentially generalizes this to the distributed
+  (cell-free) setting with multi-antenna APs.
+
+▸ Mar 2017 — Ngo, Ashikhmin, Yang, Larsson, Marzetta, "Cell-free
+  massive MIMO versus small cells," IEEE TWC (ref [6]). Proof
+  of the N = 1 case of Appendix A.
+
+▸ Feb 2017 — THIS paper. Generalizes to N ≥ 1, adding the
+  multiplicative N² and N scaling of DS, BU, UI computations.
+
+▸ 2019 — Björnson, Sanguinetti, "Making cell-free massive MIMO
+  competitive with MMSE processing and centralized
+  implementation," IEEE TWC. You have studied this paper. The
+  appendix uses a closely-related proof for the MMSE decoder
+  case.
+
+The main technical "trick" that makes the proof work in cell-free
+is the INDEPENDENCE OF CHANNELS ACROSS APs (fact F3). Without
+this, the cross-AP terms would not vanish and the final expression
+would be much messier. In real deployments, channels are not
+perfectly independent — neighboring APs may see correlated
+shadowing, for example. Post-2018 papers have explored relaxing
+this assumption, with varying degrees of success.
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. MATHEMATICAL RECAP IN UNICODE
+───────────────────────────────────────────────────────────────────────────────
+
+Three central moments:
+
+  (i)  |DS_k|²  =  ρ_d · N² · (Σ_m √η_{m,k} γ_{m,k})²
+              =  ρ_d N² |𝛄_{k,k}^T 𝛈_k|²
+
+       (where 𝛈_k is the vector of √η_{m,k} values)
+
+  (ii) E{|BU_k|²}  =  ρ_d · N · Σ_m η_{m,k} β_{m,k} γ_{m,k}
+                  =  ρ_d N · ‖𝐃_{k,k} 𝛈_k‖²
+
+  (iii) E{|UI_{kk'}|²}
+       =  ρ_d N² |𝛄_{k,k'}^T 𝛈_{k'}|²   (pilot contamination)
+        + ρ_d N · ‖𝐃_{k',k} 𝛈_{k'}‖²   (non-coherent crossterm)
+
+Definitions:
+
+  𝛄_{k,k}    vector with entries γ_{m,k} for m = 1,…,M.
+
+  𝛄_{k,k'}   vector with entries |𝛗_{k'}^H 𝛗_k| · γ_{m,k'}
+             · √(β_{m,k}/β_{m,k'}) for m = 1,…,M.
+
+  𝐃_{k',k}   diagonal matrix with diagonal [𝐃_{k',k}]_{m,m}
+             = √(β_{m,k} γ_{m,k'}) for m = 1,…,M.
+
+Final closed-form SE (plugging into (11)):
+
+  SE_k = (1 − τ_p/τ_c) · log₂(  1  +
+         ρ_d N² |𝛄_{k,k}^T 𝛈_k|² /
+         ( ρ_d N² Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|²
+         + ρ_d N Σ_{k'=1}^K ‖𝐃_{k',k} 𝛈_{k'}‖² + 1 )  )     (15)
+
+Proof-technical identities used:
+
+  E{‖𝐱‖²}  = N σ²        for 𝐱 ~ 𝒞𝒩(𝟎, σ² 𝐈_N)
+  E{‖𝐱‖^4} = N(N+1) σ^4   (the Wishart/Gamma fourth-moment identity)
+  Var(‖𝐱‖²) = N σ^4
+
+  ĝ, 𝐠̃ jointly Gaussian + MMSE-orthogonal ⇒ independent.
+  Channels across different APs are independent (deployment model).
+
+─── 5.1  Sanity checks ────────────────────────────────────────────────
+
+(A) Single-antenna APs (N = 1): the factor N² becomes 1 and N
+    becomes 1, so (15) reduces to Eq. (24) of Ngo-2017-TWC [6] as
+    claimed.
+
+(B) Colocated massive MIMO (M = 1, rename N → M): the sums over
+    m become single terms, and 𝐃, 𝛄 become scalars. The formula
+    reduces to the colocated massive-MIMO SE of Marzetta-Larsson-
+    Yang-Ngo textbook Table 3.2 [7].
+
+(C) No pilot contamination (pilots fully orthogonal, |𝛗_k^H 𝛗_{k'}|
+    = δ_{k,k'}): the Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|² term vanishes.
+    Only the non-coherent interference Σ_{k'} ‖𝐃_{k',k} 𝛈_{k'}‖²
+    remains.
+
+(D) Noise-dominated limit (ρ_d → 0): SE → 0 linearly in ρ_d as
+    expected.
+
+(E) Interference-dominated limit (ρ_d → ∞, pilot contamination
+    present): SE → (1 − τ_p/τ_c) · log₂(1 + (|𝛄_{k,k}^T 𝛈_k|² /
+    Σ_{k'≠k} |𝛄_{k,k'}^T 𝛈_{k'}|²)), a FINITE constant. This is
+    the famous "pilot contamination ceiling" first identified by
+    Marzetta 2010.
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. NUMERICAL WORKED EXAMPLE — SANITY CHECK OF THE PROOF
+───────────────────────────────────────────────────────────────────────────────
+
+Let us verify the BU-variance computation for a minimal case:
+N = 2, β_{m,k} = 1, γ_{m,k} = 0.5 (i.e. half the channel power is
+captured by the estimate, half goes into estimation error).
+
+Step 1 — E{‖ĝ‖²} = N γ = 2 · 0.5 = 1.
+Step 2 — E{‖ĝ‖^4}:
+  Using N(N+1) γ² = 2·3·0.25 = 1.5.
+Step 3 — Var(‖ĝ‖²) = 1.5 − 1² = 0.5.
+
+Step 4 — E{|𝐠̃^T ĝ^*|²}:
+  = N · (β − γ) · γ = 2 · 0.5 · 0.5 = 0.5.
+
+Step 5 — Var(X_m) = Var(‖ĝ‖²) + E{|𝐠̃^T ĝ^*|²}
+                 = 0.5 + 0.5 = 1.
+
+Step 6 — Direct formula: N β γ = 2 · 1 · 0.5 = 1. ✓ Matches.
+
+Now let us also verify the DS scaling. Same parameters:
+|DS|² = ρ_d N² (Σ_m √η_{m,k} γ_{m,k})²
+
+For M = 1 AP and η_{1,k} = 1, ρ_d = 1:
+|DS|² = 1 · 4 · (√1 · 0.5)² = 4 · 0.25 = 1.
+Directly from definition: DS = √ρ_d · √η · E{‖ĝ‖²} = 1 · 1 · N γ
+                             = 1 · 2 · 0.5 = 1.
+|DS|² = 1. ✓
+
+The proof arithmetic checks out.
+
+─── PRACTICE PROBLEM ────────────────────────────────────────────────
+
+(a) Compute Var(‖𝐱‖²) for 𝐱 ~ 𝒞𝒩(𝟎, σ² 𝐈_N) from scratch, using
+    the fact that |[𝐱]_n|² ~ Exp(1/σ²). Verify the result N σ^4.
+
+(b) Show that for independent 𝒞𝒩(0, σ_a²) and 𝒞𝒩(0, σ_b²) scalars,
+    E{|a b^*|²} = σ_a² σ_b². Extend this to vector inner products.
+
+(c) Compute, step by step, the value of E{|UI_{kk'}|²} for a toy
+    configuration: M = 2, N = 1, τ_p = 2, orthogonal pilots,
+    β = 1, γ = 0.5, η = 1. You should get a clean number like
+    the non-coherent part of (55) without the N² pilot-contamination
+    piece.
+
+(d) Re-derive the cancellation that causes the N² γ² term of
+    E{‖ĝ‖^4} to disappear in Var(X_m). Explain in words why this
+    cancellation is the mathematical reason channel hardening
+    exists.
+
+
+───────────────────────────────────────────────────────────────────────────────
+7. FULL-PAPER SYNTHESIS
+───────────────────────────────────────────────────────────────────────────────
+
+Having walked through all seven sections and the appendix, let us
+zoom out and describe the paper as a coherent intellectual
+artifact.
+
+─── 7.1  The intellectual arc of the paper ──────────────────────────────
+
+   Section I    —  Why we care: cell-edge users are crushed in
+                   conventional cellular networks; network MIMO
+                   cooperation helps but is heavy; cell-free
+                   massive MIMO is the scalable incarnation of
+                   network MIMO; BUT its backhaul-power cost has
+                   not been honestly modeled. We will fill that
+                   gap and do the EE analysis.
+
+   Section II   —  The channel and the SE: set up multi-antenna
+                   APs with MMSE channel estimation and conjugate
+                   beamforming. Apply the use-and-forget capacity
+                   bound. Present the closed-form SE as
+                   Proposition 1.
+
+   Section III  —  The power model: adopt the standard
+                   Björnson-2015 component power model and
+                   explicitly include FIXED + TRAFFIC-DEPENDENT
+                   backhaul costs. Define total energy efficiency.
+
+   Section IV   —  The optimization: formulate EE maximization
+                   with per-user SE and per-AP power constraints.
+                   Show it is a non-convex fractional program.
+                   Use the "divide by B·S_e" trick, the c = √η
+                   substitution, and sequential convex
+                   approximation with log-inequality and
+                   quadratic-over-linear Taylor bounds to turn
+                   it into a sequence of SOCPs. Algorithm 1.
+
+   Section V    —  The scalability fix: notice that full
+                   cell-free scales backhaul cost linearly with
+                   M, so select only the best ~15% of APs per
+                   user using either received-power ranking
+                   (Algorithm 2) or large-scale fading ranking
+                   (Algorithm 3).
+
+   Section VI   —  The simulations: confirm Algorithm 1 converges
+                   in ~10 iterations, matches BRB global optimum
+                   on small problems, and that power control
+                   alone gives a 2.6–2.9× EE boost. AP selection
+                   keeps EE flat as backhaul cost grows. An
+                   optimal N* exists and depends on deployment
+                   size and backhaul cost. CF-mMIMO beats
+                   colocated massive MIMO by up to 7.4× under
+                   1 bit/s/Hz QoS.
+
+   Section VII  —  The conclusion: these results show that
+                   cell-free massive MIMO is practically green,
+                   IF you use power control and AP selection.
+
+   Appendix A   —  The proof of Proposition 1: carefully compute
+                   DS_k, E{|BU_k|²}, E{|UI_{kk'}|²} using MMSE
+                   orthogonality, fourth moments of Gaussian
+                   vectors, and independence of channels across
+                   APs. Plug into (11) → (15).
+
+─── 7.2  The single most important equation of the paper ──────────────
+
+Eq. (15) — the closed-form SE — is THE equation. Everything else
+is downstream of it:
+  •  the power consumption model of Sec III inherits S_e through
+     the backhaul term;
+  •  the optimization of Sec IV plugs (15) directly into the
+     SE constraint and the objective;
+  •  the AP selection of Sec V uses γ_{m,k} (which defines the
+     shape of (15)) to rank APs;
+  •  the numerical results of Sec VI compute (15) at every
+     iteration.
+
+If you understand (15) — its numerator, its pilot-contamination
+term, its non-coherent interference term, and its reduction to
+the colocated / single-antenna limits — you understand the paper.
+
+─── 7.3  What should a PhD student take away? ──────────────────────────
+
+(1) KNOW THE USE-AND-FORGET BOUND cold. It is the standard tool
+    for any capacity calculation in massive MIMO with imperfect
+    CSI. Every paper you read in this area will use it.
+
+(2) THE SCA-SOCP RECIPE OF SECTION IV is a template. Any EE or
+    fractional-programming problem in wireless can likely be
+    attacked with: (i) divide by the numerator to linearize the
+    denominator; (ii) substitute c = √η to make quadratic
+    constraints; (iii) slack-variable decomposition of log-of-ratio
+    constraints; (iv) Taylor-expand the quadratic-over-linear;
+    (v) log-inequality bound on the log. Know it, practice it.
+
+(3) USER-CENTRIC CF-MMIMO is the dominant deployment philosophy.
+    Section V is one of its two founding papers. Buzzi-2017 is
+    the other. The scalable CF-mMIMO paper of Björnson-2020 you
+    have studied is the mature treatment.
+
+(4) BACKHAUL ALWAYS MATTERS in distributed deployments. Any EE
+    analysis that ignores the backhaul is telling you an
+    optimistic lie. Section III is the template for including it
+    properly.
+
+(5) SIMULATION METHODOLOGY MATTERS. The wrap-around torus, the
+    three-slope path-loss model, and the Björnson-calibrated
+    Table I power values are standard — use them whenever you
+    run your own CF-mMIMO experiments so that your numbers are
+    comparable to the literature.
+
+(6) KNOW WHAT THE PAPER DOES NOT DO. Uplink, CSI-sharing cost,
+    fronthaul vs backhaul distinction, ZF/MMSE precoding, user
+    mobility — all of these are OPEN in the Ngo-2018 paper and
+    have been addressed in follow-ups. They are where new PhD
+    contributions live.
+
+─── 7.4  Notable influences on later CF-mMIMO literature ──────────────
+
+After this paper, the CF-mMIMO literature branched into several
+sub-fields:
+
+  (i)  User-centric CF-mMIMO (Buzzi-2017, Björnson-2020, Interdonato-2019)
+       — direct descendants of Section V.
+
+  (ii) Centralized / MMSE CF-mMIMO (Björnson-Sanguinetti 2019,
+       which you have studied) — asks what SE is achievable with
+       centralized signal processing, as an upper bound on the
+       distributed setting of Ngo-2018.
+
+  (iii) Scalable CF-mMIMO (Björnson-Sanguinetti 2020, which you
+       have studied) — formalizes the "15% of APs per user"
+       observation of Fig. 4 as a scalability property.
+
+  (iv) EE with user-centric + MMSE (Bashar-Ngo-Duong-Cumanan
+       2018+) — combines the EE objective of Ngo-2018 with the
+       MMSE analysis of Björnson-Sanguinetti 2019.
+
+  (v)  RIS / IRS-aided CF-mMIMO (2020+) — incorporates
+       reconfigurable intelligent surfaces as a second layer of
+       passive "APs".
+
+  (vi) Learning-based CF-mMIMO (2022+) — deep reinforcement
+       learning for user association and power control,
+       replacing the SCA-SOCP recipe of Section IV with neural
+       networks for faster inference.
+
+In each of these, the Ngo-2018-TGCN paper is either a primary
+citation or a methodological ancestor. Its Google Scholar count
+(several thousand citations as of 2025) reflects this.
+
+
+───────────────────────────────────────────────────────────────────────────────
+8. SUMMARY OF SECTION VII + APPENDIX A + FULL-PAPER SYNTHESIS
+───────────────────────────────────────────────────────────────────────────────
+
+• Section VII — Conclusion. One paragraph summarizing that the
+  paper (i) investigated CF-mMIMO EE with multi-antenna APs,
+  channel estimation errors, pilot contamination, and realistic
+  backhaul; (ii) proposed power control (Alg 1) and two AP
+  selection schemes (Algs 2, 3) to reduce backhaul power; (iii)
+  showed that only ~10–20% of APs per user are needed; (iv)
+  delivered an order-of-magnitude EE improvement over colocated
+  massive MIMO at 1 bit/s/Hz per-user QoS.
+
+• Appendix A — Proof of Proposition 1. Compute:
+     DS_k        = √ρ_d · N · Σ_m √η_{m,k} γ_{m,k}
+     E{|BU_k|²}  = ρ_d · N · Σ_m η_{m,k} β_{m,k} γ_{m,k}
+     E{|UI_{kk'}|²} = ρ_d N² |𝛗_k^H 𝛗_{k'}|²
+                           (Σ_m √η_{m,k'} γ_{m,k'} √(β_{m,k}/β_{m,k'}))²
+                     + ρ_d N · Σ_m η_{m,k'} γ_{m,k'} β_{m,k}
+  using MMSE orthogonality, Gaussian fourth moments (N(N+1)σ^4),
+  and independence of channels across APs. Substitute into the
+  use-and-forget capacity bound (11) to obtain the closed-form (15).
+
+• The KEY mathematical insight: the variance of ‖ĝ‖² has a beautiful
+  cancellation that makes Var(X_m) = N β γ instead of N² γ²,
+  which is why channel hardening exists. The pilot contamination
+  term survives the N → ∞ limit because the correlated part of
+  two users' channels scales as ‖𝐠‖² ~ N.
+
+• The paper as a whole. Seven sections of increasing concreteness:
+  motivation → channel model → power model → optimization →
+  scalability fix → simulations → conclusions → proof appendix.
+  Every step builds on the previous one. The final product is a
+  SELF-CONTAINED GREEN-WIRELESS PLAYBOOK for cell-free massive
+  MIMO: how to maximize energy efficiency while respecting
+  per-user QoS and per-AP power budgets.
+
+• The single most important equation. Eq. (15). Everything else
+  is downstream.
+
+• The single most important figure. Fig. 4 (the ~15% of APs per
+  user) is the scalability observation that launched user-centric
+  CF-mMIMO. Fig. 6 (CF vs colocated) is the marketing headline.
+
+• The single most important algorithm. Algorithm 1 (SCA-SOCP
+  EE-maximizing power control) is the work-horse. Algorithms 2
+  and 3 are the practical extensions.
+
+• The "paper in one sentence":
+    CELL-FREE MASSIVE MIMO IS AN ORDER OF MAGNITUDE MORE
+    ENERGY-EFFICIENT THAN COLOCATED MASSIVE MIMO, PROVIDED YOU
+    COUPLE IT WITH SCA-BASED POWER ALLOCATION AND A SIMPLE
+    AP-SELECTION HEURISTIC THAT RESTRICTS EACH USER TO A SMALL
+    SUBSET OF NEARBY APs.
+
+
+───────────────────────────────────────────────────────────────────────────────
+SOURCES
+───────────────────────────────────────────────────────────────────────────────
+
+[Ngo-TGCN-2018]      H. Q. Ngo, L.-N. Tran, T. Q. Duong, M. Matthaiou,
+                     E. G. Larsson, "On the Total Energy Efficiency of
+                     Cell-Free Massive MIMO," IEEE TGCN, 2018.
+                     arXiv: 1702.07601. Code:
+                     github.com/tranlenam/cellfreeMIMOenergyefficiency.
+
+[Marzetta-2010]      T. L. Marzetta, "Noncooperative Cellular Wireless
+                     with Unlimited Numbers of Base Station Antennas,"
+                     IEEE TWC, Nov. 2010. (First use-and-forget
+                     analysis + first identification of pilot
+                     contamination scaling N².)
+
+[Marzetta-2016]      T. L. Marzetta, E. G. Larsson, H. Yang, H. Q. Ngo,
+                     Fundamentals of Massive MIMO, Cambridge Univ.
+                     Press, 2016 (ref [7] in Ngo paper). Ch. 2
+                     contains the canonical derivation of the use-
+                     and-forget bound; the Appendix A here
+                     generalizes to multi-antenna APs.
+
+[Hoydis-JSAC-2013]   J. Hoydis, S. ten Brink, M. Debbah, "Massive MIMO
+                     in the UL/DL of cellular networks: How many
+                     antennas do we need?" IEEE JSAC, Feb. 2013.
+                     (Deterministic-equivalent analysis; stronger
+                     asymptotic tools.)
+
+[Medard-2000]        M. Médard, "The effect upon channel capacity in
+                     wireless communications of perfect and imperfect
+                     knowledge of the channel," IEEE TIT, 2000.
+                     (Origin of the worst-case Gaussian lower
+                     bound used here as "use-and-forget.")
+
+[Kay-1993]           S. M. Kay, Fundamentals of Statistical Signal
+                     Processing, Vol. I: Estimation Theory. Prentice
+                     Hall, 1993. (Chapters 10–12 for MMSE of Gaussian
+                     vectors, including the orthogonality principle.)
+
+[Ngo-TWC-2017]       H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson,
+                     T. L. Marzetta, "Cell-Free Massive MIMO Versus
+                     Small Cells," IEEE TWC, Mar. 2017 (ref [6] in
+                     Ngo paper). Single-antenna CF-mMIMO; Proposition
+                     1 of the present paper reduces to Eq. (24) of
+                     this paper when N = 1.
+
+[Bjornson-MMSE-2019] E. Björnson, L. Sanguinetti, "Making cell-free
+                     massive MIMO competitive with MMSE processing
+                     and centralized implementation," IEEE TWC,
+                     Jan. 2020 (arXiv:1903.10611). Centralized MMSE
+                     analysis, complementary to distributed
+                     conjugate-beamforming analysis of Ngo-2018.
+
+[Bjornson-Scalable-2020] E. Björnson, L. Sanguinetti, "Scalable cell-
+                     free massive MIMO systems," IEEE TCom, Jul. 2020
+                     (arXiv:1908.03119). Formalizes the scalability
+                     observation of Fig. 4 of Ngo-2018.
+
+[Buzzi-2017]         S. Buzzi, C. D'Andrea, "Cell-free massive MIMO:
+                     User-centric approach," IEEE WCL, Dec. 2017.
+                     Concurrent founding paper of user-centric
+                     CF-mMIMO.
+
+[Interdonato-2019]   G. Interdonato, E. Björnson, H. Q. Ngo, P. Frenger,
+                     E. G. Larsson, "Ubiquitous cell-free massive MIMO
+                     communications," EURASIP JWCN, 2019. Survey paper
+                     placing Ngo-2018 in the broader CF-mMIMO landscape.
