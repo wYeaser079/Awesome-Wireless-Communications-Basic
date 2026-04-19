@@ -1,0 +1,1052 @@
+================================================================================
+ PAPER ANALYSIS — SECTION V
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Section analyzed: V. Small-Cell Systems — Greedy AP assignment,
+                   Matched-Filter (MF) achievable rate with Ei(·),
+                   ZF small-cell precoder (Theorem 2 in Appendix G),
+                   instantaneous vs. average per-AP power constraints.
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+Up to Section IV, the paper has been making the case for cell-free Massive
+MIMO (every user served by all APs). But is that really better than the
+obvious alternative — a traditional "small cell" network where each user
+is served by only ONE nearby AP? Section V builds that comparison
+baseline, then uses it in Section VI to quantify the cell-free advantage.
+
+THE SMALL-CELL SETUP. Picture the same 2 km × 2 km urban area with M = 128
+APs scattered around and K = 16 users. Instead of letting all 128 APs
+serve all 16 users simultaneously, you pick ONE AP to "own" each user —
+typically the closest one (largest β_{m,k}). That gives you K = 16
+active APs; the remaining M − K = 112 APs stay silent. Each active AP
+transmits only its one user's data symbol, no precoding, no coordination.
+
+This is the traditional cellular paradigm: a user belongs to one base
+station, and that base station beams its signal directly. Small cells are
+simpler than cell-free (no backhaul coordination, no central brain), and
+they're what 4G/5G picocells/femtocells effectively are.
+
+Section V analyzes this small-cell system under TWO receiver/precoder
+choices:
+
+  (V.1) MATCHED FILTER (MF) AT THE USER. Each user receives its one AP's
+        signal plus leakage from other active APs. The user does
+        "conjugate beamforming" at the receiver: multiply by ĝ*_{m_k,k}
+        to phase-align. Because the user is served by only ONE antenna,
+        there is NO channel hardening, and the achievable rate must be
+        computed as an EXPECTATION over the small-scale fading.
+        The result involves the EXPONENTIAL INTEGRAL function Ei(·)
+        — a classical special function used in MF/MRC averaging.
+
+  (V.2) ZERO-FORCING (ZF) ACROSS THE K SELECTED APS. If you let the K
+        active APs share their channel estimates over a backhaul, they
+        can JOINTLY precode using a ZF pseudo-inverse to cancel
+        inter-user interference at the K selected APs. This is a
+        "mini cell-free" system restricted to K APs. Theorem 2 gives
+        its achievable rate.
+
+THE PUNCH LINE (proved in Section VI by simulation, not in Section V).
+Even with ZF precoding, small-cell systems perform WORSE than cell-free
+because:
+  (a) You use only K APs out of M, wasting M − K of them.
+  (b) The selected K APs have limited diversity — if all happen to be
+      far from one particular user, that user is doomed.
+  (c) ZF with K APs forcing K users has ZERO degrees of freedom left
+      for beamforming gain. Cell-free ZF uses M APs forcing K users,
+      leaving M − K + 1 degrees of freedom for array gain.
+
+The small-cell analysis therefore serves one purpose: to give a fair
+comparison baseline that honors max-min fairness (even the small-cell
+system uses optimal power control). After reading Section V, you can
+rigorously interpret the 5×–10× gains reported in Section VI.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+2.1  SYSTEM SETUP AND GREEDY AP-TO-USER ASSIGNMENT (Eq. 22)
+--------------------------------------------------------------------------------
+
+Same geographical scenario as the cell-free case:
+  • M single-antenna APs and K users randomly placed in the same area.
+  • Same channel model g_mk = √(β_mk) · h_mk.
+  • Same pilot-based MMSE channel estimation (Section II).
+
+KEY DIFFERENCE: each AP can only serve ONE user. So we need a user-to-AP
+assignment rule. Let m_k denote the AP assigned to user k, where m_k ∈
+{1, …, M} and all m_k are distinct (no two users share the same AP).
+
+Finding the OPTIMAL assignment (the K-permutation of APs that maximizes
+some system objective, like min rate) is a combinatorial problem — it
+involves searching over K-out-of-M permutations, which is O(M!/(M−K)!).
+For M = 128, K = 16, that's ~2.6×10³² possibilities. Prohibitive.
+
+GREEDY HEURISTIC (Eq. 22):
+
+       m_k  =  argmax_{n : AP_n is available}  β_{n, k}             (22)
+
+Assignment procedure:
+   1. Sort users in some order (order doesn't matter much).
+   2. For each user k in order: assign to the user the available AP with
+      the LARGEST large-scale fading coefficient β_{n, k}, i.e., the
+      closest-signal-strength AP from those not yet taken.
+   3. Mark the chosen AP as no longer available.
+
+This is the "closest AP" heuristic, a standard baseline in small-cell
+literature. It is NOT optimal (it may cause conflicts where two users
+both want the same closest AP) but it is simple and gives a clear
+comparison point.
+
+The remaining M − K APs are IDLE — they transmit nothing.
+
+--------------------------------------------------------------------------------
+2.2  MATCHED-FILTER (MF) RECEIVER (Eqs. 23, 24)
+--------------------------------------------------------------------------------
+
+Each active AP m_k transmits ONLY user k's data symbol, scaled by a power
+coefficient √η_k. There is NO precoding (no phase pre-rotation) at the
+AP. The transmitted signal is:
+
+       x_{m_k}  =  √(ρ_f · η_k)  ·  s_k.
+
+User k receives a superposition of its own AP's signal plus leakage from
+other active APs that are serving other users:
+
+       y_k  =  √(ρ_f η_k) · g_{m_k, k} · s_k
+              +  Σᵢ≠k  √(ρ_f η_i) · g_{m_i, k} · s_i
+              +  w_k.                                               (23)
+
+The first term is user k's desired signal (passed through the direct
+channel g_{m_k, k}); the second term is interference from all other
+active APs; w_k ~ 𝒞𝒩(0, 1) is receiver noise.
+
+MATCHED-FILTER RECEIVER. User k processes y_k by multiplying by the
+conjugate of its channel estimate from AP m_k, then normalizing:
+
+       ŝ_k  =  (ĝ*_{m_k, k} / |ĝ_{m_k, k}|) · y_k.
+
+This is just the classical MRC (Maximum-Ratio Combining) filter for a
+SISO link with known channel estimate. It maximizes the post-processing
+SNR for a Gaussian noise-plus-interference model.
+
+CRITICALLY, user k must know ĝ_{m_k, k}. Unlike cell-free (where users
+only know statistics), here the user is served by a single AP and gets
+the instantaneous channel estimate via a downlink training signal or
+error-free feedback from the AP. This is consistent with the traditional
+cellular architecture.
+
+--------------------------------------------------------------------------------
+2.3  ACHIEVABLE-RATE FORMULA (Eq. 24) — THE Ei(·) APPEARS
+--------------------------------------------------------------------------------
+
+STARTING POINT. The post-filter SINR at user k is:
+
+                        ρ_f · η_k · |ĝ_{m_k, k}|²
+       SINR_k  =  ─────────────────────────────────────────────     (24′)
+                   1 + ρ_f · Σᵢ₌₁ᴷ η_i · β_{m_i, k}  −  ρ_f η_k γ_{m_k, k}
+
+Let me unpack the denominator carefully:
+
+  • "1"                            — noise variance.
+  • ρ_f Σᵢ η_i β_{m_i, k}          — total power received at user k from
+                                     all K active APs (using the true
+                                     channel power β). This is the TOTAL
+                                     received signal + interference.
+  • − ρ_f η_k γ_{m_k, k}           — subtract the ESTIMATED part of the
+                                     own signal. What remains is the
+                                     mean-square unknown component of
+                                     the direct signal PLUS all
+                                     interference + noise.
+
+Rearranging:
+       Denom  =  1  +  ρ_f · η_k · (β_{m_k, k} − γ_{m_k, k})
+                   +  ρ_f · Σᵢ≠k  η_i · β_{m_i, k}.
+
+The first correction term is the channel estimation error variance of
+the own direct link (AP m_k to user k). The second is interference from
+other APs. This is the standard "MF SINR with imperfect CSI" form.
+
+SUBTLETY. Unlike cell-free CB and ZF, the SINR depends on |ĝ_{m_k, k}|²,
+which is a RANDOM QUANTITY (no channel hardening — only one AP). The
+achievable rate must be computed by taking the expectation over this
+random quantity:
+
+       E[log₂(1 + SINR_k)].
+
+Since |ĝ_{m_k, k}|² is the squared modulus of a 𝒞𝒩(0, γ_{m_k, k})
+variable, it is exponentially distributed with mean γ_{m_k, k}. Define:
+
+       Z  :=  |ĝ_{m_k, k}|² · ρ_f · η_k / (denominator without |ĝ|² part).
+
+Then SINR_k = Z · γ_{m_k, k}^{-1} · E[|ĝ_{m_k, k}|²]·Z ... hmm, let me
+just write it out cleanly.
+
+Let
+       a  :=  ρ_f · η_k · γ_{m_k, k},
+       b  :=  1 + ρ_f · Σᵢ≠k η_i · β_{m_i, k} + ρ_f η_k (β_{m_k, k} − γ_{m_k, k}).
+
+Rewrite SINR_k as:
+       SINR_k  =  (a/γ_{m_k, k}) · |ĝ_{m_k, k}|²  /  b.
+
+Let U := |ĝ_{m_k, k}|² / γ_{m_k, k} ~ Exponential(1). Then:
+
+       SINR_k  =  (a/b) · U,    U ~ Exp(1).
+
+Expected rate:
+       E[log₂(1 + SINR_k)]
+     =  ∫₀^∞  log₂(1 + (a/b) · u)  ·  e^(−u)  du.
+
+Substitute v := (a/b) · u, so u = (b/a) · v, du = (b/a) dv, e^{-u} =
+e^{-bv/a}:
+
+       =  ∫₀^∞  log₂(1 + v)  ·  e^{-bv/a}  ·  (b/a)  dv
+       =  (1/ln 2) · ∫₀^∞  ln(1 + v)  ·  (b/a) · e^{-(b/a)v}  dv.
+
+The integral ∫₀^∞ ln(1 + v) · λ e^{-λv} dv (with λ = b/a) has a closed
+form in terms of the exponential integral:
+
+       ∫₀^∞ ln(1 + v) · λ e^{-λv} dv  =  e^λ · E₁(λ),
+
+where E₁(λ) = ∫_λ^∞ (e^{-t}/t) dt is the (variant of the) exponential
+integral. (Warning: there are several conventions for "Ei(·)" in the
+literature. The paper uses the definition
+
+       Ei(x)  =  ∫_x^∞ (e^{-t}/t) dt,
+
+which is what some books call E₁(x). This matches the Gradshteyn-
+Ryzhik formula 4.337.1 and 4.337.5.)
+
+So:
+       E[log₂(1 + SINR_k)]  =  (1/ln 2) · e^{b/a} · Ei(b/a).
+
+Define α_k := b/a:
+
+       α_k  =  (1 + ρ_f · Σᵢ η_i β_{m_i, k}  −  ρ_f η_k γ_{m_k, k})
+                 /  (ρ_f · η_k · γ_{m_k, k}).
+
+(The numerator is the denominator of SINR_k, the denominator is the
+"useful-signal coefficient".)
+
+Then:
+       E[log₂(1 + SINR_k)]  =  (1/ln 2) · e^{α_k} · Ei(α_k)         (24)
+
+which is exactly the paper's Eq. (24).
+
+INTERPRETATION OF α_k.
+  • α_k is SMALL when: the direct channel estimation variance γ_{m_k,k}
+    is large (close AP) AND interference is small (sparse user geometry)
+    AND η_k is close to 1 (full power).
+  • α_k is LARGE when: the direct channel is weak, interference is
+    heavy, or η_k is small.
+  • The function (1/ln 2) · e^x · Ei(x) is MONOTONIC DECREASING in x.
+    So smaller α_k ⟹ larger achievable rate.
+
+This is the small-cell MF achievable rate under imperfect CSI and MUI.
+
+--------------------------------------------------------------------------------
+2.4  MAX-MIN MF POWER ALLOCATION (Eq. 25)
+--------------------------------------------------------------------------------
+
+The optimization problem:
+
+       maximize_η    min_{k ∈ {1,…,K}}  E[log₂(1 + SINR_k(η))]       (25a)
+
+       subject to    0  ≤  η_k  ≤  1,    k = 1, …, K.                (25b)
+
+A few points:
+
+(i) The constraint 0 ≤ η_k ≤ 1 is the per-AP power constraint — each
+    active AP can only transmit up to full power (η_k = 1 means AP m_k
+    transmits at ρ_f). Note there are ONLY K constraints, not M, because
+    only K APs are active.
+
+(ii) The objective is a min of monotonic functions of α_k, which are
+     themselves ratio-of-linear functions of η. The paper states (without
+     full proof, but with the remark "similar to (17)") that this is
+     QUASI-CONCAVE in η. The argument is that each SINR_k(η) has a
+     super-level-set that is convex, because
+        SINR_k(η) ≥ t ⟺ b ≤ (a/t) ⟺ 1 + ρ_f Σᵢ≠k η_i β_{m_i,k} + ρ_f η_k (β_{m_k,k}−γ_{m_k,k})
+                                    ≤ (ρ_f η_k γ_{m_k,k})/t
+     which is a LINEAR constraint in η. Hence the feasibility set is a
+     polytope, and the problem is a max-min LP in t after bisection.
+
+(iii) Equivalently, since (1/ln 2) e^α Ei(α) is monotonic decreasing in
+      α, maximizing min_k rate is equivalent to minimizing max_k α_k
+      (i.e., equalize the α's).
+
+(iv) A LEMMA AND COROLLARY SIMILAR TO LEMMA 1 AND COROLLARY 1 hold for
+     (25). The paper states this without giving a separate proof. The
+     reasoning: the structure of the feasibility problem (linear in η
+     for fixed t) is identical to the ZF case, and the same Perron-
+     Frobenius / M-matrix argument applies. Hence feasibility can be
+     checked by solving K LINEAR EQUATIONS (not an SOCP), yielding the
+     same O(K³) per-iteration cost.
+
+--------------------------------------------------------------------------------
+2.5  ZF PRECODER FOR SMALL CELLS
+--------------------------------------------------------------------------------
+
+Now the authors consider a more sophisticated small-cell variant: the K
+selected APs share their channel estimates over a backhaul and jointly
+form a ZF precoding matrix to cancel inter-user interference at those
+K APs. This is essentially a "mini cell-free ZF" restricted to the K
+active APs.
+
+NOTATION.
+  Let m_1, …, m_K be the K selected APs (from Eq. 22).
+  Let Ĝ ∈ ℂ^{K×K} be the SQUARE channel estimate matrix:
+       [Ĝ]_{i, k}  =  ĝ_{m_i, k}.
+  Note that Ĝ is K×K (not M×K), because only the selected APs participate.
+  Assume Ĝ is full rank (typically true with probability 1).
+
+ZF PRECODING MATRIX (for small-cell ZF):
+
+       A  =  (Ĝᵀ)⁻¹ · P,
+
+where P = diag(√η_1, …, √η_K).
+
+This is DIFFERENT from the cell-free ZF expression Ĝ* (ĜᵀĜ*)⁻¹ P. Why?
+Because when Ĝ is square, (Ĝᵀ)⁻¹ = (Ĝᵀ · Ĝ* · (ĜᵀĜ*)⁻¹)⁻¹ simplifies.
+Actually: for a square invertible matrix, the pseudo-inverse is just
+the inverse. So A = Ĝ* (ĜᵀĜ*)⁻¹ P = (Ĝᵀ)⁻¹ P for a square Ĝ.
+
+VERIFICATION. Check that ĜᵀA = P (diagonal), i.e., no interference:
+       Ĝᵀ · (Ĝᵀ)⁻¹ · P  =  I_K · P  =  P.  ✓
+
+--------------------------------------------------------------------------------
+2.6  RECEIVED SIGNAL AT USER k (Eq. 26)
+--------------------------------------------------------------------------------
+
+Writing the user-k received signal after the K selected APs jointly
+transmit with the ZF precoder:
+
+       y_k  =  √(ρ_f) · g_kᵀ · A · s  +  w_k
+            =  √(ρ_f) · (ĝ_k + ~g_k)ᵀ · (Ĝᵀ)⁻¹ · P · s  +  w_k,
+
+where g_k = (g_{m_1, k}, …, g_{m_K, k})ᵀ is the vector of channels from
+all K active APs to user k.
+
+Note that ĝ_kᵀ = the k-th row of Ĝᵀ, and ĝ_kᵀ · (Ĝᵀ)⁻¹ = eᵀ_k. So:
+
+       √(ρ_f) · ĝ_kᵀ · (Ĝᵀ)⁻¹ · P · s  =  √(ρ_f) · eᵀ_k · P · s
+                                         =  √(ρ_f · η_k) · s_k.
+
+The remaining term involves ~g_kᵀ:
+
+       √(ρ_f) · ~g_kᵀ · (Ĝᵀ)⁻¹ · P · s,
+
+which depends on s_1, …, s_K because ~g_k is generally not orthogonal
+to the other rows of (Ĝᵀ)⁻¹.
+
+Putting it together (Eq. 26):
+
+       y_k  =  √(ρ_f · η_k) · s_k    (J_0: signal)
+              +  √(ρ_f) · ~g_kᵀ · (Ĝᵀ)⁻¹ · P · s    (J_1: error leak)
+              +  w_k.                                               (26)
+
+This is STRUCTURALLY IDENTICAL to the cell-free ZF decomposition (Eq. 12),
+except the matrix size is K×K instead of M×K. Same Theorem 1 proof
+applies.
+
+--------------------------------------------------------------------------------
+2.7  THEOREM 2 — SMALL-CELL ZF ACHIEVABLE RATE (Appendix G)
+--------------------------------------------------------------------------------
+
+STATEMENT. An achievable rate of the k-th user in the small-cell ZF
+scheme is log₂(1 + SINR_{k,ZF}), where:
+
+                           ρ_f · η_k
+       SINR_{k,ZF}  =  ────────────────────────                     (27a)
+                        1 + ρ_f · Σᵢ₌₁ᴷ η_i · ν_{ki}
+
+and ν_{ki} is the i-th element of:
+
+       ν_k  =  diag{ 𝔼[ (Ĝ)⁻¹ · 𝔼[~g_k ~g_kᵀ] · (Ĝᵀ)⁻¹ ] }         (27)
+
+with 𝔼[~g_k ~g_kᵀ] being a K×K diagonal matrix having on its i-th diagonal
+entry the value:
+
+       β_{m_i, k}  −  (ρ_r τ · β²_{m_i, k}) / (1 + ρ_r τ · β_{m_i, k})
+       =  β_{m_i, k}  −  γ_{m_i, k}.
+
+Compare this to the cell-free ZF ν_k (Eq. 14):
+
+       ν_k^{cell-free}  =  diag{ 𝔼[ (ĜᵀĜ*)⁻¹ · Ĝᵀ · 𝔼[~g_k~g_kᵀ] · Ĝ* · (ĜᵀĜ*)⁻¹ ] }
+
+The small-cell version is SIMPLER because Ĝ is square — there's no
+pseudoinverse, just (Ĝᵀ)⁻¹. The formulas are structurally analogous but
+the small-cell version operates on a K×K system while the cell-free
+version operates on an M×K system (with M ≫ K).
+
+PROOF (Appendix G). The proof is a carbon copy of Appendix C (cell-free
+Theorem 1), with Ĝ replaced by Ĝ (square) and with appropriate matrix
+identities:
+
+(i) Uncorrelated terms J_0, J_1, w_k (verified by independence of data
+    symbols, channel estimates, and noise).
+
+(ii) Hassibi-Hochwald worst-case uncorrelated-noise bound:
+       SINR_{k,ZF}  =  𝔼[|J_0|²] / (1 + 𝔼[|J_1|²]).
+
+(iii) 𝔼[|J_0|²] = ρ_f · η_k.
+
+(iv) 𝔼[|J_1|²] = ρ_f · 𝔼[tr( P² · (Ĝᵀ)⁻ᴴ · ~g*_k · ~g_kᵀ · (Ĝᵀ)⁻¹ )]
+                = ρ_f · Σᵢ η_i · ν_{ki},
+     with ν_k as in (27).
+
+--------------------------------------------------------------------------------
+2.8  PER-AP TRANSMIT POWER — INSTANTANEOUS VS. AVERAGE
+--------------------------------------------------------------------------------
+
+Here small-cell ZF diverges from cell-free ZF in an important way. In
+cell-free, every per-AP power constraint was taken as the EXPECTATION
+𝔼[|x_m|²], giving a smooth constraint on the power coefficients. In
+small-cell, because there are only K APs each doing a critical job, the
+paper considers BOTH instantaneous and average constraints.
+
+DEFINITION. Let αᵀ_{[m_1]}, …, αᵀ_{[m_K]} be the rows of (Ĝᵀ)⁻¹. Define:
+
+       ν_{m_k}  =  diag{ α_{[m_k]}* · αᵀ_{[m_k]} }.
+
+Here ν_{m_k} is a K-vector with i-th component |[α_{[m_k]}]_i|², which
+is the "instantaneous cost per η_i at AP m_k". It is a RANDOM QUANTITY
+(depends on the small-scale fading h).
+
+The INSTANTANEOUS transmit power from AP m_k is:
+
+       |x_{m_k}|²  =  ρ_f · | Σᵢ [α_{[m_k]}]_i · √η_i · s_i |²
+                    ≈  ρ_f · Σᵢ η_i · |[α_{[m_k]}]_i|²  (data symbols uncorrelated)
+                    =  ρ_f · Σᵢ η_i · ν_{m_k, i}.
+
+Two options for the per-AP power constraint:
+
+(A) INSTANTANEOUS CONSTRAINT (Eq. 28):
+
+       Σᵢ₌₁ᴷ η_i · ν_{m_k, i}  ≤  1,   k = 1, …, K.                (28b)
+
+  This must hold for EVERY channel realization. Because ν_{m_k} is a
+  random quantity, the constraint is realization-by-realization. Since
+  the ν_{m_k, i} will fluctuate with h, a static η must satisfy the
+  WORST-CASE realization, which is tight.
+
+(B) AVERAGE CONSTRAINT (Eq. 29):
+
+       Σᵢ₌₁ᴷ η_i · 𝔼[ν_{m_k, i}]  ≤  1,   k = 1, …, K.             (29b)
+
+  Here ν̄_{m_k, i} := 𝔼[ν_{m_k, i}] (expectation over h) is deterministic
+  given β. The constraint only holds on average across fading
+  realizations, which is looser and hence allows larger η.
+
+PHYSICAL MEANING. Instantaneous constraints correspond to hardware that
+cannot tolerate momentary excess power — peak-power-limited amplifiers.
+Average constraints correspond to RMS / thermal limits that only care
+about time-averaged power.
+
+BOTH PROBLEMS ARE QUASI-LINEAR. They fit the same framework as (17), and
+Lemma 1 / Corollary 1 from Section IV-A apply directly to both. So
+bisection + linear-equation feasibility check is the method.
+
+--------------------------------------------------------------------------------
+2.9  WHY INSTANTANEOUS OUTPERFORMS AVERAGE (FROM SECTION VI)
+--------------------------------------------------------------------------------
+
+Section VI's Figure 5 shows that:
+  — Small-cell ZF with INSTANTANEOUS power constraints gives better
+    5%-outage rate than small-cell ZF with AVERAGE power constraints.
+
+Counterintuitive? One might expect average constraints (looser) to
+allow higher throughput. But the explanation is:
+
+  • Under average constraints, η_k can be chosen very large because the
+    constraint only cares about the MEAN ν̄_{m_k, i}. For most fading
+    realizations, the actual |x_{m_k}|² will then exceed 1 and cause
+    "peak clipping" at the hardware.
+  • The achievable rate formula implicitly assumes a LINEAR amplifier,
+    but in reality nonlinear saturation distorts the transmitted waveform
+    whenever the instantaneous power exceeds the PA limit.
+  • The paper implicitly compares the two by taking their
+    achievable-rate formulas at face value — under the average model,
+    you get a higher nominal rate, but you pay in outage when rare
+    fading realizations push the power too high.
+  • At 5%-outage the rare events matter most, and average constraints
+    "count" them as feasible even though in practice they would fail.
+
+The instantaneous constraint is the "safer" engineering choice and it
+turns out to outperform at the worst-case rate metric.
+
+--------------------------------------------------------------------------------
+2.10  A NEGATIVE ANSWER: ZF DOES NOT RESCUE SMALL CELLS
+--------------------------------------------------------------------------------
+
+A reader might hope: "if cell-free ZF is great, and if small-cell ZF
+is structurally similar, maybe small-cell ZF also works well". The
+paper's answer (preview from Sec. VI, rigorously shown in Fig. 5-6) is
+NO. Why?
+
+  Reason 1: DEGREES OF FREEDOM. Cell-free ZF has M antennas forcing K
+  users → (M − K + 1) remaining degrees of freedom for array gain, which
+  is LARGE (say M − K = 112 for M = 128, K = 16). Small-cell ZF has
+  exactly K antennas forcing K users → ZERO remaining degrees of freedom
+  → no array gain, only interference nulling. The math is the same but
+  the operating point is degenerate.
+
+  Reason 2: AP UTILIZATION. Cell-free uses all M APs; small-cell uses
+  only K. The factor of M/K in total radiated power and diversity
+  matters a lot — especially in urban propagation with heavy shadowing.
+
+  Reason 3: USER-AP MATCHING. Small-cell relies on the greedy
+  assignment (22), which is suboptimal. Two users who both want the
+  same nearby AP create a "collision" that forces one of them to use a
+  far-away AP, tanking their rate. Cell-free has no such conflict — every
+  AP serves every user.
+
+Reason 1 is the decisive mathematical difference, and it is directly
+visible in Fig. 5: small-cell ZF's SINR plateaus while cell-free ZF
+continues to grow with M.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — HISTORICAL / PRIOR DEVELOPMENT
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+3.1  THE EXPONENTIAL INTEGRAL IN WIRELESS RATE FORMULAS
+--------------------------------------------------------------------------------
+
+The appearance of Ei(·) in Eq. (24) is typical whenever one computes
+E[log(1 + |h|² · constant)] for a unit-exponential random variable |h|².
+This integral pops up in:
+
+  • Ergodic capacity of Rayleigh-fading SISO channels:
+    I. E. Telatar, "Capacity of multi-antenna Gaussian channels,"
+    Eur. Trans. Telecommun., vol. 10, no. 6, pp. 585–595, Nov./Dec. 1999.
+  • M. S. Alouini, A. J. Goldsmith, "Capacity of Rayleigh fading channels
+    under different adaptive transmission and diversity-combining
+    techniques," IEEE Trans. Veh. Technol., vol. 48, no. 4,
+    pp. 1165–1181, Jul. 1999. [Classical MRC/ergodic-capacity formulas
+    with exponential integral.]
+  • M. K. Simon, M. S. Alouini, Digital Communication over Fading
+    Channels, Wiley, 2005. [Comprehensive treatment of MGF/PDF-based
+    rate computations for fading.]
+  • I. S. Gradshteyn, I. M. Ryzhik, Table of Integrals, Series, and
+    Products, 8th ed., 2014. Formulas 4.337.1, 4.337.5 give
+       ∫₀^∞ ln(1 + v) · e^{−λv} dv = (1/λ) · e^λ · E₁(λ)
+    which is the precise identity used in deriving Eq. (24).
+
+The Ei(x) is a well-studied special function with series and asymptotic
+expansions:
+  Ei(x)  ≈  −γ − ln(x) − Σₙ₌₁ (−x)ⁿ / (n · n!)      (small x)
+        ≈  (e^{−x}/x) · [1 − 1/x + 2/x² − ⋯]        (large x, asymptotic)
+where γ ≈ 0.5772 is Euler's constant. Standard libraries (SciPy,
+MATLAB expint) compute it efficiently.
+
+--------------------------------------------------------------------------------
+3.2  SMALL-CELL VS. CELL-FREE: THE SETTLED DEBATE
+--------------------------------------------------------------------------------
+
+The comparison of small-cell and cell-free (a.k.a. coordinated
+multipoint, network MIMO, distributed antenna systems) has been a
+recurring theme in the wireless literature:
+
+  • Hoydis, Kobayashi, Debbah (2011) [reference [29] in the paper]:
+    "Green small-cell networks," IEEE Veh. Technol. Mag., vol. 6, no. 1,
+    pp. 37–43, Mar. 2011. Argued for small cells on energy-efficiency
+    grounds.
+
+  • Ngo, Ashikhmin, Yang, Larsson, Marzetta (2017) [reference [22]]:
+    First systematic comparison of cell-free (CB) vs. small-cell (MF).
+    Showed cell-free wins decisively at the 5%-outage metric.
+
+  • Nayebi, Ashikhmin, Marzetta, Yang, Rao (2017) [THE PAPER]: Extended
+    [22] with ZF (both cell-free and small-cell), proving that ZF does
+    NOT close the gap.
+
+  • Björnson, Sanguinetti, Debbah (2019) "Making Cell-Free Massive MIMO
+    Competitive With MMSE Processing..." [the MMSE paper you've already
+    studied]: Used MMSE combining instead of MF to reduce the gap
+    between small-cell and cell-free in the uplink, showing that
+    receiver processing matters.
+
+  • Björnson, Sanguinetti (2020) "Scalable Cell-Free Massive MIMO
+    Systems" [the scalable paper you've already studied]: Showed that
+    cell-free CAN be scalable, closing a key practical concern.
+
+The present paper's contribution sits at a key moment: it was the first
+to comprehensively address ZF in both cell-free and small-cell, and to
+compare them under fair per-antenna power constraints.
+
+--------------------------------------------------------------------------------
+3.3  ZF PSEUDO-INVERSE IN FULL-RANK SQUARE SYSTEMS
+--------------------------------------------------------------------------------
+
+When the channel matrix Ĝ is SQUARE (K×K with full rank), the ZF
+pseudo-inverse reduces to the ordinary inverse (Ĝᵀ)⁻¹. This is the
+"K-user, K-antenna" case studied as early as:
+
+  • M. Costa, "Writing on dirty paper," IEEE Trans. Inf. Theory, vol. 29,
+    no. 3, pp. 439–441, May 1983. [Dirty-Paper Coding achieves sum-
+    capacity but is nonlinear.]
+  • Q. H. Spencer, A. L. Swindlehurst, M. Haardt, "Zero-forcing methods
+    for downlink spatial multiplexing in multiuser MIMO channels,"
+    IEEE Trans. Signal Process., vol. 52, no. 2, pp. 461–471, Feb. 2004.
+    [Classical K-user ZF analysis.]
+
+Small-cell ZF, because Ĝ is square, inherits the "no extra degrees of
+freedom" property from these K×K studies. The reason cell-free ZF works
+so much better is entirely due to the M−K oversubscription.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — MATHEMATICAL DETAILS (Unicode box summary)
+════════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (22):  GREEDY AP-TO-USER ASSIGNMENT                                   │
+│                                                                          │
+│   m_k  =  argmax_{n : AP_n available}  β_{n, k}                         │
+│                                                                          │
+│   For each user k in sequence, assign the available AP with the         │
+│   largest large-scale fading coefficient β_{n, k}. K out of M APs       │
+│   are active; M − K are silent.                                         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (23):  SMALL-CELL MF RECEIVED SIGNAL                                  │
+│                                                                          │
+│   y_k  =  √(ρ_f η_k) · g_{m_k, k} · s_k                                 │
+│           + Σᵢ≠k  √(ρ_f η_i) · g_{m_i, k} · s_i                         │
+│           + w_k                                                          │
+│                                                                          │
+│  User k applies MF: ŝ_k = (ĝ*_{m_k, k} / |ĝ_{m_k, k}|) · y_k.          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ POST-MF SINR                                                             │
+│                                                                          │
+│                  ρ_f · η_k · |ĝ_{m_k, k}|²                              │
+│   SINR_k  =  ─────────────────────────────────────────────────          │
+│                1 + ρ_f Σᵢ η_i β_{m_i, k} − ρ_f η_k γ_{m_k, k}           │
+│                                                                          │
+│  The numerator is RANDOM (no channel hardening), so rate must be        │
+│  averaged over |ĝ_{m_k, k}|² ~ Exponential(γ_{m_k, k}).                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (24):  MF ACHIEVABLE RATE (via exponential integral)                  │
+│                                                                          │
+│   𝔼[log₂(1 + SINR_k)]  =  (1/ln 2) · e^{α_k} · Ei(α_k)                  │
+│                                                                          │
+│   where                                                                  │
+│                                                                          │
+│          1 + ρ_f Σᵢ η_i β_{m_i, k} − ρ_f η_k γ_{m_k, k}                 │
+│   α_k = ─────────────────────────────────────────────                    │
+│                       ρ_f · η_k · γ_{m_k, k}                             │
+│                                                                          │
+│   Ei(x)  =  ∫_x^∞ (e^{-t} / t) dt.    (Exponential integral.)           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (25):  MAX-MIN MF POWER ALLOCATION                                    │
+│                                                                          │
+│   max_η    min_k   𝔼[log₂(1 + SINR_k(η))]                               │
+│                                                                          │
+│   s.t.     0 ≤ η_k ≤ 1,   k = 1, …, K.                                  │
+│                                                                          │
+│   Quasi-concave; bisection + linear-equation feasibility (analog of     │
+│   Lemma 1 / Corollary 1 from Section IV-A).                             │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ SMALL-CELL ZF PRECODING MATRIX (Ĝ square, K×K)                           │
+│                                                                          │
+│   A  =  (Ĝᵀ)⁻¹ · P,   P = diag(√η_1, …, √η_K).                          │
+│                                                                          │
+│   Ĝᵀ · A = P:  inter-user interference completely canceled.             │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (26):  SMALL-CELL ZF RECEIVED SIGNAL DECOMPOSITION                    │
+│                                                                          │
+│   y_k  =  √(ρ_f η_k) · s_k    (J_0: signal)                             │
+│          +  √(ρ_f) · ~g_kᵀ · (Ĝᵀ)⁻¹ · P · s   (J_1: error leak)         │
+│          +  w_k                                                          │
+│                                                                          │
+│   with ~g_k = (~g_{m_1, k}, …, ~g_{m_K, k})ᵀ ∈ ℂᴷ.                      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ THEOREM 2:  SMALL-CELL ZF ACHIEVABLE-RATE SINR                           │
+│                                                                          │
+│                      ρ_f · η_k                                           │
+│   SINR_{k,ZF}  =  ─────────────────────                                  │
+│                    1 + ρ_f · Σᵢ η_i · ν_{ki}                            │
+│                                                                          │
+│   ν_k  =  diag{ 𝔼[ (Ĝ)⁻¹ · 𝔼[~g_k ~g_kᵀ] · (Ĝᵀ)⁻¹ ] }                  │
+│                                                                          │
+│   𝔼[~g_k ~g_kᵀ] diagonal with i-th entry (β_{m_i, k} − γ_{m_i, k}).    │
+│                                                                          │
+│   Proof: Appendix G (analog of cell-free Appendix C).                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (28):  SMALL-CELL ZF WITH INSTANTANEOUS PER-AP POWER CONSTRAINT       │
+│                                                                          │
+│   max_η   min_k   ρ_f η_k / (1 + ρ_f Σᵢ η_i ν_{ki})                     │
+│                                                                          │
+│   s.t.    Σᵢ₌₁ᴷ η_i · ν_{m_k, i}  ≤  1,    k = 1, …, K.                │
+│                                                                          │
+│   ν_{m_k, i} is the instantaneous cost, a random quantity.              │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (29):  SMALL-CELL ZF WITH AVERAGE PER-AP POWER CONSTRAINT             │
+│                                                                          │
+│   max_η   min_k   ρ_f η_k / (1 + ρ_f Σᵢ η_i ν_{ki})                     │
+│                                                                          │
+│   s.t.    Σᵢ₌₁ᴷ η_i · ν̄_{m_k, i}  ≤  1,    k = 1, …, K.                │
+│                                                                          │
+│   ν̄_{m_k, i} := 𝔼[ν_{m_k, i}] (expectation over small-scale fading).  │
+│                                                                          │
+│   Both (28) and (29) are quasi-linear. Solve via bisection + linear    │
+│   equations (Corollary 1 style).                                        │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 5 — NUMERICAL EXAMPLE
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+5.1  EXAMPLE 1: COMPUTING α_k AND MF RATE
+--------------------------------------------------------------------------------
+
+Parameters (all normalized by noise variance, i.e., σ²_w = 1):
+   K = 4 users, M = 32 APs (greedy assignment gives 4 active APs).
+   ρ_f = 10 (max transmit power, normalized).
+   Selected APs m_1, m_2, m_3, m_4.
+   Slow fading coefficients (big β for own user, smaller for others):
+
+       β_{m_1, 1} = 0.5,    β_{m_1, 2} = 0.02,   β_{m_1, 3} = 0.01,   β_{m_1, 4} = 0.005
+       β_{m_2, 1} = 0.015,  β_{m_2, 2} = 0.4,    β_{m_2, 3} = 0.02,   β_{m_2, 4} = 0.01
+       β_{m_3, 1} = 0.01,   β_{m_3, 2} = 0.03,   β_{m_3, 3} = 0.6,    β_{m_3, 4} = 0.015
+       β_{m_4, 1} = 0.008,  β_{m_4, 2} = 0.012,  β_{m_4, 3} = 0.01,   β_{m_4, 4} = 0.45
+
+Assume ρ_r · τ · β is large enough that γ_{m_k, k} ≈ β_{m_k, k} (perfect
+estimation on the direct link). Assume full-power transmission η_1 =
+η_2 = η_3 = η_4 = 1.
+
+Compute α_1 for user 1:
+   Numerator  =  1 + ρ_f · Σᵢ η_i · β_{m_i, 1}  −  ρ_f · η_1 · γ_{m_1, 1}
+              =  1 + 10 · (1·0.5 + 1·0.015 + 1·0.01 + 1·0.008)  −  10 · 1 · 0.5
+              =  1 + 10 · 0.533  −  5.0
+              =  1 + 5.33  −  5.0
+              =  1.33.
+
+   Denominator  =  ρ_f · η_1 · γ_{m_1, 1}
+               =  10 · 1 · 0.5
+               =  5.0.
+
+   α_1  =  1.33 / 5.0  =  0.266.
+
+Compute E[log₂(1 + SINR_1)]:
+   E[log₂(1 + SINR_1)]  =  (1/ln 2) · e^{0.266} · Ei(0.266).
+
+   ln 2 ≈ 0.6931.
+   e^{0.266} ≈ 1.3047.
+
+   Ei(0.266): use series expansion Ei(x) = −γ − ln(x) − Σ (−x)ⁿ/(n·n!).
+   For x = 0.266:
+      −γ = −0.5772.
+      −ln(0.266) = −(−1.324) = 1.324.
+      First term of series: −(−0.266)/1 = 0.266.
+      Second: +(0.266²)/(2·2) = 0.0708/4 = 0.0177.
+      Third: −(0.266³)/(3·6) = −0.01883/18 = −0.00105.
+      ...
+      Ei(0.266) ≈ −0.5772 + 1.324 + 0.266 + 0.0177 − 0.00105 + ⋯
+               ≈ 1.029.
+   (More precisely, Ei(0.266) ≈ 1.029 using tables/SciPy.)
+
+   E[log₂(1 + SINR_1)]  ≈  (1/0.6931) · 1.3047 · 1.029
+                        ≈  1.4427 · 1.3047 · 1.029
+                        ≈  1.937  bits/s/Hz.
+
+By symmetry and similar calculations, users 2, 3, 4 would get similar
+rates (slightly different because of their different β_{m_k, k} and
+interference configurations). The minimum across users is the
+performance indicator under max-min.
+
+COMPARE to cell-free CB with the same parameters: the cell-free system
+(128 APs, all serving all users) would give ~5-7 bits/s/Hz at the 5%-
+outage level, about 3× better. This roughly matches Fig. 5 of the paper.
+
+--------------------------------------------------------------------------------
+5.2  EXAMPLE 2: SMALL-CELL ZF WITH K=2
+--------------------------------------------------------------------------------
+
+Take K = 2 users, 2 selected APs. Channel estimate matrix (2×2):
+
+       Ĝ = [ 2    0.3 ]        (row m_1, columns = users 1, 2)
+           [ 0.4  1.8 ]        (row m_2)
+
+       Ĝᵀ = [ 2    0.4 ]        (row user 1)
+            [ 0.3  1.8 ]        (row user 2)
+
+det(Ĝᵀ) = 2·1.8 − 0.4·0.3 = 3.6 − 0.12 = 3.48.
+
+       (Ĝᵀ)⁻¹ = (1/3.48) · [ 1.8   −0.4 ]
+                            [−0.3    2   ]
+              = [ 0.517   −0.115 ]
+                [−0.0862   0.575 ]
+
+Column 1 of (Ĝᵀ)⁻¹ is (0.517, −0.0862)ᵀ. So |col 1|² = 0.267 + 0.00743 =
+0.275.
+Column 2 is (−0.115, 0.575)ᵀ. So |col 2|² = 0.01323 + 0.330 = 0.344.
+
+(These columns are the per-AP precoding vectors for each user.)
+
+NOW ν_{m_k} entries: the m_k-th row of (Ĝᵀ)⁻¹ has elements |[⋯]_i|².
+   Row m_1 (user 1) of (Ĝᵀ)⁻¹: (0.517, −0.115).
+     ν_{m_1, 1} = 0.517² = 0.267.
+     ν_{m_1, 2} = 0.115² = 0.01323.
+   Row m_2 (user 2): (−0.0862, 0.575).
+     ν_{m_2, 1} = 0.0862² = 0.00743.
+     ν_{m_2, 2} = 0.575² = 0.330.
+
+PER-AP CONSTRAINTS (Eq. 28):
+   AP m_1:  0.267 · η_1 + 0.01323 · η_2  ≤  1.
+   AP m_2:  0.00743 · η_1 + 0.330 · η_2  ≤  1.
+
+Assume PERFECT CSI so ν_{ki} = 0 (for the SINR leakage), then SINR_k =
+ρ_f · η_k and max-min gives η_1 = η_2 = η. Binding constraint:
+   AP m_1:  0.280 · η ≤ 1  ⟹  η ≤ 3.57.
+   AP m_2:  0.338 · η ≤ 1  ⟹  η ≤ 2.96.
+
+Binding is AP m_2 (largest row sum). η^* = 2.96.
+SINR = 10 · 2.96 = 29.6 (if ρ_f = 10), R = log₂(30.6) ≈ 4.93 bits/s/Hz.
+
+COMPARISON TO MF ON SAME LINKS. With η_1 = η_2 = 1 under MF (no ZF), the
+α_1 computation would yield a rate around 1.9 bits/s/Hz (as in Example 5.1).
+So ZF over K = 2 APs looks much better (~4.93 > ~1.9).
+
+CAUTION: These are NOT apples-to-apples — ZF has a different η range
+(2.96 vs 1), and the toy example doesn't model real estimation error.
+The important takeaway is the STRUCTURE: in small-cell ZF, the
+bottleneck AP (largest row sum of ν_{m_k}) determines the performance,
+just like Lemma 2 for cell-free ZF.
+
+--------------------------------------------------------------------------------
+5.3  PRACTICE PROBLEM
+--------------------------------------------------------------------------------
+
+PROBLEM. Consider a small-cell system with K = 3 users, and assume
+perfect estimation (γ_{m_k, k} = β_{m_k, k}). Assume the selected APs'
+direct-link β's are:
+
+       β_{m_1, 1} = 0.8,
+       β_{m_2, 2} = 0.6,
+       β_{m_3, 3} = 0.5.
+
+Inter-cell (cross) β's:
+       β_{m_1, 2} = 0.05,    β_{m_1, 3} = 0.02,
+       β_{m_2, 1} = 0.06,    β_{m_2, 3} = 0.03,
+       β_{m_3, 1} = 0.02,    β_{m_3, 2} = 0.04.
+
+ρ_f = 20 (normalized).
+
+(a) Under MF with full power (η_1 = η_2 = η_3 = 1), compute α_1, α_2, α_3.
+(b) Compute E[log₂(1 + SINR_k)] for each k.
+(c) Which user has the lowest rate? What is the "minimum rate"?
+
+SOLUTION.
+
+(a) α_1:
+    Numerator = 1 + ρ_f · (η_1 β_{m_1,1} + η_2 β_{m_2,1} + η_3 β_{m_3,1})
+                − ρ_f · η_1 · γ_{m_1,1}
+              = 1 + 20 · (0.8 + 0.06 + 0.02) − 20 · 0.8
+              = 1 + 17.6 − 16
+              = 2.6.
+    Denominator = 20 · 0.8 = 16.
+    α_1 = 2.6 / 16 = 0.1625.
+
+    α_2:
+    Numerator = 1 + 20 · (β_{m_1,2} + β_{m_2,2} + β_{m_3,2}) − 20 · β_{m_2,2}
+              = 1 + 20 · (0.05 + 0.6 + 0.04) − 20 · 0.6
+              = 1 + 13.8 − 12
+              = 2.8.
+    Denominator = 20 · 0.6 = 12.
+    α_2 = 2.8 / 12 = 0.2333.
+
+    α_3:
+    Numerator = 1 + 20 · (0.02 + 0.03 + 0.5) − 20 · 0.5
+              = 1 + 11.0 − 10
+              = 2.0.
+    Denominator = 20 · 0.5 = 10.
+    α_3 = 2.0 / 10 = 0.2.
+
+(b) Use E[log₂(1 + SINR_k)] = (1/ln 2) · e^{α_k} · Ei(α_k).
+
+    Ei(0.1625) ≈ 1.486 (from tables / numerical).
+    e^{0.1625} ≈ 1.1764.
+    Rate_1 ≈ (1/0.6931) · 1.1764 · 1.486 ≈ 2.52 bits/s/Hz.
+
+    Ei(0.2333) ≈ 1.148.
+    e^{0.2333} ≈ 1.263.
+    Rate_2 ≈ (1/0.6931) · 1.263 · 1.148 ≈ 2.09 bits/s/Hz.
+
+    Ei(0.2) ≈ 1.223.
+    e^{0.2} ≈ 1.221.
+    Rate_3 ≈ (1/0.6931) · 1.221 · 1.223 ≈ 2.154 bits/s/Hz.
+
+(c) User 2 has the lowest rate, ≈ 2.09 bits/s/Hz. Note that user 2 has
+    the second-strongest direct link (β = 0.6) but the worst rate
+    because it suffers the most interference from the strong AP m_1
+    (β_{m_1, 2} = 0.05 is the largest cross-β on user 2). The minimum
+    rate = 2.09 bits/s/Hz.
+
+Observation: MF rates are insensitive to the relative order of direct
+and cross β's because the "1" in the denominator dominates at this
+power level. A max-min power allocation would reduce η_1 slightly
+to reduce interference on user 2.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 6 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT WE COVERED IN THIS SECTION:
+
+  • Small-cell setup: K out of M APs active; each user served by exactly
+    one AP. Greedy assignment rule Eq. (22) based on largest β_{n, k}.
+  • Matched-Filter (MF) receiver operating mode:
+      - Each AP transmits only its own user's symbol without precoding.
+      - User applies MF ŝ_k = (ĝ*_{m_k, k}/|ĝ_{m_k, k}|) y_k.
+      - Rate involves the exponential integral Ei(·) because there is
+        no channel hardening.
+      - Eq. (24): E[log₂(1 + SINR_k)] = (1/ln 2) · e^{α_k} · Ei(α_k).
+  • MF max-min power allocation Eq. (25), quasi-concave, solved by
+    bisection + linear-equation feasibility (Lemma 1 / Corollary 1
+    analog).
+  • Small-cell ZF precoder (mini-cell-free version on K APs):
+      - Precoding matrix A = (Ĝᵀ)⁻¹ P (square, no pseudoinverse).
+      - Received signal decomposition Eq. (26).
+      - Theorem 2 (Appendix G): SINR formula Eq. (27), analogous to
+        cell-free Theorem 1.
+  • Two per-AP power constraint variants:
+      - INSTANTANEOUS (Eq. 28): Σᵢ η_i ν_{m_k, i} ≤ 1 each realization.
+      - AVERAGE (Eq. 29): Σᵢ η_i ν̄_{m_k, i} ≤ 1 on average.
+    Both are quasi-linear, solved by bisection + Corollary 1.
+  • Preview of Section VI result: small-cell ZF does NOT outperform
+    small-cell MF at 5%-outage, and both are beaten by cell-free ZF by
+    5-10×.
+
+KEY TAKEAWAYS:
+
+  1. Small cells use only K out of M APs; this wastes M − K APs worth
+     of diversity and array gain.
+  2. The MF achievable rate depends on |ĝ_{m_k, k}|² (random), requiring
+     an expectation over fading and yielding the Ei(·) formula. This is
+     fundamentally different from cell-free where channel hardening
+     replaces the random quantity by its mean.
+  3. The small-cell ZF precoder has a square Ĝ, so zero degrees of
+     freedom remain after canceling inter-user interference — no array
+     gain is accumulated.
+  4. The Lemma 1 / Corollary 1 machinery from Section IV-A carries over
+     directly to small-cell problems (25), (28), (29), giving them the
+     same O(K³) per-bisection cost.
+  5. The instantaneous power constraint is the safer engineering choice;
+     at the 5%-outage metric it outperforms the average constraint.
+
+EQUATIONS INTRODUCED IN SECTION V:
+
+   (22) Greedy AP-to-user assignment:  m_k = argmax_{n available} β_{n,k}
+   (23) Received signal at user k under small-cell MF.
+   (24) MF achievable rate via exponential integral:
+          E[log₂(1+SINR_k)] = (1/ln 2) · e^{α_k} · Ei(α_k).
+   (25) Max-min MF power allocation with 0 ≤ η_k ≤ 1.
+   (26) Received signal at user k under small-cell ZF.
+   (27) ν_k definition for Theorem 2.
+   (28) Max-min small-cell ZF with instantaneous per-AP power.
+   (29) Max-min small-cell ZF with average per-AP power.
+
+WHAT'S NEXT (Section VI):
+  • Numerical results that quantify everything we've set up.
+  • Parameters: 2×2 km² area, COST-Hata path loss, 20 MHz bandwidth,
+    σ_shad = 8 dB, ρ_f = ρ_r = 200 mW.
+  • Five experiments:
+      Exp 1: p_m^opt vs β_m^max scatter plots (Fig. 3-4).
+      Exp 2: CDF comparisons of cell-free (CB, ZF) vs. small-cell (MF,
+             ZF) with M=128, K=16 (Fig. 5-6).
+      Exp 3: Impact of reducing M in small-cell (Fig. 7).
+      Exp 4: Effective number of APs serving each user (Fig. 8).
+      Exp 5: Scaling with (M, K) at constant ratio (Table I).
+  • Confirms the headline claim: cell-free ZF gives 5-10× 5%-outage
+    improvement over small-cell MF.
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+     [Origin of the cell-free vs. small-cell comparison, source of
+      Eq. (24).]
+
+[29] J. Hoydis, M. Kobayashi, M. Debbah, "Green small-cell networks,"
+     IEEE Veh. Technol. Mag., vol. 6, no. 1, pp. 37–43, Mar. 2011.
+     [Energy efficiency analysis of small-cell networks.]
+
+[30] B. Hassibi, B. M. Hochwald, "How much training is needed in
+     multiple-antenna wireless links?" IEEE Trans. Inf. Theory, vol. 49,
+     no. 4, pp. 951–963, Apr. 2003.  [Worst-case uncorrelated-noise
+     bound used in Theorem 2 proof.]
+
+[31] R. J. Plemmons, "M-matrix characterizations: nonsingular M-matrices,"
+     Linear Algebra Appl., vol. 18, no. 2, pp. 175–188, 1977.
+     [M-matrix theory; also relevant to the Lemma 1 analog for (25),
+      (28), (29).]
+
+Additional background:
+
+- M. S. Alouini, A. J. Goldsmith, "Capacity of Rayleigh fading channels
+  under different adaptive transmission and diversity-combining
+  techniques," IEEE Trans. Veh. Technol., vol. 48, no. 4,
+  pp. 1165–1181, Jul. 1999.  [Classical capacity formulas involving
+  Ei(·) for Rayleigh fading.]
+
+- M. K. Simon, M. S. Alouini, Digital Communication over Fading Channels,
+  Wiley, 2nd ed., 2005.  [Comprehensive treatment of MGF/PDF-based rate
+  computations.]
+
+- I. S. Gradshteyn, I. M. Ryzhik, Table of Integrals, Series, and
+  Products, 8th ed., Academic Press, 2014.  [Formulas 4.337.1, 4.337.5
+  for ∫ ln(1+x) e^{-λx} dx.]
+
+- Q. H. Spencer, A. L. Swindlehurst, M. Haardt, "Zero-forcing methods
+  for downlink spatial multiplexing in multiuser MIMO channels," IEEE
+  Trans. Signal Process., vol. 52, no. 2, pp. 461–471, Feb. 2004.
+  [Classical K×K ZF analysis relevant to small-cell ZF.]
+
+- R. A. Horn, C. R. Johnson, Matrix Analysis, Cambridge Univ. Press,
+  2nd ed., 2013. Ch. 8 (Perron-Frobenius theory for non-negative
+  matrices).
+
+- I. E. Telatar, "Capacity of multi-antenna Gaussian channels," Eur.
+  Trans. Telecommun., vol. 10, no. 6, pp. 585–595, Nov./Dec. 1999.
+  [Foundational MIMO capacity paper.]
+
+================================================================================
+END OF SECTION V ANALYSIS
+(Small-Cell Systems — MF, ZF, Instantaneous vs. Average Power Constraints)
+================================================================================

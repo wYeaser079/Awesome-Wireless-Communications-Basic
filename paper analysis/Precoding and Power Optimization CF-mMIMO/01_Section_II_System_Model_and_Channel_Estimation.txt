@@ -1,0 +1,781 @@
+================================================================================
+ PAPER ANALYSIS — SECTION II
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Section analyzed: II. System Model and Channel Estimation
+                   (II-A Cell-Free System Model, II-B Channel Estimation)
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+Before you can optimize anything, you need to describe the playing field.
+Section II does exactly that. It says: "Here's what our wireless world looks
+like, here's how signals travel through it, and here's how we figure out what
+the channel looks like at any given moment." It does NOT yet talk about
+precoding or power allocation — it only sets the stage.
+
+The section has two sub-ideas.
+
+SUB-IDEA #1 — The physical picture.
+  Think of a 2 km × 2 km urban area. Scatter M = 128 little radio boxes
+  ("access points" or APs) at random — each one roughly the size of a Wi-Fi
+  router, each with ONE antenna, each mounted on a lamppost or wall. Throw
+  K = 16 cellphone users into the same area. Every user connects to EVERY
+  AP. No AP "belongs" to a user and no user "belongs" to an AP — that's why
+  the system is called "cell-free". A backhaul wire (fiber, ethernet,
+  whatever) connects every AP to a central brain called the Network
+  Controller (NC). The NC decides what each AP transmits.
+
+  The signal from AP m to user k has two factors:
+     - BIG-SCALE fading β_mk: a slow-moving knob that depends on HOW FAR
+       apart they are and what walls/obstacles are in between. It changes
+       slowly (like every few seconds), so you can track it easily.
+     - SMALL-SCALE fading h_mk: a fast-moving knob caused by multipath
+       interference. It changes every few milliseconds and is random
+       (Rayleigh fading, in our case).
+
+SUB-IDEA #2 — How do the APs "learn" the channel?
+  Think of the channel like the shape of a hallway echoing sound. If you
+  want to shoot a ball of sound from one end to the other without hitting
+  the walls, you first need to know the shape of the hallway. The APs
+  "learn" the channel each coherence block by having the USERS transmit
+  short orthogonal tones ("pilot sequences"). The AP listens to the tones,
+  knows which user sent which tone (because they're mathematically
+  orthogonal to each other), and computes the Minimum-Mean-Square-Error
+  (MMSE) estimate of its channel to each user. The estimate is never
+  perfect — there's always some residual error — but it's the statistically
+  best guess given the measurements.
+
+  One nice thing about having slow-moving users (pedestrians, not cars):
+  the channel stays stable for a LONG time, so there's plenty of time slots
+  available for pilots. You can give every user a UNIQUE orthogonal tone.
+  This kills "pilot contamination" — the situation where two users
+  accidentally use the same tone and confuse the AP about whose signal is
+  whose. Pilot contamination is the #1 enemy of Massive MIMO, and this
+  paper sidesteps it entirely by assumption.
+
+At the end of Section II, the reader holds:
+  (i)   a formula for the channel g_mk between each AP m and user k,
+  (ii)  a formula for the AP's noisy measurement y_m during pilot time,
+  (iii) a formula for the MMSE channel estimate ĝ_mk,
+  (iv)  statistics of the estimation error ~g_mk = g_mk − ĝ_mk.
+
+These four pieces are the raw material used by every subsequent section.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+2.1  THE CELL-FREE TOPOLOGY (II-A, paragraph 1)
+--------------------------------------------------------------------------------
+
+The authors formalize a network that is a radical departure from cellular:
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │ Definition (paraphrased):                                   │
+  │   A cell-free system is a set of M single-antenna APs,      │
+  │   randomly dropped over a 2D area, serving K single-antenna │
+  │   users simultaneously via a Network Controller (NC). No    │
+  │   cell partitions; no user-AP association; every AP serves  │
+  │   every user.                                               │
+  └─────────────────────────────────────────────────────────────┘
+
+Three details in the formalization deserve emphasis:
+
+(a) M ≫ K. This is the Massive-MIMO flavor. With far more APs than users,
+    the joint "array" (the aggregation of all APs) has enough degrees of
+    freedom to spatially separate users even with simple linear precoding.
+    Think of it as *having K orthogonal bullets* available to fire into a
+    dimension-M space.
+
+(b) Single-antenna APs. A deliberate design choice. It implies:
+      - Low per-AP hardware cost (no phased array per AP).
+      - Distributed-antenna interpretation: M physically separated
+        "array elements" that behave, from the user's perspective, like
+        one virtual "cell-wide array".
+      - Signal processing complexity is shoveled into the NC; APs are
+        essentially "dumb" front ends — they upconvert, amplify, transmit.
+
+(c) Random, distributed placement. Distinguishes this from centralized
+    Massive MIMO (one massive array) and also from "small cells" (each user
+    served by one AP). The randomness of placement is essential for the
+    statistical fairness argument — in expectation, every user has a
+    nearby AP.
+
+--------------------------------------------------------------------------------
+2.2  PROPAGATION-TIME / CP CONSTRAINT
+--------------------------------------------------------------------------------
+
+A subtle but vital sentence in the paper:
+
+  "Size of the overall area is considered small enough that the largest
+   difference between propagation time from any two APs to a user is
+   smaller than the duration of the OFDM cyclic prefix."
+
+Why does this matter? If AP 1 and AP 128 are both transmitting the same OFDM
+symbol to user k, their signals will arrive at slightly different times
+because light travels ~3·10⁸ m/s. If the delay spread between "earliest AP
+signal" and "latest AP signal" exceeds the OFDM cyclic prefix (CP) length,
+the signals can no longer be combined into a single frequency-domain OFDM
+demodulation at the user — inter-symbol interference (ISI) appears and
+the tidy single-subcarrier model breaks.
+
+Concrete bound: if CP length is T_CP = 4.7 µs (standard LTE short CP), then
+the maximum allowed geographic spread between APs (for a common user) is:
+
+       Δd_max  =  c · T_CP  =  (3×10⁸ m/s) · (4.7×10⁻⁶ s)  ≈  1.41 km.
+
+This is precisely why the paper uses a 2 km × 2 km area — it's at the edge
+of what CP-length can tolerate. Larger coverage areas would need either
+extended-CP OFDM or per-AP timing pre-compensation.
+
+The system operates on a FLAT-FADING per-subcarrier basis. OFDM converts
+the wideband channel into many narrowband parallel sub-channels, each flat.
+The OFDM subcarrier index is suppressed throughout the paper since every
+subcarrier is processed identically.
+
+--------------------------------------------------------------------------------
+2.3  THE CHANNEL MODEL (II-A, Equation 1)
+--------------------------------------------------------------------------------
+
+The channel coefficient from AP m to user k is factorized:
+
+       g_mk  =  √(β_mk) · h_mk                                        (1)
+
+Each factor has a distinct physical role:
+
+  β_mk — LARGE-SCALE FADING.
+     - Deterministic given geometry + shadowing realization.
+     - Captures path loss (function of distance) and log-normal shadowing
+       (local terrain / blockage).
+     - Changes on the order of seconds (tens of coherence intervals).
+     - ASSUMED KNOWN at NC: β_mk is tracked via long-term averaging of
+       received signal strengths and conveyed via backhaul.
+
+     The numerical experiments use the COST-Hata model (previewed from
+     Section VI):
+
+         10 · log₁₀(β_mk) = −136 − 35·log₁₀(d_mk) + X_mk,
+
+     where d_mk is the AP-user distance in km, and X_mk ~ 𝒩(0, σ²_shad)
+     with σ_shad = 8 dB is log-normal shadowing. This matches measured
+     urban propagation in the 1–2 GHz band.
+
+  h_mk — SMALL-SCALE FADING.
+     - h_mk ~ 𝒞𝒩(0, 1), i.e., zero-mean unit-variance complex Gaussian.
+     - i.i.d. across (m, k) — this assumes rich enough scattering that
+       any two AP-user pairs experience uncorrelated multipath.
+     - Constant over a coherence interval (τ_c symbols), independent
+       across coherence intervals.
+     - UNKNOWN — this is what needs to be estimated every coherence
+       interval.
+
+From (1), g_mk ~ 𝒞𝒩(0, β_mk), so the channel power E[|g_mk|²] = β_mk.
+
+Channel matrix form: G ∈ ℂ^{M×K}, with [G]_mk = g_mk.
+   - Row m is the vector of channels from AP m to all K users.
+   - Column k is the vector of channels from all M APs to user k (which we
+     often denote g_k in the paper's later sections).
+
+The i.i.d. h_mk assumption yields the convenient property that COLUMNS of
+G are "almost orthogonal" in a Massive MIMO sense when M → ∞:
+
+       (g_k)ᴴ · g_j / M  →  β_mk · δ_{kj}   (in probability, heuristically).
+
+This is the SEED of channel hardening, the effect that makes Massive MIMO
+work with only statistical CSI at users.
+
+--------------------------------------------------------------------------------
+2.4  CHANNEL RECIPROCITY AND TDD
+--------------------------------------------------------------------------------
+
+The paper explicitly assumes TDD (Time-Division Duplex) and channel
+reciprocity: the channel coefficient from user k to AP m during uplink is
+identical to the coefficient from AP m to user k during downlink.
+
+Why this matters enormously:
+  • In FDD (Frequency-Division Duplex), uplink and downlink use DIFFERENT
+    frequency bands. The channel at one frequency gives no information
+    about the channel at another. To get downlink CSI, the base station
+    would have to transmit pilots, have users estimate the channel, and
+    feed it BACK — a process that scales as O(M·K) in feedback overhead.
+    In Massive MIMO with M = 128, this is a nightmare.
+
+  • In TDD, a single uplink pilot transmission lets the AP directly
+    estimate the downlink channel (modulo calibration of the RF chains).
+    Pilot overhead scales with K, not M. This is the canonical Marzetta
+    argument for TDD Massive MIMO [2].
+
+So: TDD + reciprocity makes the whole paper feasible. In fact, the
+computational gymnastics of Sections III-IV hinge on the fact that the NC
+can use uplink-pilot-derived estimates ĝ_mk for downlink precoding
+without any feedback loop.
+
+--------------------------------------------------------------------------------
+2.5  MOBILITY AND THE PILOT-CONTAMINATION ESCAPE
+--------------------------------------------------------------------------------
+
+User mobility is capped at 10 km/h (pedestrians). Why this matters for
+pilot design:
+
+The coherence time of a channel is approximated by the Jakes' model:
+
+       T_c  ≈  1 / (4 · f_D)  with  f_D = v · f_c / c.
+
+At v = 10 km/h = 2.78 m/s and f_c = 1.9 GHz:
+       f_D = (2.78 · 1.9·10⁹) / (3·10⁸) ≈ 17.6 Hz,
+       T_c ≈ 1 / (4·17.6)   ≈ 14.2 ms.
+
+For typical LTE OFDM symbols (≈ 71.4 µs), that's roughly 200 OFDM symbols
+per coherence block. In the frequency domain, one coherence interval covers
+several hundred subcarriers.
+
+Contrast this with a vehicle at 120 km/h:
+       f_D ≈ 211 Hz, T_c ≈ 1.18 ms, roughly 16 OFDM symbols.
+
+With 200+ "pilot slots" available per coherence block and only K = 16 users
+to serve, you can easily give each user a UNIQUELY ORTHOGONAL pilot. This
+kills pilot contamination. If instead you had 16 slots and 16 users, every
+slot would need to be reused across geographic regions — causing two
+users (one near AP 1, one near AP 128) to transmit the same pilot, leading
+AP 1 to "see" the sum of their channels and not be able to distinguish
+them. That is pilot contamination, and it fundamentally bounds Massive
+MIMO performance (see Marzetta 2010).
+
+Remark 1 in the paper explicitly acknowledges this: the paper's low-
+mobility assumption is for *analytical cleanliness* — to isolate the
+precoding + power-control question from the pilot assignment question.
+
+Reference [22] (Ngo et al. "Cell-Free vs Small Cells") handles the high-
+mobility / pilot-contamination case in detail.
+
+--------------------------------------------------------------------------------
+2.6  THE UPLINK TRAINING MODEL (II-B)
+--------------------------------------------------------------------------------
+
+The TDD protocol is that of Marzetta "How much training is required..."
+[23]. Structure per coherence block:
+
+       ┌──────── Coherence block (τ_c symbols) ────────┐
+       │                                                │
+       │ [ τ pilot symbols ][  τ_c − τ  data symbols ] │
+       │     uplink               downlink              │
+       └────────────────────────────────────────────────┘
+
+During the pilot phase:
+   - All K users simultaneously transmit their pilot sequences.
+   - Each pilot sequence ψ_k ∈ ℂ^τ is τ symbols long.
+   - Pilots are orthonormal:  ψ_iᴴ · ψ_j = δ_{ij}  (Kronecker delta).
+   - The minimum pilot length for K orthogonal sequences is τ ≥ K.
+     (In Section VI, the paper uses τ = K.)
+
+The received τ-dimensional signal at AP m is:
+
+       y_m  =  √(ρ_r · τ) · Σᵢ₌₁ᴷ g_mi · ψ_i  +  w_m                  (*)
+
+where:
+  • ρ_r is the uplink transmit power per symbol (normalized such that noise
+    variance is 1; equivalently, ρ_r is the uplink SNR).
+  • √(ρ_r · τ) is the pilot amplitude. The factor √τ comes from coherent
+    accumulation of τ pilot samples — the longer the pilot, the higher the
+    effective SNR. This is why the authors can credibly claim small
+    channel estimation error.
+  • w_m ~ 𝒞𝒩(0, I_τ) is τ-dimensional zero-mean complex Gaussian noise at
+    AP m.
+
+Note: (*) is NOT numbered in the paper, but it is stated between equations
+(1) and the MMSE equation. Treat it as Eq. (*).
+
+--------------------------------------------------------------------------------
+2.7  MMSE CHANNEL ESTIMATION — DERIVATION
+--------------------------------------------------------------------------------
+
+The MMSE (Minimum Mean Square Error) estimator of g_mk given y_m is the
+conditional expectation:
+
+       ĝ_mk  =  E[g_mk | y_m]
+
+Since (g_mk, y_m) are jointly Gaussian, the MMSE estimator is LINEAR and
+given by:
+
+       ĝ_mk  =  E[g_mk · y_mᴴ] · (E[y_m · y_mᴴ])⁻¹ · y_m.
+
+Step 1 — Project onto the k-th pilot direction.
+Because the pilots are orthonormal, we can multiply both sides of (*) by
+ψ_kᴴ to isolate user k:
+
+       y_{m,k}  :=  ψ_kᴴ · y_m
+              =  √(ρ_r · τ) · g_mk + ψ_kᴴ · w_m
+              =  √(ρ_r · τ) · g_mk + n_{m,k},
+
+where n_{m,k} = ψ_kᴴ · w_m ~ 𝒞𝒩(0, 1) (because ψ_k has unit norm, so
+projecting unit-covariance noise onto it gives unit-variance scalar noise).
+
+The cross-terms Σ_{i ≠ k} g_mi · (ψ_iᴴ ψ_k) = 0 because of orthogonality.
+This is the magic of orthogonal pilots: de-couples the K-dimensional joint
+estimation problem into K independent scalar estimation problems.
+
+Step 2 — Scalar MMSE on y_{m,k}.
+Now we have a scalar Gaussian observation:
+     y_{m,k} = √(ρ_r τ) · g_mk + n_{m,k},    g_mk ~ 𝒞𝒩(0, β_mk),
+                                             n_{m,k} ~ 𝒞𝒩(0, 1).
+
+The MMSE estimate of g_mk given y_{m,k} is (textbook, e.g., Kay Vol I,
+Ch. 11, reference [24]):
+
+       ĝ_mk  =  ( √(ρ_r τ) · β_mk ) / ( 1 + ρ_r τ · β_mk ) · y_{m,k}    (2′)
+
+       ĝ_mk  =  ( √(ρ_r τ) · β_mk ) / ( 1 + ρ_r τ · β_mk ) · ψ_kᴴ y_m
+
+which matches the formula in the paper.
+
+Step 3 — Statistics of ĝ_mk and of the error ~g_mk.
+Define γ_mk as the variance of ĝ_mk:
+
+       γ_mk  =  Var(ĝ_mk)
+            =  ( ρ_r · τ · β_mk² ) / ( 1 + ρ_r · τ · β_mk )            (γ)
+
+A textbook orthogonality-principle result gives:
+       ĝ_mk ~ 𝒞𝒩(0, γ_mk),
+       ~g_mk := g_mk − ĝ_mk,
+       ~g_mk ~ 𝒞𝒩(0, β_mk − γ_mk),
+       ĝ_mk ⊥ ~g_mk  (uncorrelated, hence independent since both Gaussian).
+
+This is precisely Eq. (2) of the paper:
+
+       ĝ_mk ~ 𝒞𝒩(0, γ_mk),  ~g_mk ~ 𝒞𝒩(0, β_mk − γ_mk).                (2)
+
+--------------------------------------------------------------------------------
+2.8  INTERPRETING γ_mk (THE "ESTIMATION SIGNAL POWER")
+--------------------------------------------------------------------------------
+
+The quantity γ_mk is fundamental to every downstream rate formula. Let's
+understand its behavior.
+
+Rewrite:
+       γ_mk  =  β_mk · [ (ρ_r · τ · β_mk) / (1 + ρ_r · τ · β_mk) ].
+
+The bracketed factor is always ∈ (0, 1). Interpret it as the "channel
+estimation quality factor":
+
+  • When ρ_r · τ · β_mk ≫ 1  (strong signal + long pilot + close AP):
+           γ_mk ≈ β_mk   (almost perfect estimation).
+
+  • When ρ_r · τ · β_mk ≪ 1  (weak signal + short pilot + far AP):
+           γ_mk ≈ ρ_r · τ · β_mk²   (very poor estimation).
+
+Hence APs close to user k have γ_mk ≈ β_mk (their channel is known with
+high accuracy) while APs far from user k have γ_mk ≪ β_mk (their channel
+is barely estimated at all). This unevenness is one of the reasons why
+"most APs should transmit less" becomes optimal in Section III — a far AP
+with a noisy estimate is likely to cause more interference than useful
+signal, so why shout?
+
+Also note the conservation law:
+
+       β_mk   =    γ_mk   +   (β_mk − γ_mk)
+       (total)  (signal part)  (estimation error part).
+
+This is the classical MMSE decomposition.
+
+--------------------------------------------------------------------------------
+2.9  CONSEQUENCES FOR DOWNSTREAM SECTIONS
+--------------------------------------------------------------------------------
+
+Section II quietly locks in several facts that will reappear in Sec. III–IV:
+
+  F1. DOWNLINK PRECODING USES ĝ_mk (not g_mk). The NC/APs have NO access
+      to the true channel; they only have the estimates. Any rate formula
+      that pretends otherwise would be dishonest.
+
+  F2. STATISTICAL CSI AT USERS. Users do NOT know their effective channel
+      gain — they only know the *statistics* γ_mk. This is where channel
+      hardening steps in: in Massive MIMO, the effective gain concentrates
+      on its mean, so receivers can treat the statistical value as if it
+      were the instantaneous value. This is the assumption that makes the
+      capacity lower bound in Appendix A tight.
+
+  F3. THE ERROR TERM ~g_mk ~ 𝒞𝒩(0, β_mk − γ_mk) WILL APPEAR IN THE SINR
+      DENOMINATOR. Specifically, the T3 term in Appendix A and the J1
+      term in Theorem 1 both directly involve E[|~g_mk|²] = β_mk − γ_mk.
+      If the authors had ignored estimation error, they would get an
+      overly optimistic rate bound.
+
+  F4. ONLY THE β_mk's (not the h_mk's) ARE NEEDED FOR POWER OPTIMIZATION.
+      Because the rate expressions (5) and (13) depend only on β_mk and
+      γ_mk (the latter a deterministic function of β_mk), the NC can
+      do power optimization using only slow-varying large-scale fading
+      coefficients. This is crucial for keeping backhaul traffic low:
+      power coefficients only need to be updated when β changes, which
+      is ~40× slower than h changes.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — HISTORICAL / PRIOR DEVELOPMENT
+════════════════════════════════════════════════════════════════════════════════
+
+The tools used in Section II are classical, but they sit atop a particular
+historical scaffold worth walking through.
+
+(a) THE √(β) · h FACTORIZATION.
+    This two-scale channel decomposition (slow large-scale × fast
+    small-scale) was formalized in distributed-antenna-system (DAS)
+    literature in the 1990s, tracing back to foundational work by
+    Saleh-Valenzuela and to path-loss/shadowing measurement campaigns
+    from the 1970s–1990s (Okumura-Hata, COST-231). The factorization is
+    *universally* used in cellular modeling.
+
+(b) OFDM + FLAT-FADING-PER-SUBCARRIER ABSTRACTION.
+    The principle that OFDM converts a frequency-selective channel into
+    a bank of parallel flat sub-channels was published by Weinstein and
+    Ebert in 1971 and adopted for 802.11a (1999) and LTE (2009). This
+    abstraction is what lets the paper suppress the subcarrier index
+    and pretend every subcarrier is an independent SISO-flat problem.
+
+(c) TDD + CHANNEL RECIPROCITY IN MASSIVE MIMO.
+    Marzetta's 2010 paper [2] recognized that TDD is not just "nice to
+    have" for Massive MIMO — it's *mandatory*. The number of pilots needed
+    in FDD scales with the number of base-station antennas (M), which
+    would be catastrophic for M = 128. In TDD, it scales only with the
+    number of users (K). All cell-free Massive MIMO papers ([21], [22],
+    and this one) inherit this architectural constraint.
+
+(d) MMSE CHANNEL ESTIMATION.
+    The MMSE estimator for a scalar Gaussian observation y = a·x + n, with
+    x, n independent Gaussian, is a staple of estimation theory — see
+    Kay Vol I Chapter 11 [24]. The paper directly cites this textbook. The
+    derivation we walked through (projection onto the orthogonal pilot
+    direction, then scalar MMSE) is the standard recipe used in:
+      - Marzetta (2010) [2],
+      - Ngo, Larsson, Marzetta "Energy and Spectral Efficiency of Very
+        Large Multiuser MIMO Systems" (IEEE Trans. Commun., 2013),
+      - Björnson, Hoydis, Sanguinetti "Massive MIMO Networks" monograph
+        (2017).
+
+(e) PILOT CONTAMINATION.
+    First articulated as a fundamental performance limit of Massive MIMO
+    by Marzetta (2010) [2]. The pilot-contamination phenomenon became a
+    cottage industry of 2012–2018 literature, with solutions ranging from
+    pilot coordination, to pilot-reuse with channel covariance exploitation
+    (Yin, Gesbert, Cottatellucci [20]), to blind pilot decontamination
+    (Müller et al.). The present paper *escapes* the whole literature by
+    assuming enough coherence-time to give every user an orthogonal pilot
+    — a luxury only available under low mobility.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — MATHEMATICAL DETAILS (Unicode)
+════════════════════════════════════════════════════════════════════════════════
+
+Collected in one place, the key quantities from Section II:
+
+--------------------------------------------------------------------------------
+4.1  BOXED EQUATIONS
+--------------------------------------------------------------------------------
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (1):   CHANNEL COEFFICIENT                                            │
+│                                                                          │
+│     g_mk  =  √(β_mk) · h_mk                                              │
+│                                                                          │
+│   • β_mk:  large-scale fading (deterministic from geometry)              │
+│   • h_mk ~ 𝒞𝒩(0, 1):  small-scale fading (Rayleigh)                    │
+│   • g_mk ~ 𝒞𝒩(0, β_mk)                                                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (*):   UPLINK PILOT RECEIVED SIGNAL (τ-dimensional)                   │
+│                                                                          │
+│     y_m  =  √(ρ_r · τ) · Σᵢ₌₁ᴷ g_mi · ψ_i  +  w_m                       │
+│                                                                          │
+│   • ρ_r:  uplink pilot power (SNR-normalized)                            │
+│   • τ ≥ K: pilot length                                                  │
+│   • ψ_i ∈ ℂ^τ, ψ_iᴴ ψ_j = δ_{ij}                                        │
+│   • w_m ~ 𝒞𝒩(0, I_τ)                                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ MMSE ESTIMATOR:                                                          │
+│                                                                          │
+│     ĝ_mk  =  [ √(ρ_r τ) · β_mk / (1 + ρ_r τ · β_mk) ] · ψ_kᴴ · y_m      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (2):   DISTRIBUTIONS OF ESTIMATE AND ERROR                            │
+│                                                                          │
+│     ĝ_mk  ~ 𝒞𝒩(0, γ_mk)                                                │
+│     ~g_mk ~ 𝒞𝒩(0, β_mk − γ_mk)                                         │
+│     ĝ_mk ⊥ ~g_mk                                                        │
+│                                                                          │
+│   where                                                                  │
+│                                                                          │
+│     γ_mk  =  (ρ_r · τ · β_mk²) / (1 + ρ_r · τ · β_mk)                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+--------------------------------------------------------------------------------
+4.2  DERIVATION OF γ_mk FROM FIRST PRINCIPLES
+--------------------------------------------------------------------------------
+
+Starting from the scalar observation after pilot projection:
+
+       y_{m,k}  =  √(ρ_r τ) · g_mk  +  n_{m,k},
+            g_mk ~ 𝒞𝒩(0, β_mk),
+            n_{m,k} ~ 𝒞𝒩(0, 1),
+            g_mk ⊥ n_{m,k}.
+
+Step 1 — cross-correlation:
+       E[g_mk · y_{m,k}ᴴ]  =  E[g_mk · ( √(ρ_r τ) · g_mk + n_{m,k} )ᴴ]
+                           =  √(ρ_r τ) · E[|g_mk|²]
+                           =  √(ρ_r τ) · β_mk.
+
+Step 2 — auto-correlation of observation:
+       E[|y_{m,k}|²]  =  ρ_r · τ · β_mk  +  1.
+
+Step 3 — MMSE coefficient:
+       c_mk  =  E[g_mk · y_{m,k}ᴴ] / E[|y_{m,k}|²]
+            =  √(ρ_r τ) · β_mk / (1 + ρ_r τ · β_mk).
+
+Step 4 — MMSE estimate:
+       ĝ_mk  =  c_mk · y_{m,k}
+            =  [ √(ρ_r τ) · β_mk / (1 + ρ_r τ · β_mk) ] · ψ_kᴴ y_m.
+
+Step 5 — variance of ĝ_mk:
+       Var(ĝ_mk)  =  |c_mk|² · Var(y_{m,k})
+                  =  [ρ_r τ · β_mk² / (1 + ρ_r τ · β_mk)²] · (1 + ρ_r τ · β_mk)
+                  =  ρ_r · τ · β_mk² / (1 + ρ_r · τ · β_mk)
+                  ≡  γ_mk.          ✓
+
+Step 6 — variance of error:
+       Var(~g_mk) = Var(g_mk) − Var(ĝ_mk)   (orthogonality principle)
+                  = β_mk − γ_mk
+                  = β_mk · [1 − (ρ_r τ β_mk / (1 + ρ_r τ β_mk))]
+                  = β_mk / (1 + ρ_r τ β_mk).                        (♦)
+
+The compact form (♦) is useful in later calculations and is equivalent to
+β_mk − γ_mk. The paper uses both forms interchangeably.
+
+--------------------------------------------------------------------------------
+4.3  THE ORTHOGONALITY PRINCIPLE (why ĝ_mk ⊥ ~g_mk)
+--------------------------------------------------------------------------------
+
+For a linear MMSE estimator, the error is orthogonal (uncorrelated) to the
+estimate. Proof sketch:
+
+       E[~g_mk · ĝ_mkᴴ]
+     = E[(g_mk − ĝ_mk) · ĝ_mkᴴ]
+     = E[g_mk · ĝ_mkᴴ] − E[|ĝ_mk|²]
+     = E[g_mk · c_mkᴴ · y_{m,k}ᴴ] − γ_mk
+     = c_mkᴴ · E[g_mk · y_{m,k}ᴴ] − γ_mk
+     = c_mkᴴ · (√(ρ_r τ) · β_mk) − γ_mk
+     = [ √(ρ_r τ) · β_mk / (1 + ρ_r τ β_mk) ] · √(ρ_r τ) · β_mk − γ_mk
+     = ρ_r · τ · β_mk² / (1 + ρ_r τ β_mk) − γ_mk
+     = γ_mk − γ_mk  =  0.    ✓
+
+Since both ĝ_mk and ~g_mk are Gaussian (both are linear combinations of
+jointly Gaussian variables), uncorrelated ⟹ independent. This is used
+repeatedly in Appendix A of the paper when computing the variances of
+T₀, T₁, T₂, T₃.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 5 — NUMERICAL EXAMPLE
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+5.1  EXAMPLE 1: γ_mk at typical parameter values
+--------------------------------------------------------------------------------
+
+Parameters from Section VI:
+   ρ_r   =  200 mW (uplink max)
+   noise variance at AP =  σ²_w  =  k_B · T · B · NF
+         =  (1.38·10⁻²³) · 290 · (20·10⁶) · 10^(9/10)
+         ≈  6.37 · 10⁻¹⁴ W
+         ≈  −131.96 dBm.
+
+Normalized uplink power (the ρ_r used in equations is
+     ρ̃_r = ρ_r(W) / σ²_w):
+     ρ̃_r = (200·10⁻³) / (6.37·10⁻¹⁴) ≈ 3.14·10¹² ≈ 124.96 dB.
+
+Pilot length τ = K = 16.
+
+Case A — AP close to the user (d_mk = 50 m = 0.05 km):
+   Using the COST-Hata model:
+     10·log₁₀(β_mk) = −136 − 35·log₁₀(0.05) + X_mk
+                    = −136 − 35·(−1.301)
+                    = −136 + 45.5
+                    = −90.5 dB   (ignoring shadowing).
+     β_mk ≈ 10⁻⁹·⁰⁵ ≈ 8.91 · 10⁻¹⁰.
+
+   Now compute ρ̃_r · τ · β_mk:
+     = 3.14·10¹² · 16 · 8.91·10⁻¹⁰
+     ≈ 4.48·10⁴.
+
+   This is ≫ 1, so γ_mk is almost β_mk:
+     γ_mk / β_mk ≈ 4.48·10⁴ / (1 + 4.48·10⁴) ≈ 0.9999777.
+   Error fraction:
+     (β_mk − γ_mk) / β_mk ≈ 2.23·10⁻⁵.
+   Interpretation: AP is close, pilot SNR is enormous, estimation is
+   near-perfect.
+
+Case B — AP far from the user (d_mk = 1 km):
+     10·log₁₀(β_mk) = −136 − 35·log₁₀(1) + 0 = −136 dB.
+     β_mk ≈ 10⁻¹³·⁶ ≈ 2.51 · 10⁻¹⁴.
+     ρ̃_r · τ · β_mk ≈ 3.14·10¹² · 16 · 2.51·10⁻¹⁴ ≈ 1.26.
+
+   This is near unity — the "transition zone":
+     γ_mk / β_mk ≈ 1.26 / 2.26 ≈ 0.558.
+   About half the channel power can be estimated, half remains as error.
+
+Case C — AP very far (d_mk = 2 km):
+     10·log₁₀(β_mk) = −136 − 35·log₁₀(2) ≈ −146.5 dB,
+     β_mk ≈ 2.24 · 10⁻¹⁵,
+     ρ̃_r · τ · β_mk ≈ 0.112.
+   γ_mk / β_mk ≈ 0.112 / 1.112 ≈ 0.1006.
+   Only ~10% of the (already tiny) channel power can be estimated —
+   essentially useless.
+
+These numbers explain why in the cell-free power-optimization problem,
+only a FEW dominant nearby APs really contribute to each user; the
+far-away APs have effectively no useful channel state.
+
+--------------------------------------------------------------------------------
+5.2  PRACTICE PROBLEM
+--------------------------------------------------------------------------------
+
+PROBLEM 1. Consider AP m and user k with:
+     β_mk  =  10⁻¹⁰   (i.e., a path-loss of 100 dB),
+     ρ_r (normalized) = 10⁹   (90 dB uplink SNR),
+     τ = 20.
+
+Find γ_mk, β_mk − γ_mk, and the fraction of channel power captured by
+the estimate.
+
+ANSWER.
+     ρ_r τ β_mk = 10⁹ · 20 · 10⁻¹⁰ = 2.0.
+     γ_mk = (2.0 · 10⁻¹⁰) / (1 + 2.0) = 10⁻¹⁰ · (2/3) ≈ 6.67 · 10⁻¹¹.
+     β_mk − γ_mk = 10⁻¹⁰ − 6.67 · 10⁻¹¹ = 3.33 · 10⁻¹¹.
+     Fraction captured: γ_mk / β_mk = 2/3 ≈ 66.7%.
+
+
+PROBLEM 2 (harder). Given β_mk and target accuracy η (i.e., you want
+γ_mk / β_mk ≥ 1 − η), find the minimum required pilot length τ_min in
+terms of ρ_r, β_mk, and η.
+
+ANSWER.
+     Require:   (ρ_r τ β_mk) / (1 + ρ_r τ β_mk)  ≥  1 − η
+           ⟺   ρ_r τ β_mk  ≥  (1 − η)(1 + ρ_r τ β_mk)
+           ⟺   ρ_r τ β_mk  ≥  (1 − η) + (1 − η) · ρ_r τ β_mk
+           ⟺   η · ρ_r τ β_mk  ≥  (1 − η)
+           ⟺   τ  ≥  (1 − η) / (η · ρ_r · β_mk).
+
+     Example: η = 0.05 (5% error), ρ_r = 10¹², β_mk = 10⁻¹³
+              τ_min  =  0.95 / (0.05 · 10¹² · 10⁻¹³) = 0.95 / 0.005 = 190.
+     So you would need 190 orthogonal pilot symbols — consistent with
+     the intuition that far-APs need long pilots for good estimation.
+
+This shows why increasing the uplink power ρ_r (or the coherence interval
+τ_c that permits larger τ) is so effective at reducing estimation error.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 6 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+SYSTEM MODEL (II-A):
+  • M ≫ K single-antenna APs, K single-antenna users, area ≤ 2×2 km²
+    (constrained by OFDM CP length).
+  • Flat-fading per subcarrier (thanks to OFDM).
+  • Channel:  g_mk  =  √(β_mk) · h_mk,  with h_mk ~ 𝒞𝒩(0, 1).
+  • TDD operation + channel reciprocity → uplink pilots give downlink CSI
+    with overhead O(K), not O(M).
+  • NC knows all β_mk (slowly varying, trackable).
+  • User mobility ≤ 10 km/h → large coherence interval → orthogonal
+    pilots for every user → no pilot contamination.
+
+CHANNEL ESTIMATION (II-B):
+  • K users transmit mutually orthonormal pilots ψ_k ∈ ℂ^τ (τ ≥ K).
+  • Each AP receives y_m = √(ρ_r τ) Σᵢ g_mi ψ_i + w_m.
+  • MMSE estimator (Eq. 2):
+       ĝ_mk = [√(ρ_r τ) · β_mk / (1 + ρ_r τ · β_mk)] · ψ_kᴴ y_m.
+  • Estimate and error distributions:
+       ĝ_mk  ~ 𝒞𝒩(0, γ_mk),
+       ~g_mk ~ 𝒞𝒩(0, β_mk − γ_mk),
+    with
+       γ_mk = ρ_r τ · β_mk² / (1 + ρ_r τ · β_mk).
+  • ĝ_mk and ~g_mk are uncorrelated (and, being Gaussian, independent).
+  • The "estimation quality factor" γ_mk / β_mk = ρ_r τ β_mk / (1+ρ_r τ β_mk)
+    goes to 1 for nearby APs and to 0 for distant APs.
+
+DESIGN TAKE-AWAYS CARRIED FORWARD:
+  1. Rate bounds in Sections III and IV depend only on β_mk and γ_mk,
+     i.e., only on slowly-varying large-scale fading. Power coefficients
+     can be recomputed infrequently → very low backhaul traffic.
+  2. The channel estimation error will materially affect the SINR
+     expressions via terms like Σᵢ η_mi β_mk γ_mi or Σᵢ η_i ν_{ki}
+     (see Eq. 5 and Eq. 13 in the paper).
+  3. The low-mobility assumption is a deliberate simplification to
+     isolate the power-control problem from pilot-contamination.
+     Sections III and IV would need modification in a high-mobility
+     regime (see Ngo et al. [22] for that variant).
+
+EQUATIONS INTRODUCED IN SECTION II (that will be reused):
+  (1)   g_mk = √(β_mk) · h_mk
+  (*)   y_m = √(ρ_r τ) Σᵢ g_mi ψ_i + w_m    (uplink pilot received signal)
+  (MMSE) ĝ_mk = [√(ρ_r τ) β_mk / (1 + ρ_r τ β_mk)] · ψ_kᴴ y_m
+  (2)   ĝ_mk ~ 𝒞𝒩(0, γ_mk),  ~g_mk ~ 𝒞𝒩(0, β_mk − γ_mk)
+  (γ)   γ_mk = ρ_r τ β_mk² / (1 + ρ_r τ β_mk)
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[2]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited numbers
+     of base station antennas," IEEE Trans. Wireless Commun., vol. 9, no. 11,
+     pp. 3590–3600, Nov. 2010.  [TDD + reciprocity justification.]
+
+[20] H. Yin, D. Gesbert, L. Cottatellucci, "Dealing with interference in
+     distributed large-scale MIMO systems: A statistical approach," IEEE J.
+     Sel. Topics Signal Process., vol. 8, no. 5, pp. 942–953, Oct. 2014.
+     [Pilot decontamination via statistical CSI.]
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+     [High-mobility pilot contamination handling.]
+
+[23] T. L. Marzetta, "How much training is required for multiuser MIMO?"
+     Proc. IEEE Asilomar Conf. Signals, Systems, Computers, Oct. 2006,
+     pp. 359–363.  [TDD training protocol.]
+
+[24] S. M. Kay, Fundamentals of Statistical Signal Processing, Volume I:
+     Estimation Theory. Prentice Hall, 1993. Chapter 11 (MMSE Estimation).
+     [Textbook derivation of MMSE for Gaussian signals.]
+
+Additional background (not cited in the paper but useful):
+
+- S. Weinstein and P. Ebert, "Data Transmission by Frequency-Division
+  Multiplexing Using the Discrete Fourier Transform," IEEE Trans. Commun.,
+  vol. 19, no. 5, pp. 628–634, Oct. 1971.  [Foundational OFDM paper.]
+
+- H. Q. Ngo, E. G. Larsson, and T. L. Marzetta, "Energy and Spectral
+  Efficiency of Very Large Multiuser MIMO Systems," IEEE Trans. Commun.,
+  vol. 61, no. 4, pp. 1436–1449, Apr. 2013.  [Canonical MMSE channel
+  estimation in Massive MIMO.]
+
+- E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+  Spectral, Energy, and Hardware Efficiency," Foundations and Trends in
+  Signal Processing, vol. 11, nos. 3–4, pp. 154–655, 2017.  [Comprehensive
+  treatment of MMSE estimation, channel hardening, and TDD operation.]
+
+================================================================================
+END OF SECTION II ANALYSIS  (System Model and Channel Estimation)
+================================================================================

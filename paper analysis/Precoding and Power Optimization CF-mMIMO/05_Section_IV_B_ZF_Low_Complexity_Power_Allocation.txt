@@ -1,0 +1,791 @@
+================================================================================
+ PAPER ANALYSIS — SECTION IV, PART 2 of 2
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Section analyzed: IV-B (Low Complexity Power Allocation Algorithm),
+                   Lemma 2 (Appendix E), Eq. (21), Proposition 2
+                   (Appendix F), complexity analysis.
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+In the previous file we saw that the optimal max-min power allocation for
+ZF can be solved via bisection + a cheap linear-system check per step
+(thanks to Lemma 1 and Corollary 1). That's already much better than the
+CB case, but Section IV-B goes one step further: it gives a CLOSED-FORM
+approximate power allocation that requires NO bisection at all, and
+proves that this closed-form solution is NEAR-OPTIMAL when the uplink
+pilot power is large enough.
+
+THE BIG IDEA. Ask yourself: what does the max-min ZF problem look like if
+we assume PERFECT channel estimation (no estimation error at all)? In
+this "perfect CSI" regime, the SINR formula (13) simplifies enormously —
+the denominator becomes just 1, because ν_{ki} = 0. The SINR is now
+simply ρ_f · η_k, which is LINEAR in η_k. The max-min problem becomes a
+LINEAR PROGRAM with per-AP constraints — trivially solvable.
+
+LEMMA 2 gives the solution of this perfect-CSI max-min LP in CLOSED FORM:
+
+  (i)  There exists at least one AP m₀ that transmits at full power.
+  (ii) All K users receive the same power coefficient:
+          η_1^pc = η_2^pc = ⋯ = η_K^pc = 1 / (Σᵢ ν_{m₀i}^pc).
+  (iii) AP m₀ is the one with the LARGEST Σᵢ ν_{m₀i}^pc — the
+        "bottleneck" AP.
+
+In words: the optimal perfect-CSI solution is DETERMINED BY THE WORST AP.
+You set all users' power to the maximum that AP m₀ can support, and
+that's it.
+
+NOW, THE AUTHORS' INSIGHT. Even though the REAL system has channel
+estimation error, at high enough uplink pilot SNR the error is small
+enough that the Lemma 2 formula is nearly optimal. They propose using
+Eq. (21) directly:
+
+  η_k^apx  =  1 / max_m (Σᵢ ν_mi),   same for all k,
+
+where ν_mi is the REAL (not perfect-CSI) statistic defined in (15),
+which INCLUDES the estimation error. No bisection, no iterative
+solving, nothing. Just compute ν_mi, find the AP with the largest row
+sum, and set η to its reciprocal.
+
+PROPOSITION 2 makes this rigorous: for any ε > 0, there exists an uplink
+pilot power threshold ρ_r(ε) such that, when the uplink power exceeds
+this threshold, the SINR achieved by the closed-form η^apx differs from
+the optimal SINR by at most ε. The proof uses continuity of the
+optimal-solution map (Lemma 1) and the fact that ν → ν^pc as pilot
+power grows.
+
+COMPLEXITY. Computing η^apx costs essentially O(MK²), which is the same
+as the cost of computing the ZF precoding matrix itself. So the power
+allocation is "free" relative to the precoder computation. This is a
+spectacular result: a near-optimal max-min power allocation for ZF at no
+additional asymptotic complexity.
+
+WHY THIS WORKS — INTUITIVELY.
+  • Lemma 2 says the perfect-CSI solution is controlled by the bottleneck
+    AP.
+  • In reality, the bottleneck AP is usually the one closest to some
+    user, because close APs have high γ values and thus high ν values.
+  • Close APs have LOW channel estimation error (large γ / β ratio), so
+    for THEM, perfect CSI is nearly true.
+  • Far APs have high estimation error, but their ν_mi is small, so they
+    don't affect the bottleneck.
+  • Hence the formula that depends on the bottleneck AP's statistics is
+    accurate in the regime that matters.
+
+This elegant argument is one of the highlights of the paper: it transforms
+a high-complexity iterative problem into a trivial formula, with rigorous
+near-optimality guarantees.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+2.1  THE PERFECT-CSI SIMPLIFICATION
+--------------------------------------------------------------------------------
+
+Start from the ZF SINR formula (Eq. 13):
+
+                           ρ_f · η_k
+       SINR_{k,ZF}(η)  =  ──────────────────────
+                           1 + ρ_f · Σᵢ η_i · ν_{ki}
+
+where ν_{ki} is the interference leakage due to channel estimation error
+(Eq. 14). Recall that ν_{ki} depends on the error variance (β_mk − γ_mk),
+which vanishes as the uplink pilot SNR ρ_r · τ · β_mk → ∞.
+
+SETTING ν_{ki} → 0 (perfect CSI):
+
+       SINR_{k,ZF}^{pc}  =  ρ_f · η_k^{pc}.                        (19a)
+
+The SINR is now LINEAR in the power coefficient. The max-min problem
+becomes:
+
+       maximize_{η^{pc}}   min_k  ρ_f · η_k^{pc}                   (19)
+
+       subject to          Σᵢ₌₁ᴷ η_i^{pc} · ν_{mi}^{pc}  ≤  1,   ∀m, (19b)
+
+where ν_{mi}^{pc} is the perfect-CSI version of the per-AP power
+coefficient (Eq. 20):
+
+       ν_m^{pc}  =  diag{ 𝔼[(GᵀG*)⁻¹ · g_{[m]} · g_{[m]}ᴴ · (GᵀG*)⁻¹] }
+                                                                  (20)
+
+obtained by replacing all Ĝ by G (true channel) in Eq. (15).
+
+--------------------------------------------------------------------------------
+2.2  LEMMA 2 — CLOSED-FORM PERFECT-CSI SOLUTION (Appendix E)
+--------------------------------------------------------------------------------
+
+STATEMENT. Let η^{pc} = (η_1^{pc}, …, η_K^{pc}) be the optimal solution of
+(19). Then:
+
+  (A) There exists at least one AP m₀ ∈ {1, …, M} that transmits at full
+      power, i.e.,
+
+             Σᵢ₌₁ᴷ η_i^{pc} · ν_{m₀ i}^{pc}  =  1.                  (full-power AP)
+
+  (B) The optimal power coefficients are uniform and equal to:
+
+             η_1^{pc}  =  η_2^{pc}  =  ⋯  =  η_K^{pc}
+                        =  1 / (Σᵢ₌₁ᴷ ν_{m₀ i}^{pc}).               (uniform)
+
+PROOF (reworked from Appendix E).
+
+Step 1: Some AP must be at full power.
+
+Suppose, for contradiction, that NO AP is at full power, i.e., for every
+m, Σᵢ η_i^{pc} · ν_{mi}^{pc} < 1. Let p_m := Σᵢ η_i^{pc} · ν_{mi}^{pc}
+denote the per-AP spent power fraction. Define
+
+       p_max  :=  max_m  p_m  <  1.
+
+Now SCALE UP the power coefficients: replace each η_i^{pc} by
+η_i' := η_i^{pc} / p_max. Then η_i' > η_i^{pc} strictly. The new per-AP
+usage becomes p_m / p_max, which is ≤ 1 for all m (with equality at the
+m that achieved p_max). So η' is feasible, and its SINRs
+ρ_f · η_i' > ρ_f · η_i^{pc}. This contradicts the optimality of η^{pc}. ∎
+Step 1.
+
+So there exists m₀ with Σᵢ η_i^{pc} · ν_{m₀ i}^{pc} = 1.
+
+Step 2: All η_k^{pc} are equal.
+
+Define:
+       η_ℓ^{pc}  :=  min_k η_k^{pc}
+       η_u^{pc}  :=  max_k η_k^{pc}.
+
+Suppose (for contradiction) that η_ℓ^{pc} < η_u^{pc}. The paper's idea is
+to CONSTRUCT a new feasible vector η̃^{pc} such that:
+
+    - η̃_ℓ^{pc} > η_ℓ^{pc},
+    - η̃_u^{pc} < η_u^{pc},
+    - The minimum SINR IMPROVES: min_k SINR_k(η̃^{pc}) > min_k SINR_k(η^{pc}).
+
+Under max-min, the min SINR equals ρ_f · η_ℓ (since η_ℓ is the smallest
+component). If we can increase η_ℓ while satisfying per-AP constraints,
+we improve the max-min SINR.
+
+The key is to "steal" power from user u to give to user ℓ in a way that
+respects the per-AP constraints. The paper does this by defining:
+
+       c  :=  ν_{m₀ ℓ}^{pc} / ν_{m₀ u}^{pc}
+
+(the ratio of the ℓ-th and u-th columns of ν_{m₀}, at the bottleneck AP).
+
+If we transfer c units of η_u "backwards" into one unit of η_ℓ:
+       η̃_ℓ  =  η_ℓ + δ,
+       η̃_u  =  η_u − c · δ,
+where δ > 0, the per-AP m₀ constraint change is:
+
+       Δ(power at AP m₀)  =  ν_{m₀ ℓ}^{pc} · δ − ν_{m₀ u}^{pc} · (c · δ)
+                           =  (ν_{m₀ ℓ}^{pc} − ν_{m₀ u}^{pc} · c) · δ
+                           =  0.
+
+So the transfer at AP m₀ is NEUTRAL. At OTHER APs m ≠ m₀, the change is:
+
+       Δ(power at AP m)  =  (ν_{mℓ}^{pc} − ν_{mu}^{pc} · c) · δ.
+
+This may be positive (violating feasibility) or negative (improving it).
+To ensure feasibility, choose δ small enough that no AP's constraint is
+violated. There always exists such a δ > 0 (because the constraints were
+strict at m ≠ m₀).
+
+With this transfer, η̃_ℓ = η_ℓ + δ > η_ℓ. The new minimum SINR is:
+       min_k SINR_k(η̃)  =  ρ_f · min_k η̃_k.
+Since we increased η_ℓ (previously the minimum) and the minimum is still
+dominated by small values (which are now no smaller than η_ℓ + δ), the
+min has strictly improved. This contradicts the optimality of η^{pc}. ∎
+Step 2.
+
+CONCLUSION. All η_k^{pc} are equal to some common value η^{pc}. From
+the full-power AP m₀, we have:
+
+       η^{pc} · (Σᵢ₌₁ᴷ ν_{m₀ i}^{pc})  =  1
+       ⟹   η^{pc}  =  1 / (Σᵢ₌₁ᴷ ν_{m₀ i}^{pc}).
+
+And since m₀ is the bottleneck (the AP with the largest Σᵢ ν_{mi}^{pc}),
+we can state the final result as:
+
+       η^{pc}  =  1 / ( max_m  Σᵢ₌₁ᴷ ν_{mi}^{pc} ).
+
+This is Lemma 2. The solution is: uniform power, determined by the
+worst-case AP. ∎
+
+--------------------------------------------------------------------------------
+2.3  THE HEURISTIC APPROXIMATE SOLUTION (Eq. 21)
+--------------------------------------------------------------------------------
+
+Nayebi et al. take this beautiful perfect-CSI solution and USE IT
+DIRECTLY with the real (non-perfect-CSI) statistics ν_{mi} from Eq. (15):
+
+       η_1^apx  =  η_2^apx  =  ⋯  =  η_K^apx
+               =  1 / ( max_m  Σᵢ₌₁ᴷ ν_{mi} ).                     (21)
+
+Note the CRUCIAL difference from Lemma 2: we use ν_{mi} (which INCLUDES
+channel estimation error effects) in the real system, not ν_{mi}^{pc}.
+The closed-form structure (uniform η, reciprocal of bottleneck row sum)
+is borrowed from the perfect-CSI case, but the ν values are real.
+
+The resulting SINR (plugging η^apx into Eq. 13):
+
+       SINR_{k,ZF}(η^apx)  =  (ρ_f · η^apx) / (1 + ρ_f · η^apx · Σᵢ ν_{ki})
+                            =  1 / (1/(ρ_f · η^apx) + Σᵢ ν_{ki}).
+
+This is generally DIFFERENT for different k, because the ν_{ki} row sums
+differ across k. So the heuristic does NOT equalize SINRs (the true
+max-min would). But it is a cheap approximation, and Proposition 2
+proves it is near-optimal for large uplink pilot power.
+
+--------------------------------------------------------------------------------
+2.4  WHY IS η^apx NEAR-OPTIMAL? — INTUITIVE ARGUMENT
+--------------------------------------------------------------------------------
+
+The paper gives an intuitive sketch. Recall from Section II (Eq. 2) that
+
+       Var(~g_mk) / Var(ĝ_mk)  =  (β_mk − γ_mk) / γ_mk
+                                 =  1 / (ρ_r · τ · β_mk).
+
+So the ratio of estimation-error power to estimate power at (AP m, user k)
+is inversely proportional to ρ_r · τ · β_mk.
+
+For APs CLOSE TO USER k (large β_mk), this ratio is SMALL — estimation is
+nearly perfect. For APs FAR FROM USER k (small β_mk), the ratio is large
+— estimation is poor.
+
+Now, the ZF precoder's contribution to user k's signal is dominated by
+the close APs (they have large β_mk, hence large contributions through
+the pseudoinverse). Far APs contribute little to the precoded signal, so
+even if their channel estimates are noisy, the NOISE IN THE CONTRIBUTION
+is small in absolute terms.
+
+In other words: where estimation is accurate, the signal is strong; where
+estimation is inaccurate, the signal is weak anyway. The error and the
+useful signal are BOTH CONCENTRATED NEAR THE USER, so perfect-CSI analysis
+is approximately correct.
+
+This is why the perfect-CSI Lemma 2 formula carries over so well to the
+real-world case.
+
+--------------------------------------------------------------------------------
+2.5  PROPOSITION 2 — RIGOROUS ε-OPTIMALITY (Appendix F)
+--------------------------------------------------------------------------------
+
+STATEMENT. Let η^opt and η^apx respectively denote the optimal solution
+of the max-min ZF problem (17) and the power coefficients defined by
+(21). For every ε > 0, there exists a threshold ρ_r(ε) such that whenever
+the uplink pilot transmit power ρ_r > ρ_r(ε),
+
+       | SINR_{k,ZF}(η^opt) − SINR_{k,ZF}(η^apx) |  <  ε,   ∀k.
+
+In words: with enough uplink pilot power, the heuristic is arbitrarily
+close to optimal.
+
+PROOF (sketched from Appendix F).
+
+The proof uses THREE continuity arguments.
+
+(1) CONTINUITY OF η^opt IN (ν_k, ν_m).
+    From Lemma 1 we know that the optimal power vector is the unique
+    solution of a linear system (I − tB)η = d. Since the entries of B
+    and d depend continuously on ν_k and ν_m, and since matrix inversion
+    is continuous away from singularities, η^opt(ν_k, ν_m) is a
+    continuous function. Formally: for every ε₁ > 0 there exist
+    ε_k, ε_m > 0 such that
+       ‖η^opt(ν_k, ν_m) − η^opt(ν_k^pc, ν_m^pc)‖ < ε₁/2
+    whenever ‖ν_k − ν_k^pc‖ < ε_k and ‖ν_m − ν_m^pc‖ < ε_m.
+
+(2) CONTINUITY OF η^apx IN ν_m.
+    The formula (21) involves a max over m of a linear function of ν_m,
+    followed by a reciprocal. Both are continuous. So:
+       ‖η^apx(ν_m) − η^apx(ν_m^pc)‖ < ε₁/2 whenever ‖ν_m − ν_m^pc‖ < ε₂.
+
+(3) CONVERGENCE ν → ν^pc AS ρ_r → ∞.
+    Recall γ_mk = ρ_r τ β_mk² / (1 + ρ_r τ β_mk) → β_mk as ρ_r → ∞.
+    Consequently ĝ_mk → g_mk (in the L² sense) and the matrices
+    (ĜᵀĜ*)⁻¹ → (GᵀG*)⁻¹ (in probability, by continuous mapping).
+    The expectations ν_m, ν_k converge to ν_m^pc, ν_k^pc as ρ_r → ∞.
+    So for any ε_k, ε_m > 0, there exists ρ_r(ε_k, ε_m) such that
+       ‖ν_k − ν_k^pc‖ < ε_k  and  ‖ν_m − ν_m^pc‖ < ε_m
+    for all ρ_r > ρ_r(ε_k, ε_m).
+
+(4) COMBINE. By Lemma 2, η^opt(ν_k^pc, ν_m^pc) = η^apx(ν_m^pc), i.e.,
+    the perfect-CSI optimal matches the heuristic (21) EXACTLY at
+    perfect CSI. So:
+       ‖η^opt(ν_k, ν_m) − η^apx(ν_m)‖
+       ≤  ‖η^opt(ν_k, ν_m) − η^opt(ν_k^pc, ν_m^pc)‖
+        + ‖η^apx(ν_m^pc) − η^apx(ν_m)‖                 (triangle)
+       <  ε₁/2 + ε₁/2 = ε₁.
+
+    Finally, SINR_{k,ZF}(η) is a continuous function of η, so small
+    deviation in η yields small deviation in SINR: for any ε > 0 there
+    exists ε₁ > 0 such that
+       ‖η^opt − η^apx‖ < ε₁
+    ⟹  |SINR_{k,ZF}(η^opt) − SINR_{k,ZF}(η^apx)| < ε.
+
+    Putting it all together, for any ε > 0 there exists ρ_r(ε) such
+    that whenever ρ_r > ρ_r(ε), the heuristic is ε-optimal. ∎
+
+REMARK. The paper notes that since all norms on a finite-dimensional
+Banach space are equivalent, the choice of norm (1-norm, 2-norm, ∞-norm,
+Frobenius norm) does not matter for the statement.
+
+--------------------------------------------------------------------------------
+2.6  COMPLEXITY OF COMPUTING η^apx
+--------------------------------------------------------------------------------
+
+The paper's cost analysis is worth reading carefully. The dominant
+step in computing η^apx via Eq. (21) is computing the M vectors ν_m
+(each of length K) from Eq. (15):
+
+       ν_{m,curr}  =  diag{ (ĜᵀĜ*)⁻¹ · ĝ_[m] · ĝ_[m]ᴴ · (ĜᵀĜ*)⁻¹ }.
+
+Let's count operations for ONE AP m:
+  (a) Compute ĜᵀĜ*: cost O(M K²) for the whole matrix (done once for
+      all m). The multiplication of K×M and M×K matrices dominates.
+  (b) Invert (ĜᵀĜ*): cost O(K³). Also done once.
+  (c) For each m, compute (ĜᵀĜ*)⁻¹ · ĝ_[m]: matrix-vector product,
+      cost O(K²) per m, total O(M K²) for all m.
+  (d) For each m, compute ĝ_[m]ᴴ · (above result) giving a scalar;
+      also O(K) per m.
+  (e) For each m, compute outer product ĝ_[m] · ĝ_[m]ᴴ and contract
+      with (ĜᵀĜ*)⁻¹ twice; O(K²) per m.
+  (f) Total for all m: O(M K²).
+
+UNDER THE ASSUMPTION M ≫ K:
+  Dominant cost  =  O(M K²).
+
+This is EXACTLY THE SAME as the cost of computing the ZF precoding
+matrix A = Ĝ* (ĜᵀĜ*)⁻¹. So the power allocation is FREE relative to
+the precoder computation. If the NC was going to compute the precoder
+anyway (which it must, to actually transmit), computing η^apx adds no
+asymptotic burden.
+
+CONTRAST WITH OPTIMAL (17) via Lemma 1 / Corollary 1.
+  Per bisection step:  O(K³) (linear system solve).
+  Number of bisection steps:  O(log(1/ε)).
+  Plus ν_m computation: O(M K²).
+  Total:  O(M K² + K³ · log(1/ε)).
+
+For M = 128, K = 16, ε = 10⁻⁴:
+  MK² = 128 · 256 = 32,768.
+  K³ · log(1/ε) = 4096 · 14 = 57,344.
+  Sum ≈ 90,000 operations.
+
+For η^apx:
+  MK² = 32,768.
+
+The savings are about 2.7× in this regime. For larger K (say K = 64), the
+gap grows because K³ scales cubically:
+  For M = 512, K = 64:
+    MK² = 2,097,152.
+    K³ · log(1/ε) = 262,144 · 14 ≈ 3,670,016.
+  η^apx: 2,097,152.
+  Optimal: 5,767,168.
+  Savings: 2.75× — same ratio.
+
+So η^apx is consistently faster by a factor of ~2-3 for typical
+parameters. More importantly, η^apx requires NO bisection outer loop,
+making it much simpler to implement.
+
+--------------------------------------------------------------------------------
+2.7  PRACTICAL SIGNIFICANCE
+--------------------------------------------------------------------------------
+
+The result is striking: a closed-form heuristic, borrowed from a toy
+perfect-CSI model, is provably near-optimal for the real-world problem.
+
+Three practical consequences:
+
+  1. IMPLEMENTATION IS TRIVIAL. No iterative solvers, no SOCPs, no
+     convex programming libraries. Just matrix arithmetic.
+
+  2. REAL-TIME OPERATION. Power updates can be computed in a single
+     fronthaul roundtrip, with no wait for convergence.
+
+  3. PREDICTABLE LATENCY. The cost is exactly O(MK²) per update — no
+     variance due to SOCP iteration counts or bisection depth.
+
+This is the kind of result that turns an academic algorithm into
+deployable infrastructure.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — HISTORICAL / PRIOR DEVELOPMENT
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+3.1  CLOSED-FORM POWER ALLOCATIONS IN MASSIVE MIMO
+--------------------------------------------------------------------------------
+
+Closed-form power allocation formulas are a recurring theme in massive
+MIMO because the distributed / large-dimensional structure often
+produces "bottleneck" solutions. Key references:
+
+  • H. Q. Ngo, E. G. Larsson, T. L. Marzetta, "The multicell multiuser
+    MIMO uplink with very large antenna arrays and a finite-dimensional
+    channel," IEEE Trans. Commun., vol. 61, no. 6, pp. 2350–2361,
+    Jun. 2013. [Asymptotic performance analysis via large-system limits.]
+
+  • E. Björnson, M. Kountouris, M. Debbah, "Massive MIMO and small cells:
+    Improving energy efficiency by optimal soft-cell coordination,"
+    Proc. 20th ICT, 2013. [Per-AP power constraints in heterogeneous
+    networks.]
+
+  • T. Van Chien, E. Björnson, E. G. Larsson, "Joint power allocation
+    and user association optimization for massive MIMO systems," IEEE
+    Trans. Wireless Commun., vol. 15, no. 9, pp. 6384–6399, Sep. 2016.
+    [Max-min + joint association, similar fractional linear structure.]
+
+The Nayebi et al. 2017 contribution is one of the first closed-form
+near-optimal results for CELL-FREE (rather than cellular) massive MIMO.
+
+--------------------------------------------------------------------------------
+3.2  CONTINUITY ARGUMENTS FOR PERTURBED OPTIMIZATION PROBLEMS
+--------------------------------------------------------------------------------
+
+The proof of Proposition 2 uses a "perturbation-of-optimizer" argument
+that has a long history in optimization theory, going back to:
+
+  • A. V. Fiacco, "Sensitivity analysis for nonlinear programming using
+    penalty methods," Math. Programming, vol. 10, no. 1, pp. 287–311, 1976.
+
+  • J. F. Bonnans, A. Shapiro, Perturbation Analysis of Optimization
+    Problems, Springer, 2000. [Comprehensive treatment.]
+
+The key facts used:
+  (a) The optimal value of a parametric optimization problem is
+      continuous in the parameter (under mild regularity conditions).
+  (b) The optimizer itself is continuous when it is unique.
+
+In the paper's context, the "parameter" is the matrix pair (ν_k, ν_m),
+and the "optimization problem" is (17). Lemma 1 establishes uniqueness
+of the optimal solution (up to equality), which is why continuity applies.
+
+--------------------------------------------------------------------------------
+3.3  PILOT POWER SCALING IN MASSIVE MIMO
+--------------------------------------------------------------------------------
+
+The argument that "for large ρ_r, estimation is good and perfect CSI
+analysis applies" is a staple of Massive MIMO asymptotics:
+
+  • H. Q. Ngo, E. G. Larsson, T. L. Marzetta, "Energy and spectral
+    efficiency of very large multiuser MIMO systems," IEEE Trans.
+    Commun., vol. 61, no. 4, pp. 1436–1449, Apr. 2013.
+
+They show that when the uplink pilot power ρ_r is scaled as (constant)/√M
+or similar, the massive MIMO array gain still dominates and perfect CSI
+performance is asymptotically achieved. The Nayebi et al. Proposition 2
+is a finite-dimensional, non-asymptotic version of the same intuition,
+stated as an ε-threshold bound.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — MATHEMATICAL DETAILS (Unicode box summary)
+════════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (19):  PERFECT-CSI MAX-MIN ZF PROBLEM                                 │
+│                                                                          │
+│   max_{η^{pc}}  min_k  ρ_f · η_k^{pc}                                   │
+│                                                                          │
+│   s.t.  Σᵢ η_i^{pc} · ν_{mi}^{pc}  ≤  1,  ∀m ∈ {1,…,M}.                 │
+│                                                                          │
+│   This is a LINEAR PROGRAM. Solution given in Lemma 2.                  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (20):  PERFECT-CSI PER-AP POWER COEFFICIENT                           │
+│                                                                          │
+│     ν_m^{pc}  =  diag{ 𝔼[ (GᵀG*)⁻¹ · g_{[m]} · g_{[m]}ᴴ · (GᵀG*)⁻¹ ] } │
+│                                                                          │
+│  Same structure as (15), with Ĝ replaced by the TRUE channel G.         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ LEMMA 2.  THE PERFECT-CSI SOLUTION IS A UNIFORM BOTTLENECK ALLOCATION.   │
+│                                                                          │
+│   ∃ m₀ ∈ {1,…,M} such that AP m₀ is AT FULL POWER, and                  │
+│                                                                          │
+│     η_1^{pc}  =  η_2^{pc}  =  ⋯  =  η_K^{pc}                            │
+│                                                                          │
+│                 =  1 / ( Σᵢ₌₁ᴷ ν_{m₀ i}^{pc} )                          │
+│                                                                          │
+│                 =  1 / ( max_m Σᵢ ν_{mi}^{pc} ).                        │
+│                                                                          │
+│   Proof: Appendix E (power-transfer argument + uniqueness of bottleneck)│
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (21):  THE CLOSED-FORM HEURISTIC                                      │
+│                                                                          │
+│   η_1^apx  =  η_2^apx  =  ⋯  =  η_K^apx                                 │
+│                                                                          │
+│           =  1 / ( max_m  Σᵢ₌₁ᴷ ν_{mi} )                                │
+│                                                                          │
+│  Uses the REAL ν_{mi} from (15) (which includes estimation error), not  │
+│  the perfect-CSI ν_{mi}^{pc}.                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PROPOSITION 2.  (ε-OPTIMALITY OF HEURISTIC AT HIGH PILOT POWER)         │
+│                                                                          │
+│   For every ε > 0 there exists ρ_r(ε) such that whenever ρ_r > ρ_r(ε), │
+│                                                                          │
+│     |SINR_{k,ZF}(η^opt) − SINR_{k,ZF}(η^apx)|  <  ε,  k=1,…,K.          │
+│                                                                          │
+│   Proof: Appendix F, using continuity of η^opt (Lemma 1),                │
+│   continuity of η^apx (Eq. 21), and ν → ν^pc as ρ_r → ∞.                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ COMPLEXITY:                                                              │
+│                                                                          │
+│   Computing η^apx (Eq. 21):      O(M K²)                                │
+│   Computing η^opt (via bisection + Lemma 1/Corollary 1):                │
+│                                    O(M K² + K³ · log(1/ε))             │
+│   ZF precoding matrix A:          O(M K²)                                │
+│                                                                          │
+│   ⟹ η^apx is "free" relative to the ZF precoder computation.            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 5 — NUMERICAL EXAMPLE
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+5.1  EXAMPLE 1: APPLYING EQ. (21) TO A SMALL SYSTEM
+--------------------------------------------------------------------------------
+
+Take the same M = 3, K = 2, perfect-CSI example from Section IV Part 1
+File, Section 5.1. We had:
+
+   ν_{mi} matrix:
+       ν = |  0.160    0.0292 |   AP 1
+           |  0.040    0.00325|   AP 2
+           |  0.040    0.264  |   AP 3
+
+Row sums:
+   AP 1: 0.160 + 0.0292 = 0.189
+   AP 2: 0.040 + 0.00325 = 0.04325
+   AP 3: 0.040 + 0.264 = 0.304
+
+max_m (row sum) = 0.304, at AP 3.
+
+η^apx = 1 / 0.304 ≈ 3.29.
+
+By Lemma 2, this is the exact perfect-CSI optimal. With real ν (including
+estimation error), it's an approximation; Proposition 2 says it's within
+ε of optimum for high uplink pilot power.
+
+PER-USER SINR (assuming ρ_f = 1 and ν_{ki} ≈ 0 for illustration):
+   SINR_1 = SINR_2 = ρ_f · η^apx = 3.29.
+   R = log₂(4.29) ≈ 2.10 bits/s/Hz.
+
+Compare with CB optimal max-min (from file 2 of Section III) — which
+required bisection + SOCP — giving a similar rate but at much higher
+computational cost.
+
+--------------------------------------------------------------------------------
+5.2  EXAMPLE 2: WITH NON-ZERO ν_{ki}
+--------------------------------------------------------------------------------
+
+Suppose now there is non-zero channel estimation error, and for the SAME
+example we have (roughly):
+
+   ν_{ki} matrix (2×2, user-by-user):
+       ν_k = |  0.05    0.02  |
+             |  0.02    0.07  |
+
+Using η^apx = 3.29 for both users:
+
+   SINR_1  =  ρ_f · η^apx / (1 + ρ_f · (η^apx · 0.05 + η^apx · 0.02))
+          =  3.29 / (1 + 3.29 · 0.07)
+          =  3.29 / (1 + 0.230)
+          =  3.29 / 1.230
+          ≈  2.67.
+   R_1  =  log₂(3.67)  ≈  1.88  bits/s/Hz.
+
+   SINR_2  =  3.29 / (1 + 3.29 · (0.02 + 0.07))
+          =  3.29 / (1 + 0.296)
+          =  3.29 / 1.296
+          ≈  2.54.
+   R_2  =  log₂(3.54)  ≈  1.82  bits/s/Hz.
+
+Minimum rate ≈ 1.82 bits/s/Hz.
+
+The TRUE max-min optimal (17) would re-balance η to equalize SINR_1 and
+SINR_2. In this case, user 2 has slightly higher interference (ν_{2,1}+
+ν_{2,2} = 0.09 vs. ν_{1,1}+ν_{1,2} = 0.07), so the optimal would spend
+slightly MORE on user 2 and slightly LESS on user 1 — but the
+improvement is small (a fraction of a bit/s/Hz).
+
+Proposition 2's guarantee: the gap shrinks to zero as ρ_r → ∞.
+
+--------------------------------------------------------------------------------
+5.3  PRACTICE PROBLEM
+--------------------------------------------------------------------------------
+
+PROBLEM. Consider a cell-free system with M = 5 APs and K = 4 users. The
+(real) ν_{mi} matrix (5×4) is:
+
+       ν = |  0.10   0.05   0.02   0.03 |   AP 1
+           |  0.08   0.06   0.04   0.02 |   AP 2
+           |  0.05   0.12   0.02   0.04 |   AP 3
+           |  0.03   0.02   0.15   0.04 |   AP 4
+           |  0.02   0.03   0.04   0.18 |   AP 5
+
+The interference leakage matrix ν_{ki} (user-by-user, 4×4) is:
+
+       ν_k = |  0.08   0.03   0.01   0.02 |   user 1
+             |  0.03   0.10   0.02   0.01 |   user 2
+             |  0.01   0.02   0.09   0.03 |   user 3
+             |  0.02   0.01   0.03   0.07 |   user 4
+
+ρ_f = 1 (normalized).
+
+(a) Compute η^apx using Eq. (21).
+(b) Compute SINR_k for each user k under η^apx.
+(c) Compute R_k = log₂(1 + SINR_k) for each user.
+(d) What is the minimum rate?
+
+SOLUTION.
+
+(a) Row sums of ν:
+      AP 1:  0.10 + 0.05 + 0.02 + 0.03 = 0.20
+      AP 2:  0.08 + 0.06 + 0.04 + 0.02 = 0.20
+      AP 3:  0.05 + 0.12 + 0.02 + 0.04 = 0.23
+      AP 4:  0.03 + 0.02 + 0.15 + 0.04 = 0.24
+      AP 5:  0.02 + 0.03 + 0.04 + 0.18 = 0.27
+    max_m (row sum) = 0.27, at AP 5.
+    η^apx = 1 / 0.27 ≈ 3.704.
+    (All four users get the same coefficient.)
+
+(b) For each user k, compute Σᵢ η^apx · ν_{ki} = η^apx · Σᵢ ν_{ki}:
+      User 1: 3.704 · (0.08+0.03+0.01+0.02) = 3.704 · 0.14 = 0.519.
+      User 2: 3.704 · (0.03+0.10+0.02+0.01) = 3.704 · 0.16 = 0.593.
+      User 3: 3.704 · (0.01+0.02+0.09+0.03) = 3.704 · 0.15 = 0.556.
+      User 4: 3.704 · (0.02+0.01+0.03+0.07) = 3.704 · 0.13 = 0.481.
+
+    SINR_k = ρ_f · η^apx / (1 + ρ_f · η^apx · Σᵢ ν_{ki})
+          = 3.704 / (1 + above row sum)
+    User 1: 3.704 / 1.519 ≈ 2.438.
+    User 2: 3.704 / 1.593 ≈ 2.325.
+    User 3: 3.704 / 1.556 ≈ 2.381.
+    User 4: 3.704 / 1.481 ≈ 2.501.
+
+(c) Rates:
+    R_1 = log₂(1 + 2.438) = log₂(3.438) ≈ 1.782 bits/s/Hz.
+    R_2 = log₂(1 + 2.325) = log₂(3.325) ≈ 1.734 bits/s/Hz.
+    R_3 = log₂(1 + 2.381) = log₂(3.381) ≈ 1.757 bits/s/Hz.
+    R_4 = log₂(1 + 2.501) = log₂(3.501) ≈ 1.808 bits/s/Hz.
+
+(d) Minimum rate = R_2 ≈ 1.734 bits/s/Hz (user 2 has the worst
+    interference statistics).
+
+OBSERVATION. The heuristic gives SINRs that vary slightly across users
+(user 4 has the lowest interference and thus the highest SINR). The
+true max-min optimum would equalize these — increasing η for user 2
+slightly and decreasing it for user 4. The improvement in min rate
+would be small (~0.02-0.05 bits/s/Hz), at the cost of running a full
+bisection + linear system solver. For most engineering purposes, the
+heuristic is quite sufficient.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 6 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT WE COVERED IN THIS FILE:
+
+  • Perfect-CSI version of the ZF max-min problem (Eq. 19-20).
+  • LEMMA 2: solution is uniform power η^{pc}, bottleneck AP
+    transmits at full power, explicit formula η^{pc} = 1 / max_m Σᵢ ν^{pc}_{mi}.
+  • Proof of Lemma 2 via "power transfer" argument (Appendix E).
+  • THE CLOSED-FORM HEURISTIC (Eq. 21): borrow the Lemma 2 formula with
+    real ν_{mi} values.
+  • Intuitive argument for near-optimality (small estimation error near
+    the bottleneck AP).
+  • PROPOSITION 2: rigorous ε-optimality for large uplink pilot power,
+    proved via continuity of η^opt, η^apx, and ν → ν^{pc} (Appendix F).
+  • Complexity analysis: η^apx costs O(MK²), same as ZF precoder —
+    "free" relative to the precoder itself.
+
+KEY TAKEAWAYS:
+
+  1. The perfect-CSI optimal power allocation has a remarkable CLOSED
+     FORM: uniform power, bottleneck AP at full power.
+  2. Using this closed form directly with REAL ν values gives a
+     near-optimal heuristic — SIMPLICITY HIDDEN IN COMPLEXITY.
+  3. Proposition 2 makes the "near-optimal" statement rigorous with
+     an ε-threshold bound.
+  4. The heuristic is as cheap as computing the ZF precoder itself,
+     making it asymptotically free.
+  5. This is one of the paper's most elegant results: a
+     PERFECT-CSI TOY PROBLEM yields an ALGORITHM that works in the
+     REAL IMPERFECT-CSI WORLD.
+
+WHAT'S NEXT (Section V):
+  • Small-Cell Systems as the comparison baseline. Each user is served
+    by exactly ONE AP (the closest), with K out of M APs active at a
+    time and M − K remaining silent.
+  • Matched-Filter (MF) receiver version, with achievable-rate formula
+    involving the exponential integral Ei(·).
+  • ZF precoder for small cells, with instantaneous and average
+    per-antenna power constraints.
+  • Simulation results will show that cell-free ZF (this Section IV)
+    beats small-cell MF by 5-10× in 5%-outage rate.
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[2]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+     numbers of base station antennas," IEEE Trans. Wireless Commun.,
+     vol. 9, no. 11, pp. 3590–3600, Nov. 2010.
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+
+[28] A. Wiesel, Y. C. Eldar, S. Shamai, "Zero-forcing precoding and
+     generalized inverses," IEEE Trans. Signal Process., vol. 56, no. 9,
+     pp. 4409–4418, Sep. 2008.
+
+Additional background:
+
+- H. Q. Ngo, E. G. Larsson, T. L. Marzetta, "Energy and spectral
+  efficiency of very large multiuser MIMO systems," IEEE Trans. Commun.,
+  vol. 61, no. 4, pp. 1436–1449, Apr. 2013.  [Pilot power scaling in
+  massive MIMO.]
+
+- J. F. Bonnans, A. Shapiro, Perturbation Analysis of Optimization
+  Problems, Springer, 2000.  [Theory of continuity of optimal values
+  and optimizers under parameter perturbation.]
+
+- A. V. Fiacco, "Sensitivity analysis for nonlinear programming using
+  penalty methods," Math. Programming, vol. 10, no. 1, pp. 287–311,
+  1976.  [Early optimization sensitivity results.]
+
+- R. A. Horn, C. R. Johnson, Matrix Analysis, Cambridge Univ. Press,
+  2nd ed., 2013. [Matrix inversion continuity; used implicitly in the
+  proof of Prop. 2.]
+
+- E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks,"
+  Foundations and Trends in Signal Processing, 2017. [Linear precoding
+  and power allocation in the massive MIMO regime.]
+
+================================================================================
+END OF SECTION IV PART 2 ANALYSIS
+(Low-Complexity Power Allocation + Lemma 2 + Proposition 2)
+================================================================================

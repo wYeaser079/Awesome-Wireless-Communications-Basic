@@ -1,0 +1,831 @@
+================================================================================
+ PAPER ANALYSIS — SECTION III, PART 1 of 2
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Section analyzed: III. Conjugate Beamforming — Intro & III-A (Optimal Power
+                   Allocation), with the Appendix A derivation of the
+                   capacity lower bound.
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+At the end of Section II we had: every AP owns an MMSE estimate ĝ_mk of its
+channel to every user. Now we have to USE those estimates to actually
+transmit data. Section III studies the simplest possible way: CONJUGATE
+BEAMFORMING (CB), also called Maximum-Ratio Transmission (MRT).
+
+IDEA IN ONE SENTENCE. To send symbol s_i to user i, AP m multiplies s_i by
+the COMPLEX CONJUGATE of its estimated channel to user i, scaled by a knob
+√(η_mi) it can turn up or down, then sums these contributions for all users.
+
+WHY CONJUGATE? Because of the following elementary fact. If you want the
+signal you transmit, after going through the channel g_mk, to appear
+COHERENTLY (in phase) at user k, you should pre-twist its phase by the
+opposite amount. Multiplying by ĝ*_mk (conjugate of the estimate) exactly
+pre-twists the phase so that when the signal passes through g_mk ≈ ĝ_mk,
+the two phases cancel and you get a positive real number — the amplitude
+adds constructively. If M APs all do this simultaneously, their M separate
+contributions line up in phase at user k and add up, giving a coherent
+power gain that grows with M (this is the classical "beamforming gain").
+
+The catch is that the SAME transmission x_m also reaches users OTHER THAN
+k. Their phases don't align. But on average, because h_mk are i.i.d. across
+k, the interference to user k from signals intended for user j ≠ k looks
+roughly like noise. This is called MULTI-USER INTERFERENCE (MUI) and is
+exactly what CB does not cancel (unlike ZF which cancels it explicitly —
+that's in Section IV).
+
+The key design variables are the K·M power coefficients η_mk — one knob
+per (AP, user) pair. The central question of Section III-A is: how do you
+set all these knobs so that the WORST user gets the best possible SINR,
+subject to the physical constraint that each AP has a max transmit power?
+
+That's a max-min optimization problem. Unfortunately, it is NOT convex in
+its raw form — the SINR numerator is a squared sum of square roots, which
+is quadratic and concave but not linear. It turns out to be QUASI-CONCAVE
+(meaning: the super-level sets {η : SINR_k(η) ≥ t} are convex for each t).
+Quasi-concave problems are solved by BISECTION — you binary-search over
+the SINR target t, and at each trial value you ask "is it feasible to
+achieve SINR ≥ t for everyone?" That feasibility test is a convex problem
+(specifically, a second-order cone program), which is cheap. After ~20
+bisection steps you have the optimum to within 2⁻²⁰ ≈ 10⁻⁶ relative error.
+
+The price is complexity: solving a convex SOCP at every bisection step
+costs a lot, and the M×K number of variables scales painfully. This
+motivates the cheaper heuristic allocations of Sections III-B, III-C, III-D
+(treated in the next file).
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+2.1  THE CB PROTOCOL (PAGE 3, TOP OF SECTION III)
+--------------------------------------------------------------------------------
+
+The paper states the entire CB operation as a five-step protocol:
+
+  Step 1. AP m estimates β_mk for k=1,…,K (long-term averaging of pilot
+          powers) and sends these slow-varying scalars to the NC.
+  Step 2. NC computes power coefficients η_mk ∀m, ∀k, as a function of
+          all the β_mk's, and sends them back to the APs.
+  Step 3. Users synchronously transmit pilot sequences ψ_i, i=1,…,K.
+  Step 4. AP m computes its own channel estimates ĝ_mk, k=1,…,K.
+  Step 5. AP m forms the CB transmit signal
+
+             x_m = √(ρ_f) · Σᵢ₌₁ᴷ √(η_mi) · ĝ*_mi · s_i              (3)
+
+          and transmits it over the downlink.
+
+Three features stand out:
+
+(a) THE η_mk ARE FUNCTIONS OF β_mk ONLY. This is a design decision — η_mk
+    depends only on LARGE-SCALE fading, not on small-scale fading. Why?
+    Because the capacity lower bound in Eq. (5) depends only on β_mk and
+    γ_mk, both of which are derivable from β_mk alone. Since β changes
+    ~40× slower than h, the η-update traffic on the backhaul is minimal.
+
+(b) CONJUGATE BEAMFORMING IS DISTRIBUTED. Once the NC sends η_mk, each AP
+    m can form x_m independently using only its OWN estimates ĝ_m1,…,ĝ_mK.
+    Contrast with ZF (Section IV), which requires the NC to invert the
+    full Ĝᵀ Ĝ matrix and to send M×K scalar precoding coefficients back
+    to the APs — far heavier backhaul.
+
+(c) PER-AP POWER IS THE BINDING CONSTRAINT, NOT TOTAL POWER. The rationale
+    is hardware-centric: each AP has its own power amplifier whose peak
+    output is ρ_f (e.g., 200 mW). You cannot "borrow power" from an
+    idle AP. This restricts the feasible set.
+
+--------------------------------------------------------------------------------
+2.2  PER-AP POWER CONSTRAINT: derivation
+--------------------------------------------------------------------------------
+
+The expected transmit power of AP m is:
+
+       E[|x_m|²]  =  E[ | √(ρ_f) · Σᵢ √(η_mi) · ĝ*_mi · s_i |² ]
+                  =  ρ_f · Σᵢ Σⱼ √(η_mi η_mj) · E[ĝ*_mi ĝ_mj] · E[s_i s*_j]
+                  =  ρ_f · Σᵢ η_mi · E[|ĝ_mi|²]       (since E[s_is*_j]=δ_{ij},
+                                                         E[ĝ*_mi ĝ_mj]=0 for i≠j)
+                  =  ρ_f · Σᵢ η_mi · γ_mi.                          (A)
+
+The per-AP power constraint E[|x_m|²] ≤ ρ_f becomes:
+
+       Σᵢ₌₁ᴷ η_mi · γ_mi  ≤  1,    ∀m ∈ {1,…,M}.                   (6b)
+
+This is the "budget rule" at AP m: the weighted sum of its power
+coefficients (weighted by the estimate-variances γ_mi) cannot exceed 1.
+
+Three observations:
+  • The weights are γ_mi, NOT β_mi. So APs with a better channel ESTIMATE
+    to user i (not just a better channel) "spend" more of their budget
+    per unit η_mi.
+  • The constraint COUPLES the K power coefficients at AP m, but NOT
+    across APs. Different APs have independent budgets.
+  • When η_mi = 0 for all i (AP m is silent), the left side is 0 ≤ 1 —
+    always feasible. AP silence is always admissible.
+
+--------------------------------------------------------------------------------
+2.3  THE ACHIEVABLE RATE FORMULA — EQUATION (5)
+--------------------------------------------------------------------------------
+
+The paper states the CB achievable rate as:
+
+       R_k  =  log₂( 1 + SINR_k )                                    (5a)
+
+where
+
+                 ρ_f · ( Σₘ₌₁ᴹ √(η_mk) · γ_mk )²
+       SINR_k = ─────────────────────────────────────────────────   (5)
+                 1  +  ρ_f · Σᵢ₌₁ᴷ Σₘ₌₁ᴹ η_mi · β_mk · γ_mi
+
+Structure:
+
+  NUMERATOR — the "useful signal power":
+      ρ_f · (Σₘ √(η_mk) γ_mk)². The squared-sum-of-square-roots form is
+      the signature of COHERENT combination: contributions from different
+      APs to user k add in amplitude (not power), then get squared. This
+      gives a gain that scales roughly as M² — "array gain".
+
+  DENOMINATOR — noise (the "1") plus residual interference:
+      ρ_f · Σᵢ Σₘ η_mi · β_mk · γ_mi.
+
+      Note two weights: β_mk (how strongly user k actually hears AP m's
+      signal) × γ_mi (the energy AP m spends on user i). This is the
+      INCOHERENT sum, scaling roughly as M (not M²).
+
+The ratio of array gains — numerator M² vs. denominator M — means SINR
+grows linearly with M. This is the Massive MIMO "free lunch": just adding
+more APs improves SINR for everyone, without any algorithmic changes.
+
+Why is (5) a function of β and γ only (no h_mk)? Because it is an
+EXPECTED SINR formula derived via the worst-case uncorrelated-noise
+argument, and the expectation averages out all small-scale fading. The
+user's receiver treats the random effective gain as deterministic, relying
+on channel hardening (Massive MIMO concentration) to justify this.
+
+--------------------------------------------------------------------------------
+2.4  DERIVATION OF SINR_k (Appendix A)
+--------------------------------------------------------------------------------
+
+This is one of the most important derivations of the paper. We'll do it
+carefully because the same "T₀–T₃ decomposition" reappears verbatim for
+ZF in Appendix C.
+
+STARTING POINT. User k's received signal (Eq. 4 with x_m from Eq. 3):
+
+   y_k  =  Σₘ g_mk · x_m  +  w_k
+        =  Σₘ g_mk · [ √(ρ_f) · Σᵢ √(η_mi) · ĝ*_mi · s_i ]  +  w_k
+        =  √(ρ_f) · Σₘ Σᵢ √(η_mi) · g_mk · ĝ*_mi · s_i  +  w_k.
+
+Now decompose g_mk = ĝ_mk + ~g_mk (estimate + estimation error):
+
+   y_k  =  √(ρ_f) · Σₘ Σᵢ √(η_mi) · (ĝ_mk + ~g_mk) · ĝ*_mi · s_i  +  w_k.
+
+Expand and split into the desired-symbol (i=k) term and the
+other-symbols (i≠k) term, further decomposing the diagonal piece into its
+mean and fluctuation:
+
+   y_k  =  T₀  +  T₁  +  T₂  +  T₃  +  w_k,                           (30)
+
+where:
+
+  T₀  =  Σₘ √(ρ_f η_mk) · E[|ĝ_mk|²] · s_k
+       ←  "useful signal": the part that is deterministic in the estimate
+           statistics, carrying the symbol s_k.
+
+  T₁  =  Σₘ Σᵢ≠k √(ρ_f η_mi) · ĝ_mk · ĝ*_mi · s_i
+       ←  "inter-user interference": when AP m beamforms toward user i≠k,
+           its precoded signal also hits user k with cross-product ĝ_mk · ĝ*_mi.
+           This is residual MUI because CB does not cancel it.
+
+  T₂  =  Σₘ √(ρ_f η_mk) · ( |ĝ_mk|² − E[|ĝ_mk|²] ) · s_k
+       ←  "lack of channel knowledge at user": user k doesn't know
+           |ĝ_mk|², only its mean γ_mk. The fluctuation around the mean
+           becomes self-interference.
+
+  T₃  =  Σₘ Σᵢ √(ρ_f η_mi) · ~g_mk · ĝ*_mi · s_i
+       ←  "channel estimation error": the AP's precoder uses ĝ_mi, but the
+           actual channel contains an unknown ~g_mk component, which leaks
+           through and creates interference.
+
+  w_k  =  receiver noise.
+
+Key claim: T₀, T₁, T₂, T₃, w_k are MUTUALLY UNCORRELATED.
+Why?
+  • Data symbols s_i are independent, zero-mean, unit-power; any two
+    terms carrying different s_i are uncorrelated.
+  • T₀ and T₂ both carry s_k but T₂ is a fluctuation (zero-mean) orthogonal
+    to the constant mean in T₀, so E[T₀ · T₂*] = 0.
+  • ĝ_mk and ~g_mk are independent (Section II orthogonality principle),
+    so terms involving them separately are uncorrelated.
+  • Noise w_k is independent of everything.
+
+This is the precondition for applying the HASSIBI–HOCHWALD BOUND [30]:
+
+    "If y = T₀·s + z where T₀·s is the desired component and z is
+     uncorrelated with s, then an achievable rate is
+         log₂(1 + E[|T₀|²] / E[|z|²]),
+     obtained by treating z as Gaussian with the same second moment."
+
+Applied here with z = T₁ + T₂ + T₃ + w_k:
+
+                   E[|T₀|²]
+    SINR_k  =  ─────────────────────────────────                    (31)
+                  1 + E[|T₁|² + |T₂|² + |T₃|²]
+                      (the 1 is Var(w_k))
+
+Now compute each variance.
+
+VARIANCE OF T₀.
+   T₀ = ( Σₘ √(ρ_f η_mk) · γ_mk ) · s_k      (since E[|ĝ_mk|²]=γ_mk)
+   |T₀|² = ρ_f · ( Σₘ √(η_mk) γ_mk )² · |s_k|².
+   Since E[|s_k|²] = 1:
+
+       E[|T₀|²]  =  ρ_f · ( Σₘ₌₁ᴹ √(η_mk) · γ_mk )².                 (T0)
+
+VARIANCE OF T₁.
+   T₁ = Σₘ Σᵢ≠k √(ρ_f η_mi) · ĝ_mk · ĝ*_mi · s_i.
+   For i ≠ j, E[s_i s*_j] = 0, so cross terms vanish. For i = j ≠ k:
+
+       E[|T₁|²]  =  Σᵢ≠k ρ_f · Σₘ Σₙ √(η_mi η_ni) · E[ĝ_mk ĝ*_mi · ĝ*_nk ĝ_ni].
+
+   Since ĝ_mk is independent of ĝ_nk for m ≠ n (AP antennas are spatially
+   separated, h_mk i.i.d.), and since ĝ_mk ⊥ ĝ_mi for i ≠ k (pilots
+   orthogonal), only the m = n terms survive:
+
+       E[|T₁|²]  =  Σᵢ≠k ρ_f · Σₘ η_mi · E[|ĝ_mk|² · |ĝ_mi|²]
+                 =  Σᵢ≠k ρ_f · Σₘ η_mi · γ_mk · γ_mi                (indep)
+                 =  ρ_f · Σᵢ≠k Σₘ η_mi · γ_mk · γ_mi.                (T1)
+
+VARIANCE OF T₂.
+   T₂ = Σₘ √(ρ_f η_mk) · ( |ĝ_mk|² − γ_mk ) · s_k.
+   Since |ĝ_mk|² is the squared magnitude of a 𝒞𝒩(0, γ_mk), it is
+   exponential with mean γ_mk and variance γ_mk². So:
+
+       E[|T₂|²]  =  Σₘ ρ_f · η_mk · Var(|ĝ_mk|²)
+                 =  Σₘ ρ_f · η_mk · γ_mk²
+                 =  ρ_f · Σₘ η_mk · γ²_mk.                          (T2)
+
+   (Cross terms for m ≠ n vanish due to independence.)
+
+VARIANCE OF T₃.
+   T₃ = Σₘ Σᵢ √(ρ_f η_mi) · ~g_mk · ĝ*_mi · s_i.
+   Same logic: E[s_i s*_j] = 0 for i ≠ j; ~g_mk ⊥ ĝ_mi; ~g_mk ⊥ ~g_nk for
+   m ≠ n. Only diagonal (m=n) terms survive:
+
+       E[|T₃|²]  =  Σᵢ ρ_f · Σₘ η_mi · E[|~g_mk|²] · E[|ĝ_mi|²]
+                 =  Σᵢ ρ_f · Σₘ η_mi · (β_mk − γ_mk) · γ_mi
+                 =  ρ_f · Σᵢ Σₘ η_mi · (β_mk − γ_mk) · γ_mi.        (T3)
+
+COMBINING T₁, T₂, T₃:
+
+       E[|T₁|² + |T₂|² + |T₃|²]
+     =  ρ_f · Σᵢ≠k Σₘ η_mi γ_mk γ_mi
+      + ρ_f · Σₘ η_mk γ²_mk
+      + ρ_f · Σᵢ Σₘ η_mi (β_mk − γ_mk) γ_mi
+
+Notice that the first two terms together are ρ_f Σᵢ Σₘ η_mi γ_mk γ_mi
+(because the i=k piece missing from T₁ is supplied by T₂ with
+γ²_mk = γ_mk · γ_mk).
+
+So:
+     =  ρ_f · Σᵢ Σₘ η_mi γ_mk γ_mi  +  ρ_f · Σᵢ Σₘ η_mi (β_mk − γ_mk) γ_mi
+     =  ρ_f · Σᵢ Σₘ η_mi [γ_mk + (β_mk − γ_mk)] γ_mi
+     =  ρ_f · Σᵢ Σₘ η_mi · β_mk · γ_mi.                            (denom)
+
+The total denominator of SINR_k is 1 + ρ_f · Σᵢ Σₘ η_mi β_mk γ_mi, which
+matches Eq. (5). ✓
+
+This is why Eq. (5) has β_mk · γ_mi in the interference term rather than
+just β_mk · β_mi — the factor γ_mi (< β_mi) reflects the fact that only
+the ESTIMATED part of the channel is actually beamformed; the
+estimation-error part still leaks but contributes via (β_mk − γ_mk) · γ_mi
+rather than via β_mk · β_mi. The two combine neatly to β_mk · γ_mi.
+
+--------------------------------------------------------------------------------
+2.5  THE MAX-MIN POWER ALLOCATION PROBLEM (Eq. 6)
+--------------------------------------------------------------------------------
+
+Stacking all K·M power coefficients into a vector
+   η = (η_mk : m ∈ {1,…,M}, k ∈ {1,…,K}) ∈ ℝ_{+}^{MK},
+the problem is:
+
+   maximize_η     min_{k∈{1,…,K}}   SINR_k(η)                       (6a)
+
+   subject to     Σᵢ₌₁ᴷ η_mi · γ_mi  ≤  1,   ∀m ∈ {1,…,M}.          (6b)
+
+This is our max-min power control problem. It has three important
+properties:
+
+(i) NON-NEGATIVITY. η_mk ≥ 0 is implicit (they are squared quantities).
+
+(ii) DECOUPLED CONSTRAINTS ACROSS APs. For each AP m, the constraint is a
+     simple linear inequality in the variables {η_m1,…,η_mK}.
+
+(iii) OBJECTIVE IS QUASI-CONCAVE. The minimum over k of SINR_k is
+      quasi-concave, because each SINR_k is quasi-concave in η and the
+      min of quasi-concave functions is quasi-concave. The paper cites
+      [22, Proposition 1] for this. The proof relies on showing that for
+      any t > 0, the super-level set {η : SINR_k(η) ≥ t} is convex.
+
+WHY DOES SINR_k HAVE A CONVEX SUPER-LEVEL SET?
+Rewrite the constraint SINR_k(η) ≥ t:
+
+   ρ_f · ( Σₘ √(η_mk) γ_mk )²  ≥  t · ( 1 + ρ_f · Σᵢ Σₘ η_mi β_mk γ_mi ).
+
+Take square roots (both sides are non-negative):
+
+   √(ρ_f) · Σₘ √(η_mk) γ_mk   ≥   √t · √( 1 + ρ_f · Σᵢ Σₘ η_mi β_mk γ_mi ).
+
+Substitute u_mk = √(η_mk). Then η_mk = u²_mk. The LHS becomes linear in
+u_mk:
+   LHS = √(ρ_f) · Σₘ γ_mk · u_mk.
+
+The RHS becomes the 2-norm of an affine function of u:
+   RHS = √t · ‖ (1, √(ρ_f · β_mk · γ_mi) · u_mi for all m, i) ‖₂.
+
+This is a second-order cone (SOC) constraint:
+   (linear in u)  ≥  ‖ (constant + affine-in-u) ‖₂.
+
+SOC constraints are convex, and the intersection over k=1,…,K is convex.
+The per-AP power constraint Σᵢ u²_mi γ_mi ≤ 1 is also convex (quadratic
+with positive semidefinite diagonal). So the FEASIBILITY SET for fixed t
+is convex. Quasi-concavity is established.
+
+This justifies the bisection method (Eq. 7 in the paper).
+
+--------------------------------------------------------------------------------
+2.6  THE BISECTION METHOD (Eq. 7)
+--------------------------------------------------------------------------------
+
+Reformulated problem:
+
+   maximize_{η, t}   t                                             (7a)
+   s.t.   SINR_k(η) ≥ t   for k=1,…,K,
+          Σᵢ η_mi γ_mi ≤ 1   for m=1,…,M.                          (7b)
+
+BISECTION ALGORITHM (standard, Boyd & Vandenberghe §4.2.5 [26]):
+
+  Input: an initial interval (t_ℓ, t_u) known to contain t*.
+         For example, t_ℓ = 0, t_u = a crude SINR upper bound derived
+         by ignoring interference.
+  Tolerance ε > 0.
+
+  while (t_u − t_ℓ) > ε:
+      t  ←  (t_ℓ + t_u) / 2
+      Solve the convex FEASIBILITY problem:
+          Find η ≥ 0
+          s.t.  √(ρ_f) · Σₘ γ_mk · u_mk
+                    ≥ √t · ‖ (1, √(ρ_f β_mk γ_mi)·u_mi ∀m,i) ‖₂    ∀k
+                Σᵢ η_mi γ_mi ≤ 1    ∀m
+          (with u_mk = √η_mk).
+      if feasible:
+          t_ℓ ← t               # can push target higher
+          save current η as the best so far
+      else:
+          t_u ← t               # target was too high
+
+  return (η_best, t_ℓ)
+
+Each feasibility step is a second-order cone feasibility problem (SOCP)
+with:
+  • K second-order cone constraints (one per user),
+  • M linear constraints (one per AP),
+  • MK scalar variables.
+
+Interior-point methods solve SOCPs in polynomial time. The practical cost
+per iteration is O((MK)³·(K+M)) roughly, though more careful analyses
+tighten this. With bisection's log₂(1/ε) outer iterations, total cost is
+polynomial in M, K, and log(1/ε).
+
+This is prohibitive for large M and K (say M = 256, K = 32). Hence the
+heuristics in Sec. III-B/C/D — addressed in the next file.
+
+--------------------------------------------------------------------------------
+2.7  INITIAL INTERVAL (t_ℓ, t_u) — A PRACTICAL REMARK
+--------------------------------------------------------------------------------
+
+The paper does not explicitly give (t_ℓ, t_u), but a natural choice:
+
+  t_ℓ = 0  (trivially feasible, η = 0).
+
+  t_u = min_k of the "noise-free, single-user" SINR, which corresponds to
+        allocating all of AP m's budget entirely to user k:
+           t_u  ≈  min_k  ρ_f · [ Σₘ γ_mk / (max_AP power weight) ]²
+        A conservative upper bound is:
+           t_u  ≈  ρ_f · (Σₘ γ_mk)² / (normalization).
+
+In practice, one starts with (0, a very large number) and lets bisection
+tighten.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — HISTORICAL / PRIOR DEVELOPMENT
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+3.1  MAXIMUM RATIO TRANSMISSION (MRT) = CONJUGATE BEAMFORMING
+--------------------------------------------------------------------------------
+
+The name "conjugate beamforming" is a Massive MIMO rebranding of what
+earlier literature called MAXIMUM RATIO TRANSMISSION (MRT). MRT was
+introduced for transmit diversity in:
+
+  • T. K. Y. Lo, "Maximum ratio transmission," IEEE Trans. Commun.,
+    vol. 47, no. 10, pp. 1458–1461, Oct. 1999.
+
+Lo showed that if a multi-antenna transmitter knows the channel vector g
+to a single-antenna receiver, the precoding vector that maximizes received
+SNR subject to a transmit-power constraint is g*/‖g‖ — the conjugate of
+the channel, normalized. This "steers all power toward the dominant
+propagation direction" and gives the ARRAY GAIN of M.
+
+In a multi-user setting, each data stream is CB-precoded toward its
+intended user. The residual MUI is the price paid for not doing ZF.
+
+--------------------------------------------------------------------------------
+3.2  CHANNEL HARDENING
+--------------------------------------------------------------------------------
+
+The assumption that users know only E[|ĝ_mk|²] = γ_mk (not the instantaneous
+value) works because of channel hardening — a concentration phenomenon
+first exploited in Massive MIMO by Marzetta [2] and later analyzed more
+deeply by Hochwald, Marzetta, Tarokh in the monograph by Marzetta, Larsson,
+Yang, Ngo, "Fundamentals of Massive MIMO" (Cambridge, 2016), and by
+Björnson et al.
+
+The essence: if you form the quantity (1/M) Σₘ |ĝ_mk|² γ_mk, the Law of
+Large Numbers says it converges to a deterministic constant as M grows.
+So the effective channel gain at user k stops fluctuating, and the user
+can use the deterministic bound (5) as a tight approximation of the true
+capacity. The difference is small in practice (the paper cites [22, Fig. 2]
+which shows it).
+
+--------------------------------------------------------------------------------
+3.3  HASSIBI–HOCHWALD WORST-CASE UNCORRELATED NOISE ARGUMENT [30]
+--------------------------------------------------------------------------------
+
+Given a signal
+   y = x + z,
+where x is the desired signal and z is zero-mean and uncorrelated with x
+(but not necessarily Gaussian), the MUTUAL INFORMATION I(x; y) is
+LOWER-BOUNDED by treating z as Gaussian with the same variance:
+
+   I(x; y)  ≥  log(1 + Var(x) / Var(z)).
+
+Proof sketch: among all zero-mean, fixed-variance distributions, Gaussian
+noise has MAXIMUM differential entropy, hence yields the MINIMUM mutual
+information when noise is replaced. Since I(x;y) = h(y) − h(z), replacing
+z by Gaussian only decreases h(z)'s entropy in the bound — wait, this
+needs more care. Actually the correct statement: treating z as Gaussian
+yields the WORST possible noise for communication given its
+autocorrelation, so it gives a LOWER BOUND on achievable rate. This is
+exactly Theorem 1 of Hassibi–Hochwald 2003 [30].
+
+This is the hammer used everywhere in Massive MIMO achievable-rate analysis.
+
+--------------------------------------------------------------------------------
+3.4  QUASI-CONCAVITY OF THE CB SINR — CONNECTION TO GEOMETRIC PROGRAMMING
+--------------------------------------------------------------------------------
+
+Maximization of minimum SINR for linear precoders in multi-user MIMO has a
+long history. Key references:
+
+  • M. Bengtsson and B. Ottersten, "Optimal and suboptimal transmit
+    beamforming," in Handbook of Antennas in Wireless Communications,
+    CRC Press, 2001.
+    [First to formulate max-min SINR as an SOCP.]
+
+  • M. Schubert and H. Boche, "Solution of the multiuser downlink
+    beamforming problem with individual SINR constraints," IEEE Trans.
+    Veh. Technol., vol. 53, no. 1, pp. 18–28, Jan. 2004.
+    [Max-min SINR via fixed-point iteration.]
+
+  • A. Wiesel, Y. Eldar, S. Shamai, "Linear precoding via conic
+    optimization for fixed MIMO receivers," IEEE Trans. Signal Process.,
+    vol. 54, no. 1, pp. 161–176, Jan. 2006.
+    [Conic formulation for a broad class of precoding problems.]
+
+The specific quasi-concavity result for cell-free CB is in Ngo et al.
+[22, Prop. 1]. That proposition shows that each SINR_k(η) is quasi-concave
+in η via the same SOC-substitution trick we performed.
+
+Cell-free CB is also related to UPLINK-DOWNLINK DUALITY (Viswanath-Tse
+[6]). In multi-user MIMO, the downlink max-min power control can often be
+mapped to an equivalent uplink problem via a duality transformation, which
+is how Schubert-Boche's fixed-point algorithm works. The paper does not
+invoke this directly but the machinery is equivalent.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — MATHEMATICAL DETAILS (Unicode box summary)
+════════════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Eq (3):  CB TRANSMIT SIGNAL AT AP m                                    │
+│                                                                        │
+│     x_m  =  √(ρ_f) · Σᵢ₌₁ᴷ √(η_mi) · ĝ*_mi · s_i                      │
+│                                                                        │
+│   • ρ_f:  per-AP transmit power cap                                    │
+│   • η_mi: power coefficient (AP m, user i), ≥ 0                       │
+│   • ĝ_mi: MMSE channel estimate (Section II)                          │
+│   • s_i:  i.i.d. unit-power data symbols                              │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Eq (4):  USER k'S RECEIVED SIGNAL                                      │
+│                                                                        │
+│     y_k  =  Σₘ₌₁ᴹ g_mk · x_m  +  w_k,   w_k ~ 𝒞𝒩(0, 1)              │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Eq (5):  CB ACHIEVABLE-RATE SINR FOR USER k                            │
+│                                                                        │
+│                ρ_f · ( Σₘ₌₁ᴹ √(η_mk) · γ_mk )²                        │
+│   SINR_k = ─────────────────────────────────────────                   │
+│                1  +  ρ_f · Σᵢ₌₁ᴷ Σₘ₌₁ᴹ η_mi · β_mk · γ_mi             │
+│                                                                        │
+│  R_k = log₂(1 + SINR_k).                                              │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ APPENDIX A — VARIANCES OF DECOMPOSITION TERMS                          │
+│                                                                        │
+│  T₀ (useful):      E[|T₀|²]  =  ρ_f · (Σₘ √(η_mk) γ_mk)²              │
+│  T₁ (MUI):         E[|T₁|²]  =  ρ_f · Σᵢ≠k Σₘ η_mi γ_mk γ_mi          │
+│  T₂ (user CSI):    E[|T₂|²]  =  ρ_f · Σₘ η_mk γ²_mk                   │
+│  T₃ (est. error):  E[|T₃|²]  =  ρ_f · Σᵢ Σₘ η_mi (β_mk−γ_mk) γ_mi     │
+│                                                                        │
+│  Their sum collapses to  ρ_f · Σᵢ Σₘ η_mi β_mk γ_mi,  giving (5).     │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Eq (6):  OPTIMAL MAX-MIN POWER CONTROL FOR CB                          │
+│                                                                        │
+│   maximize_η   min_k  SINR_k(η)                                       │
+│   subject to   Σᵢ₌₁ᴷ η_mi γ_mi ≤ 1   ∀m ∈ {1,…,M}                    │
+│                                                                        │
+│   Problem is QUASI-CONCAVE in η.                                      │
+│   Solved via BISECTION + SOCP feasibility test (Eq. 7).               │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Eq (7):  BISECTION EPIGRAPH FORM                                       │
+│                                                                        │
+│   maximize_{η, t}  t                                                   │
+│   subject to       SINR_k(η) ≥ t   ∀k                                 │
+│                    Σᵢ η_mi γ_mi ≤ 1   ∀m                              │
+│                                                                        │
+│   For fixed t, the SINR constraint (with u_mk = √η_mk) is a           │
+│   SECOND-ORDER CONE constraint:                                        │
+│                                                                        │
+│     √(ρ_f) · Σₘ γ_mk u_mk ≥ √t · ‖(1, √(ρ_f β_mk γ_mi)·u_mi)‖₂       │
+└────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 5 — NUMERICAL EXAMPLE
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+5.1  TOY EXAMPLE: M = 2, K = 2
+--------------------------------------------------------------------------------
+
+Consider a minimal example to see the structure of (5) concretely.
+
+Setup:
+   M = 2 APs, K = 2 users.
+   β = [[β_{1,1}, β_{1,2}], [β_{2,1}, β_{2,2}]] = [[10, 1], [1, 10]] · 10⁻⁸.
+   (AP 1 is close to user 1; AP 2 is close to user 2; cross-links are weak.)
+
+   Assume γ_mk = β_mk (perfect estimation, for simplicity).
+
+   ρ_f = 1 (normalized).
+
+The CB SINR for user 1 is:
+
+   SINR_1 = ρ_f · ( √η_{1,1} γ_{1,1} + √η_{2,1} γ_{2,1} )² /
+             (1 + ρ_f · Σᵢ (η_{1,i} β_{1,1} γ_{1,i} + η_{2,i} β_{2,1} γ_{2,i}))
+
+With symbolic substitution:
+   Numerator = ( √η_{1,1} · 10·10⁻⁸  +  √η_{2,1} · 1·10⁻⁸ )²
+             = 10⁻¹⁶ · ( 10·√η_{1,1} + √η_{2,1} )²
+
+   Denominator (minus the 1):
+     AP 1 contribution:   10·10⁻⁸ · [ η_{1,1} · 10·10⁻⁸ + η_{1,2} · 1·10⁻⁸ ]
+                        = 10⁻¹⁵ · (10 η_{1,1} + η_{1,2})
+     AP 2 contribution:   1·10⁻⁸  · [ η_{2,1} · 1·10⁻⁸ + η_{2,2} · 10·10⁻⁸ ]
+                        = 10⁻¹⁶ · (η_{2,1} + 10 η_{2,2})
+     Interference total = 10⁻¹⁶ · (100·η_{1,1} + 10·η_{1,2} + η_{2,1} + 10·η_{2,2}).
+
+Per-AP constraints:
+   AP 1:  η_{1,1} · γ_{1,1} + η_{1,2} · γ_{1,2}  ≤ 1
+          ⟹  η_{1,1} · 10⁻⁷ + η_{1,2} · 10⁻⁸  ≤ 1
+          ⟹  10·η_{1,1} + η_{1,2}  ≤  10⁸.
+   AP 2:  η_{2,1} + 10·η_{2,2}  ≤  10⁸.
+
+By symmetry, the optimum has η_{1,1} = η_{2,2} = a (stronger link) and
+η_{1,2} = η_{2,1} = b (weaker link).
+
+With this symmetry:
+   AP 1 constraint: 10a + b ≤ 10⁸.
+
+Let's pick (a, b) = (10⁷, 0) — all power on the near user, nothing on the
+far user:
+   Numerator for user 1 (with η_{1,1}=10⁷, η_{2,1}=0):
+        10⁻¹⁶ · (10 · √(10⁷) )²  =  10⁻¹⁶ · 100 · 10⁷  =  10⁻⁷.
+   Denominator contribution for user 1 (η_{1,1}=10⁷, η_{1,2}=0,
+                                         η_{2,1}=0, η_{2,2}=10⁷):
+        10⁻¹⁶ · (100·10⁷ + 0 + 0 + 10·10⁷)  =  10⁻¹⁶ · 1.1·10⁹  =  1.1·10⁻⁷.
+   SINR_1 = 10⁻⁷ / (1 + 1.1·10⁻⁷) ≈ 0.999·10⁻⁷ (tiny; noise dominates
+            because we chose ρ_f = 1 with β ~ 10⁻⁸).
+
+Now take (a, b) = (5·10⁶, 5·10⁷) — spread power more:
+   AP 1 constraint: 10·(5·10⁶) + 5·10⁷ = 5·10⁷ + 5·10⁷ = 10⁸  ✓ (tight).
+   Numerator for user 1:
+        10⁻¹⁶ · (10·√(5·10⁶) + √(5·10⁷))²
+      = 10⁻¹⁶ · (10·2236 + 7071)²
+      = 10⁻¹⁶ · (22360 + 7071)²
+      = 10⁻¹⁶ · (29431)²
+      = 10⁻¹⁶ · 8.66·10⁸
+      ≈ 8.66·10⁻⁸.
+   Denominator contribution:
+        10⁻¹⁶ · (100·(5·10⁶) + 10·(5·10⁷) + (5·10⁷) + 10·(5·10⁶))
+      = 10⁻¹⁶ · (5·10⁸ + 5·10⁸ + 5·10⁷ + 5·10⁷)
+      = 10⁻¹⁶ · 1.1·10⁹
+      = 1.1·10⁻⁷.
+   SINR_1 ≈ 8.66·10⁻⁸ / (1 + 1.1·10⁻⁷) ≈ 8.66·10⁻⁸ — still small, but
+   more balanced between user 1 and user 2.
+
+The lesson: in the actual paper's experiments, β values are much larger
+(not ~10⁻⁸) after normalizing by noise. The ρ_f · β product should exceed
+unity; otherwise SINR is below −10 dB and the system is useless.
+
+Realistic normalized numbers (from paper parameters in Section VI): when
+ρ_f/noise ≈ 10¹²·⁵ and β ≈ 10⁻¹⁰ (COST-Hata at a few hundred meters),
+the product ρ_f β ≈ 10² — giving SINRs in the tens of dB range.
+
+--------------------------------------------------------------------------------
+5.2  PRACTICE PROBLEM
+--------------------------------------------------------------------------------
+
+PROBLEM. Consider a cell-free system with M = 4 APs and K = 2 users. Assume
+perfect channel estimation (γ_mk = β_mk). The large-scale fading matrix
+(in normalized units, i.e., β̃_mk = ρ_f β_mk) is:
+
+     β̃ = | 100   1   |   (AP 1: very close to user 1)
+          |  50   2   |   (AP 2: medium-close to user 1)
+          |   2  50   |   (AP 3: medium-close to user 2)
+          |   1  100  |   (AP 4: very close to user 2)
+
+Task 1: Write the SINR formula for user 1 explicitly as a function of
+        η_{1,1}, η_{2,1}, η_{3,1}, η_{4,1}, η_{1,2}, η_{2,2}, η_{3,2}, η_{4,2}.
+
+Task 2: If power is equally split at each AP (η_{m,1} = η_{m,2} = η_m for
+        all m) and each AP is at full power (η_m · (β_{m,1} + β_{m,2}) = 1),
+        compute the per-AP power coefficients η_m.
+
+Task 3: Compute SINR_1 and SINR_2 under this symmetric allocation.
+
+SOLUTION.
+
+Task 1. Using (5) with γ = β:
+
+   SINR_1 = ( Σₘ √(η_{m,1}) β_{m,1} )² /
+             (1 + Σₘ β_{m,1} · Σᵢ η_{m,i} β_{m,i})
+
+   = ( √η_{1,1}·100 + √η_{2,1}·50 + √η_{3,1}·2 + √η_{4,1}·1 )² /
+     (1 + [100·(100·η_{1,1} + 1·η_{1,2}) + 50·(50·η_{2,1} + 2·η_{2,2})
+          + 2·(2·η_{3,1} + 50·η_{3,2}) + 1·(1·η_{4,1} + 100·η_{4,2})]).
+
+Task 2. Per-AP full-power under equal splitting:
+
+   AP 1: η_1 · (100 + 1) = 1  ⟹  η_1 = 1/101 ≈ 0.0099.
+   AP 2: η_2 · (50 + 2)  = 1  ⟹  η_2 = 1/52  ≈ 0.0192.
+   AP 3: η_3 · (2 + 50)  = 1  ⟹  η_3 = 1/52  ≈ 0.0192.
+   AP 4: η_4 · (1 + 100) = 1  ⟹  η_4 = 1/101 ≈ 0.0099.
+
+Task 3. Compute SINR_1:
+
+   Numerator:
+      (√η_1·100 + √η_2·50 + √η_3·2 + √η_4·1)²
+      = (√0.0099·100 + √0.0192·50 + √0.0192·2 + √0.0099·1)²
+      = (0.0995·100 + 0.1386·50 + 0.1386·2 + 0.0995·1)²
+      = (9.95 + 6.93 + 0.277 + 0.0995)²
+      = (17.26)²
+      ≈ 297.9.
+
+   Denominator interference part:
+      Σₘ β_{m,1} · (η_m · β_{m,1} + η_m · β_{m,2})
+      = Σₘ β_{m,1} · η_m · (β_{m,1} + β_{m,2})
+      = Σₘ β_{m,1} · 1     (since η_m (β_{m,1}+β_{m,2})=1 for each m)
+      = 100 + 50 + 2 + 1
+      = 153.
+
+   SINR_1 = 297.9 / (1 + 153) ≈ 1.934.
+
+   R_1 = log₂(1 + 1.934) ≈ log₂(2.934) ≈ 1.55 bits/s/Hz.
+
+   By symmetry, SINR_2 = SINR_1 ≈ 1.934, R_2 ≈ 1.55.
+
+OBSERVATION. The equal-split, full-power allocation is likely NOT the
+max-min optimum (which, per Section III-B, tends to reduce power at APs
+with very strong links). We'll see in the next file (III-B/C/D) that a
+heuristic exponential rule p_m = e^(−α·β_max) gives better 5%-outage.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 6 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT WE COVERED IN THIS FILE:
+  • Conjugate Beamforming (CB) transmit signal structure, Eq. (3).
+  • Per-AP power constraint: Σᵢ η_mi γ_mi ≤ 1, Eq. (6b).
+  • CB SINR lower bound, Eq. (5).
+  • Full step-by-step derivation of Eq. (5) via Appendix A's T₀–T₃
+    decomposition + Hassibi–Hochwald worst-case noise.
+  • Max-min power control problem, Eq. (6).
+  • Quasi-concavity proof sketch (via SOC substitution u_mk = √η_mk).
+  • Bisection algorithm, Eq. (7).
+  • Historical context: MRT (Lo 1999), channel hardening (Marzetta 2010),
+    Hassibi–Hochwald bound (2003), quasi-concavity of max-min SINR
+    (Schubert-Boche 2004, Wiesel-Eldar-Shamai 2006, Ngo et al. 2017).
+  • Numerical example with M=2, K=2 and practice problem with M=4, K=2.
+
+KEY TAKEAWAYS:
+  1. CB is distributed: each AP only needs its own channel estimates and
+     the power coefficients sent by the NC.
+  2. The achievable-rate SINR depends only on large-scale fading (β_mk
+     and γ_mk), not on instantaneous small-scale fading, thanks to
+     channel hardening + statistical CSI at users.
+  3. The per-AP constraint ties together the K power coefficients at AP m
+     but keeps different APs independent.
+  4. Max-min is quasi-concave, solvable by bisection with an SOCP
+     feasibility test at each iteration.
+  5. Optimal power control has high online complexity — motivation for
+     the heuristics in the next file.
+
+WHAT'S NEXT (file 2 of Section III):
+  • Sec. III-B: "Full Power Transmission" — convex, but far from optimal.
+  • Sec. III-C: "Heuristic Fixed-Power" — exponential fit of
+                 p_m vs. β_m^max, restores most of the gap.
+  • Sec. III-D: "Heuristic Uniform Power Coefficients" — the cheapest,
+                 fully decentralized (no backhaul for η).
+  • The counterintuitive observation: at the max-min optimum, most APs
+    transmit at LESS than full power, with p_m exponentially decreasing
+    in β_m^max. Figure 3 of the paper.
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[2]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+     numbers of base station antennas," IEEE Trans. Wireless Commun.,
+     vol. 9, no. 11, pp. 3590–3600, Nov. 2010.
+
+[6]  P. Viswanath, D. N. C. Tse, "Sum capacity of the vector Gaussian
+     broadcast channel and uplink-downlink duality," IEEE Trans. Inf.
+     Theory, vol. 49, no. 8, pp. 1912–1921, Aug. 2003.
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+     [Proposition 1: quasi-concavity of SINR_k in CB; origin of (5).]
+
+[26] S. Boyd and L. Vandenberghe, Convex Optimization. Cambridge Univ.
+     Press, 2004. Chapter 4.2.5 (quasi-convex problems and bisection).
+
+[30] B. Hassibi, B. M. Hochwald, "How much training is needed in
+     multiple-antenna wireless links?" IEEE Trans. Inf. Theory, vol. 49,
+     no. 4, pp. 951–963, Apr. 2003.
+
+Additional background (not cited in the paper):
+
+- T. K. Y. Lo, "Maximum ratio transmission," IEEE Trans. Commun.,
+  vol. 47, no. 10, pp. 1458–1461, Oct. 1999.  [Original MRT / CB paper.]
+
+- M. Schubert, H. Boche, "Solution of the multiuser downlink beamforming
+  problem with individual SINR constraints," IEEE Trans. Veh. Technol.,
+  vol. 53, no. 1, pp. 18–28, Jan. 2004.  [Fixed-point max-min SINR.]
+
+- A. Wiesel, Y. Eldar, S. Shamai, "Linear precoding via conic
+  optimization for fixed MIMO receivers," IEEE Trans. Signal Process.,
+  vol. 54, no. 1, pp. 161–176, Jan. 2006.  [Conic formulation basis.]
+
+- E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO Networks:
+  Spectral, Energy, and Hardware Efficiency," Foundations and Trends in
+  Signal Processing, 2017.  [Channel hardening + linear precoding
+  treatment.]
+
+================================================================================
+END OF SECTION III PART 1 ANALYSIS
+(CB precoder + Optimal Power Allocation + Appendix A derivation)
+================================================================================

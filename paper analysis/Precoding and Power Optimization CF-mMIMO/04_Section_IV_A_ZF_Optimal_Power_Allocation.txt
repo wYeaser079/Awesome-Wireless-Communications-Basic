@@ -1,0 +1,974 @@
+================================================================================
+ PAPER ANALYSIS — SECTION IV, PART 1 of 2
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Section analyzed: IV. Zero Forcing — Intro, Theorem 1 (Appendix C),
+                   IV-A (Optimal Power Allocation), Lemma 1 + Corollary 1
+                   (Appendix D).
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+In Section III we used Conjugate Beamforming (CB), the simplest possible
+precoder: each AP phase-rotates its data symbol by the conjugate of its
+own channel estimate, and lets all the APs' contributions add up at the
+target user. The downside of CB is that, while signals add constructively
+at the intended user, they also LEAK into OTHER users and create
+multi-user interference (MUI). CB does nothing about it.
+
+Section IV studies a smarter precoder: ZERO-FORCING (ZF). The idea is
+drastic: precode the data so that user j's signal DELIVERS ZERO ENERGY
+TO USER k for every k ≠ j. In other words, multi-user interference is
+mathematically canceled at design time.
+
+THE MAGIC TRICK. If Ĝ is the M×K matrix of channel estimates (rows = APs,
+columns = users) and if the NC pre-multiplies the data vector s by a
+special matrix A_ZF = Ĝ* (Ĝᵀ Ĝ*)⁻¹ P, then the signal arriving at user k
+is exactly √η_k · s_k (plus noise and estimation error), with NO
+contribution from s_j for j ≠ k. This is because (Ĝᵀ) · (Ĝ* (ĜᵀĜ*)⁻¹) =
+I_K by construction — the K×K identity matrix. Each row of this product
+isolates exactly one user.
+
+WHY DOESN'T CB DO THIS? Because CB computes A = Ĝ* (no inverse). To
+actually cancel interference, you need to INVERT the K×K Gram matrix
+(ĜᵀĜ*)⁻¹. This is an operation that requires KNOWING ALL COLUMNS OF Ĝ
+TOGETHER — you cannot do it at individual APs in parallel. The inversion
+has to happen at a CENTRAL node (the NC), and then the M×K precoding
+coefficients have to be sent back to the APs over the backhaul. ZF is
+CENTRALIZED by nature; CB is distributed.
+
+THE PRICE OF CANCELING INTERFERENCE. ZF uses M degrees of freedom to
+"null" the K−1 other users, leaving M−K+1 effective degrees of freedom
+for each user's signal. When M ≫ K, there are plenty of degrees of
+freedom to spare, so ZF doesn't cost much in array gain. When M is close
+to K, though, ZF becomes wasteful — it spends almost all its energy
+fighting its own interference.
+
+WHAT THIS FILE COVERS:
+  (1) The ZF precoder structure (Eq. 11) and received signal (Eq. 12).
+  (2) Theorem 1: an achievable-rate SINR formula for ZF that correctly
+      accounts for the channel estimation error ~g_mk (Eq. 13-14).
+  (3) The max-min optimization problem (17) — note it's QUASI-LINEAR
+      (linear numerator and linear denominator in η), unlike CB which
+      was quasi-concave (quadratic numerator, linear denominator).
+  (4) Lemma 1: a surprisingly deep structural result about the ZF
+      max-min problem, proved via M-matrices and Perron-Frobenius.
+      It says that any feasible point achieving SINR ≥ t elementwise
+      DOMINATES the point that achieves SINR = t. This monotonicity
+      lets us reduce the convex feasibility check to a LINEAR SYSTEM
+      OF K EQUATIONS — a massive complexity reduction.
+
+What this file does NOT cover (that's in the next file):
+  - The low-complexity closed-form Eq. (21), derived from the perfect-CSI
+    Lemma 2.
+  - Proposition 2, the ε-optimality theorem.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+2.1  ZF PROTOCOL (PAGE 5, TOP OF SECTION IV)
+--------------------------------------------------------------------------------
+
+Unlike CB, the ZF protocol requires ALL channel estimates to be collected
+at the NC:
+
+  Step 1. AP m estimates β_mk for k=1,…,K (long-term) and sends these to
+          the NC.
+  Step 2. Users synchronously transmit pilot sequences ψ_i.
+  Step 3. AP m computes ĝ_mk and sends them to the NC over the backhaul.
+  Step 4. NC computes power coefficients η_k (only K of them now, not MK).
+  Step 5. NC forms the ZF precoding matrix A_ZF using Ĝ and P, then sends
+          the M×K precoding coefficients BACK to the APs.
+
+The critical difference from CB (compare with Sec. III):
+  • ĝ_mk must be shipped from AP m to the NC (this is the "fronthaul").
+  • A_ZF must be shipped from NC back to APs.
+  • The backhaul/fronthaul traffic is M·K fast-varying complex numbers
+    per coherence block, compared to M·K slow-varying real power
+    coefficients in CB. ZF is MUCH heavier on the network link.
+
+In exchange, we get total cancellation of inter-user interference in the
+estimated channel, which is significantly more energy-efficient.
+
+--------------------------------------------------------------------------------
+2.2  BUILDING THE ZF PRECODING MATRIX (Eq. 11)
+--------------------------------------------------------------------------------
+
+STARTING POINT: the classical ZF pseudoinverse (e.g., Tse & Viswanath
+Ch. 10):
+
+       A  =  Ĝ* · ( Ĝᵀ Ĝ* )⁻¹           (classical ZF pseudoinverse)
+
+This matrix satisfies Ĝᵀ A = I_K by direct computation:
+       Ĝᵀ · Ĝ* · (Ĝᵀ Ĝ*)⁻¹  =  (Ĝᵀ Ĝ*) · (Ĝᵀ Ĝ*)⁻¹  =  I_K.
+
+Interpretation: if we transmit x = A s, then each user k receives
+(ĝᵀ_k) · A · s = eᵀ_k · s = s_k (assuming ĝ = g, perfect CSI). That's
+exact interference cancellation.
+
+POWER SCALING. We cannot transmit A s directly — it doesn't respect
+per-AP power constraints. We need to scale the columns (one per user)
+by some factors {√η_k, k=1,…,K}, gathered in a diagonal matrix
+P := diag(√η_1, …, √η_K):
+
+       A_ZF  =  Ĝ* · ( Ĝᵀ Ĝ* )⁻¹ · P                              (11)
+
+       x = √(ρ_f) · A_ZF · s = √(ρ_f) · Ĝ* (ĜᵀĜ*)⁻¹ · P · s.
+
+WHY SHOULD η DEPEND ONLY ON k, NOT ON (m, k)?
+
+The paper shows this via a simple necessary condition. Writing the
+precoding matrix as A_ZF = A ⊙ H (Hadamard product) with [H]_mk = √η_mk
+would require:
+
+       [A_ZF]_mk  =  √η_mk · a_mk.
+
+For Ĝᵀ A_ZF to equal a diagonal matrix (so interference across users
+disappears), the condition is that the rows of Ĝᵀ A_ZF must have all
+off-diagonal entries zero. A quick calculation shows this requires
+η_{1,k} = η_{2,k} = ⋯ = η_{M,k} for every k — i.e., all APs must use
+the same power coefficient η_k for a given user. Hence η_mk reduces to
+just η_k. Only K power coefficients, not M·K.
+
+This is a strong structural constraint: ZF TIES the per-user power
+coefficient across all APs. CB allowed each AP to independently decide
+how much to spend on each user; ZF does not.
+
+One consequence: the ZF problem has K variables (η_1, …, η_K) instead
+of M·K. That seems smaller. However, the per-AP constraint (16) couples
+all users together through the matrix inversion, which is why Lemma 1
+is needed to make this tractable.
+
+A REMARK ON SUB-OPTIMALITY [28]. Wiesel, Eldar, Shamai (2008) showed
+that under per-antenna power constraints, the "natural" ZF pseudoinverse
+is generally suboptimal — the true optimal precoder subject to per-antenna
+constraints is the GENERALIZED inverse solution to a different optimization
+problem. The authors acknowledge this but choose the standard form (11)
+"for simplicity". The gap, in practice, is small.
+
+--------------------------------------------------------------------------------
+2.3  RECEIVED SIGNAL DECOMPOSITION (Eq. 12)
+--------------------------------------------------------------------------------
+
+User k's received signal is:
+
+       y_k  =  √(ρ_f) · g_kᵀ · A_ZF · s  +  w_k.
+
+Split g_k = ĝ_k + ~g_k (estimate + error) and substitute A_ZF from (11):
+
+       y_k  =  √(ρ_f) · (ĝ_k + ~g_k)ᵀ · Ĝ* · (Ĝᵀ Ĝ*)⁻¹ · P · s  +  w_k.
+
+Now, using the identity Ĝᵀ · Ĝ* · (ĜᵀĜ*)⁻¹ = I_K, and noting that ĝ_kᵀ
+is exactly the k-th ROW of Ĝᵀ, we have:
+
+       ĝ_kᵀ · Ĝ* · (Ĝᵀ Ĝ*)⁻¹  =  eᵀ_k,    (k-th row of I_K)
+
+       so  ĝ_kᵀ · Ĝ* · (Ĝᵀ Ĝ*)⁻¹ · P · s  =  eᵀ_k · P · s
+                                            =  √η_k · s_k.
+
+Multiplying by √(ρ_f):
+
+       √(ρ_f) · ĝ_kᵀ · Ĝ* · (Ĝᵀ Ĝ*)⁻¹ · P · s  =  √(ρ_f η_k) · s_k.
+
+This is the SIGNAL PART, denoted J_0:
+
+       J_0  =  √(ρ_f η_k) · s_k.                                  (12a)
+
+The REMAINDER comes from ~g_k (the estimation-error component):
+
+       J_1  =  √(ρ_f) · ~g_kᵀ · Ĝ* · (Ĝᵀ Ĝ*)⁻¹ · P · s.           (12b)
+
+Notice that J_1 contains contributions from s_1, …, s_K (all users'
+symbols), because ~g_kᵀ · Ĝ* · (ĜᵀĜ*)⁻¹ is NOT eᵀ_k — it's a generic
+K-vector depending on the random error. So the estimation error leaks
+power from OTHER users into user k.
+
+Putting it together:
+
+       y_k  =  √(ρ_f η_k) · s_k   +   √(ρ_f) · ~g_kᵀ · Ĝ* (ĜᵀĜ*)⁻¹ P s
+                 ─────┬─────             ───────────────┬───────────────
+                      J_0                                J_1
+                                +  w_k.                                 (12)
+
+CRITICAL OBSERVATION: J_0 is deterministic given (s_k, η_k) — there is
+NO channel-hardening approximation needed for the signal part. It's an
+exact statement because the ZF precoder gives a deterministic effective
+channel gain √η_k. This is UNLIKE the CB case, where J_0 was (Σₘ √η_mk
+γ_mk) · s_k — an expectation of |ĝ_mk|² was needed.
+
+Why? Because ZF explicitly inverts the channel Gram matrix, producing a
+deterministic diagonal effective channel, whereas CB only does a linear
+pre-twist, producing a random effective channel that happens to
+concentrate by channel hardening.
+
+--------------------------------------------------------------------------------
+2.4  THEOREM 1 — ZF ACHIEVABLE RATE (Eq. 13)
+--------------------------------------------------------------------------------
+
+STATEMENT. An achievable rate for user k with ZF precoder is
+
+       R_k  =  log₂( 1 + SINR_{k,ZF} ),
+
+                      ρ_f · η_k
+       SINR_{k,ZF}  =  ───────────────────────                    (13)
+                      1  +  ρ_f · Σᵢ₌₁ᴷ η_i · ν_{ki}
+
+where the parameter vector ν_k = (ν_{k,1}, …, ν_{k,K}) is:
+
+       ν_k  =  diag{ 𝔼[ (ĜᵀĜ*)⁻¹ · Ĝᵀ · 𝔼[~g_k ~g_kᵀ] · Ĝ* · (ĜᵀĜ*)⁻¹ ] }
+                                                                  (14)
+
+and 𝔼[~g_k ~g_kᵀ] is a diagonal matrix with (β_mk − γ_mk) on its m-th
+diagonal element.
+
+PROOF (Appendix C, reworked).
+
+Step 1: J_0, J_1, w_k are mutually uncorrelated.
+  - w_k is independent of everything (receiver noise).
+  - J_0 = √(ρ_f η_k) · s_k depends only on s_k.
+  - J_1 depends on ~g_k and {s_i}ᴷᵢ₌₁.
+  - Since ~g_k ⊥ ĝ_k (MMSE orthogonality) and ~g_k ⊥ w_k, J_1 is
+    uncorrelated with J_0 (the s_k · s*_k cross term vanishes because
+    the coefficient in J_1 acting on s_k is a random variable that is
+    uncorrelated with the deterministic coefficient in J_0).
+
+Step 2: Apply worst-case uncorrelated-noise bound (Hassibi-Hochwald):
+
+                  𝔼[|J_0|²]
+       SINR_{k,ZF}  =  ─────────────────.
+                  1  +  𝔼[|J_1|²]
+
+Step 3: Compute 𝔼[|J_0|²].
+       |J_0|²  =  ρ_f · η_k · |s_k|².
+       𝔼[|J_0|²]  =  ρ_f · η_k · 1  =  ρ_f · η_k.                 (signal)
+
+Step 4: Compute 𝔼[|J_1|²]. This is the hard part.
+
+       |J_1|²  =  ρ_f · |  ~g_kᵀ · Ĝ* · (ĜᵀĜ*)⁻¹ · P · s  |²
+
+       𝔼[|J_1|²]  =  ρ_f · 𝔼[ (~g_kᵀ Ĝ* (ĜᵀĜ*)⁻¹ P s)
+                              · (~g_kᵀ Ĝ* (ĜᵀĜ*)⁻¹ P s)ᴴ ].
+
+The inner product structure allows us to write this as a trace:
+       𝔼[|J_1|²]  =  ρ_f · 𝔼[ tr( P ssᴴ P · (ĜᵀĜ*)⁻¹ Ĝᵀ · ~g*_k ~g_kᵀ
+                                    · Ĝ* (ĜᵀĜ*)⁻¹ ) ]
+                  =  ρ_f · tr( P · 𝔼[ssᴴ] · P · 𝔼[(ĜᵀĜ*)⁻¹ Ĝᵀ ~g*_k ~g_kᵀ
+                                            Ĝ* (ĜᵀĜ*)⁻¹] ).
+
+Since 𝔼[ssᴴ] = I_K (data symbols uncorrelated, unit power) and
+P · P = diag(η_1, …, η_K):
+
+       𝔼[|J_1|²]  =  ρ_f · tr( diag(η_1,…,η_K) ·
+                         𝔼[(ĜᵀĜ*)⁻¹ Ĝᵀ 𝔼[~g_k ~g_kᵀ] Ĝ* (ĜᵀĜ*)⁻¹] ).
+
+The inner 𝔼[~g_k ~g_kᵀ] is a matrix of SECOND moments of the estimation
+error vector ~g_k = (~g_{1k}, …, ~g_{Mk})ᵀ. Since components are
+independent across APs (pilot-orthogonality + independent fading), this
+is a diagonal matrix with [β_mk − γ_mk] on the m-th diagonal.
+
+Step 5: The trace of a diagonal matrix × another matrix equals the inner
+product of the diagonal vectors. So:
+
+       𝔼[|J_1|²]  =  ρ_f · Σᵢ₌₁ᴷ η_i · ν_{ki}                    (interference)
+
+where ν_{ki} is the i-th diagonal entry of
+
+       𝔼[(ĜᵀĜ*)⁻¹ · Ĝᵀ · 𝔼[~g_k ~g_kᵀ] · Ĝ* · (ĜᵀĜ*)⁻¹].
+
+This is exactly the definition (14) of ν_k. ∎
+
+--------------------------------------------------------------------------------
+2.5  INTERPRETING ν_{ki}
+--------------------------------------------------------------------------------
+
+The quantity ν_{ki} represents the effective interference leaked from
+user i into user k due to channel estimation error. Roughly:
+
+       ν_{ki}  ≈  Σₘ (β_mk − γ_mk) · |[A]_mi|²
+
+where A = Ĝ* (Ĝᵀć*)⁻¹ is the normalized ZF pseudoinverse. Think of
+|[A]_mi|² as the "amount of energy AP m spends per unit η_i when
+transmitting to user i", and (β_mk − γ_mk) as the "amount of
+unestimated channel" between AP m and user k. The product is the
+interference leakage.
+
+If channel estimation were perfect (β_mk − γ_mk → 0), all ν_{ki} would
+be zero, the denominator would be 1, and SINR_{k,ZF} would simply be
+ρ_f · η_k. That's the "perfect CSI" case which motivates Lemma 2 in
+Section IV-B (next file).
+
+If estimation is poor (large estimation error), ν_{ki} grows and SINR
+degrades — ZF is particularly sensitive to estimation error, because
+its interference cancellation was based on the ESTIMATED channel, not
+the true channel.
+
+--------------------------------------------------------------------------------
+2.6  PER-AP TRANSMIT POWER (Eq. 16) — DERIVATION
+--------------------------------------------------------------------------------
+
+The expected transmit power of AP m is:
+
+       𝔼[|x_m|²]  =  ρ_f · 𝔼[ (aᵀ_[m] · a*_[m]) ]
+
+where aᵀ_[m] is the m-th ROW of A_ZF (the column of M×K precoding
+coefficients that AP m uses).
+
+Expanding:
+       aᵀ_[m]  =  (ĝᴴ_[m]) · (ĜᵀĜ*)⁻¹ · P,
+
+where ĝ_[m]ᴴ is the m-th row of Ĝᴴ (equivalently, the conjugate-transpose
+of the m-th column of Ĝ).
+
+Squared norm:
+       |a_[m]|²  =  (aᵀ_[m]) · (a*_[m])
+                 =  (ĝᴴ_[m] · (ĜᵀĜ*)⁻¹ · P)
+                   · (Pᴴ · (ĜᵀĜ*)⁻ᴴ · ĝ_[m])
+                 =  ĝᴴ_[m] · (ĜᵀĜ*)⁻¹ · P² · (ĜᵀĜ*)⁻ᴴ · ĝ_[m]
+                 =  tr( P² · (ĜᵀĜ*)⁻ᴴ · ĝ_[m] · ĝᴴ_[m] · (ĜᵀĜ*)⁻¹ ).
+
+Taking expectation:
+       𝔼[|a_[m]|²]  =  tr( P² · 𝔼[ (ĜᵀĜ*)⁻ᴴ · ĝ_[m] · ĝᴴ_[m] · (ĜᵀĜ*)⁻¹ ] ).
+
+Since P² = diag(η_1, …, η_K), we can write:
+
+       𝔼[|a_[m]|²]  =  Σᵢ₌₁ᴷ η_i · ν_{mi},
+
+where
+
+       ν_m  =  diag{ 𝔼[ (ĜᵀĜ*)⁻¹ · ĝ_[m] · ĝᴴ_[m] · (ĜᵀĜ*)⁻¹ ] }  (15)
+
+and ν_{mi} is its i-th diagonal entry.
+
+So:
+       𝔼[|x_m|²]  =  ρ_f · Σᵢ₌₁ᴷ η_i · ν_{mi},                    (16)
+
+and the per-AP power constraint 𝔼[|x_m|²] ≤ ρ_f becomes:
+
+       Σᵢ₌₁ᴷ η_i · ν_{mi}  ≤  1,    ∀m ∈ {1,…,M}.                 (17b)
+
+Note that ν_m is indexed by AP m — it's an M×K list of statistics. These
+are computed at the NC by averaging over small-scale fading realizations.
+
+IMPORTANT NOTE. There are TWO DIFFERENT ν quantities in Section IV:
+  • ν_k (Eq. 14) — used in the SINR denominator. Indexed by user k,
+    captures interference leakage.
+  • ν_m (Eq. 15) — used in the per-AP power constraint. Indexed by AP m,
+    captures "power cost" per η_i.
+
+They are defined by DIFFERENT expressions but look similar. The ν_{mi}
+in constraint (17b) and the ν_{ki} in SINR (13) are related but not
+the same quantity; keep them straight.
+
+--------------------------------------------------------------------------------
+2.7  MAX-MIN ZF POWER CONTROL (Eq. 17)
+--------------------------------------------------------------------------------
+
+Stacking η = (η_1, …, η_K) ∈ ℝ₊ᴷ, the problem is:
+
+       maximize_η    min_k   ρ_f · η_k / (1 + ρ_f · Σᵢ η_i · ν_{ki})  (17a)
+
+       subject to    Σᵢ η_i · ν_{mi}  ≤  1,    ∀m ∈ {1,…,M}.          (17b)
+
+Compare with CB's Eq. (6):
+  • Only K variables now (versus M·K for CB).
+  • Numerator of SINR is LINEAR in η (just η_k), not quadratic
+    (Σ √η_mk γ_mk)².
+  • Denominator is also linear in η.
+  • Per-AP constraints are LINEAR in η (same as CB).
+
+SO the whole problem (17) has:
+  - Objective: ratio of two LINEAR functions (quasi-linear).
+  - Constraints: linear.
+
+Unlike CB (quasi-CONCAVE), the ZF problem is QUASI-LINEAR. Quasi-linear
+functions are ratios of linear functions and are both quasi-concave AND
+quasi-convex — a "fractional linear" function. The bisection method still
+applies.
+
+--------------------------------------------------------------------------------
+2.8  BISECTION FOR (17) (Eq. 18)
+--------------------------------------------------------------------------------
+
+The feasibility problem for a given target SINR t:
+
+       find η
+       s.t.    SINR_{k,ZF}(η) ≥ t,    k=1,…,K,                     (18a)
+               Σᵢ η_i · ν_{mi} ≤ 1,    m=1,…,M.                    (18b)
+
+The SINR constraint SINR_{k,ZF}(η) ≥ t expands to:
+
+       ρ_f · η_k  ≥  t · (1 + ρ_f · Σᵢ η_i · ν_{ki})
+       η_k  ≥  t/ρ_f + t · Σᵢ η_i · ν_{ki}
+       η_k − t · Σᵢ η_i · ν_{ki}  ≥  t/ρ_f.
+
+Collecting all K such constraints (one per user k=1,…,K):
+
+       (I_K − t · B) · η  ≥  (t/ρ_f) · 1_K,                       (†)
+
+where B ∈ ℝᴷ×ᴷ has entries [B]_{ki} = ν_{ki}.
+
+But wait — the paper says in Appendix D that B has [B]_{ij} = ν_{ij} for
+i ≠ j and [B]_{ii} = 0. Let me re-read. From Appendix D line:
+"Define matrix B ∈ ℂᴷ×ᴷ, [B]_{ij} = ν_{ij} for i ≠ j and [B]_{ii} = 0".
+
+So actually B is the "off-diagonal-only" version of the ν_{ki} matrix.
+Let's redo: SINR_{k,ZF}(η) = t means
+
+       ρ_f η_k / (1 + ρ_f Σᵢ η_i ν_{ki})  =  t
+       ρ_f η_k  =  t + t ρ_f Σᵢ η_i ν_{ki}
+       ρ_f η_k − t ρ_f Σᵢ η_i ν_{ki}  =  t
+       ρ_f η_k (1 − t ν_{kk}) − t ρ_f Σᵢ≠k η_i ν_{ki}  =  t
+
+If we define B as the off-diagonal matrix of ν_{ki}'s and incorporate the
+diagonal ν_{kk} differently, and set τ = 1/t:
+       (B − τ · I) · η  +  d  =  0,    (*)
+
+where d = (1/ρ_f, …, 1/ρ_f)ᵀ  ∈ ℝᴷ (after rescaling appropriately).
+
+Actually let me go with the paper's exact claim. The paper says (with
+λ_1 = 1/t):
+       (B − λ_1 I) η  +  d  =  0.
+
+The precise algebra involves absorbing the diagonal ν_{kk} into λ_1. This
+is a SYSTEM OF K LINEAR EQUATIONS in η. Solving it gives (uniquely, if
+the matrix is invertible) η(t) — the UNIQUE power vector achieving
+SINR_k(η) = t for all k.
+
+The key insight of Lemma 1 (next subsection) is that this η(t) can be used
+to check feasibility of the INEQUALITY problem (18) at no extra cost:
+you just solve the EQUALITY system (*) and check whether the resulting η
+satisfies (17b). No convex feasibility solver is needed.
+
+--------------------------------------------------------------------------------
+2.9  LEMMA 1 — MONOTONICITY (Appendix D)
+--------------------------------------------------------------------------------
+
+STATEMENT. Suppose η and η' > 0 are two power vectors such that
+SINR_{k,ZF}(η) = t and SINR_{k,ZF}(η') ≥ t for all k=1,…,K. Then
+
+       η'  ≥  η    (element-wise).
+
+In words: if η EQUALIZES the SINRs at level t, and η' achieves SINR ≥ t
+for everyone, then η' DOMINATES η component-wise.
+
+WHY THIS IS NON-TRIVIAL. Because (17) is a system of coupled fractional
+linear constraints, it's not obvious that a "uniform-better-than-t"
+vector η' must be term-wise larger. It could be that η' achieves t + ε₁
+on user 1 while η achieves exactly t on user 1, yet η'_1 < η_1 (maybe
+η' compensates by being bigger on other components). Lemma 1 says this
+cannot happen.
+
+PROOF SKETCH (Appendix D, reworked for clarity).
+
+The proof uses PERRON–FROBENIUS theory for non-negative matrices +
+M-MATRIX theory.
+
+A non-negative matrix B ∈ ℝᴷ×ᴷ (i.e., with all entries ≥ 0) has a
+"Perron eigenvalue" r ≥ 0 that is real, non-negative, and is the LARGEST
+in absolute value among all eigenvalues. It has a corresponding non-
+negative eigenvector.
+
+An M-matrix is a matrix of the form (sI − B) where B ≥ 0 and s > r (the
+Perron eigenvalue of B). M-matrices are INVERTIBLE, and their inverse is
+ENTRY-WISE NON-NEGATIVE.
+
+THE PROOF GOES LIKE THIS (paraphrased from Appendix D):
+
+  (i)   Given that SINR_{k,ZF}(η') ≥ t for all k, and that SINR is
+        continuous in η', one can CONTINUOUSLY reduce components of η'
+        (whichever currently gives the max SINR) until equality
+        SINR_{k,ZF}(η^(2)) = t_2 is achieved for all k, where t_2 ≥ t
+        and η^(2) ≤ η'.
+
+  (ii)  The vector η^(2) now satisfies an equality condition:
+        (B − λ_2 I) η^(2) + d = 0, where λ_2 = 1/t_2.
+        Similarly, the vector η satisfies (B − λ_1 I) η + d = 0, where
+        λ_1 = 1/t. Here B is the "coupling matrix" (ν_{ij}-based).
+
+  (iii) Subtract: B (η^(2) − η) − λ_2 η^(2) + λ_1 η = 0.
+
+  (iv)  Use Perron-Frobenius: let v > 0 be the left Perron eigenvector
+        of B with eigenvalue r ≥ 0. Multiplying from the left by vᵀ gives
+        r · vᵀ (η^(2) − η) = λ_2 vᵀ η^(2) − λ_1 vᵀ η.
+        Since vᵀ η, vᵀ η^(2) > 0 and λ_2 ≤ λ_1 (because t_2 ≥ t), some
+        algebra shows r < λ_2 ≤ λ_1.
+
+  (v)   Hence both (λ_1 I − B) and (λ_2 I − B) are M-matrices
+        (invertible with non-negative inverses).
+
+  (vi)  Therefore η = (λ_1 I − B)⁻¹ d ≥ 0, and
+        η^(2) = η + (λ_2 I − B)⁻¹ · (λ_1 − λ_2) · 1... (after
+        rearrangement).
+
+  (vii) Since (λ_2 I − B)⁻¹ is non-negative and (λ_1 − λ_2) ≥ 0, we
+        conclude η^(2) ≥ η element-wise. Combined with η^(2) ≤ η', we
+        get η' ≥ η^(2) ≥ η. ∎
+
+The Perron-Frobenius-based proof is elegant and illustrates the deep
+structural property of ZF max-min problems: their feasibility region has
+a "lattice-like" structure in which the equality solution is the unique
+minimal element.
+
+--------------------------------------------------------------------------------
+2.10  COROLLARY 1 — REDUCTION OF THE FEASIBILITY CHECK
+--------------------------------------------------------------------------------
+
+STATEMENT. If the linear system SINR_{k,ZF}(η) = t (∀k) yields a solution
+η that does NOT satisfy the per-AP constraints (17b), then NO η'
+satisfying SINR_{k,ZF}(η') ≥ t (∀k) satisfies (17b) either.
+
+PROOF. By Lemma 1, any such η' ≥ η element-wise. Therefore
+       Σᵢ η'_i · ν_{m₀i} ≥ Σᵢ η_i · ν_{m₀i} > 1
+for the same AP m₀ where η fails the per-AP constraint (the strict
+inequality because ν_{m₀i} ≥ 0 and at least one strict increase). So η'
+also fails. ∎
+
+PRACTICAL CONSEQUENCE: instead of solving a CONVEX FEASIBILITY problem
+at each bisection step (which would be an SOCP), we solve a single SYSTEM
+OF K LINEAR EQUATIONS — O(K³) complexity — and check whether the
+resulting η vector satisfies M simple inequalities.
+
+COST PER BISECTION STEP:
+  • Old (CB's approach): one SOCP, cost ~ O((MK)^{3.5}) (interior point).
+  • New (ZF's approach via Corollary 1): one K×K linear solve, cost O(K³).
+                                          plus M inequality checks.
+
+For M = 128, K = 16, this is O(16³) = 4096 arithmetic ops per step, versus
+~O((2048)^{3.5}) ≈ 10¹² for the SOCP approach. A TRILLIONFOLD SPEEDUP.
+This is one of the most important computational contributions of the
+paper.
+
+--------------------------------------------------------------------------------
+2.11  HOW TO ESTIMATE ν_k AND ν_m
+--------------------------------------------------------------------------------
+
+Both ν_k and ν_m are expectations over small-scale fading (h_mk). They
+depend ONLY on large-scale β_mk, but computing them in closed form is
+hard (they involve inverses of random K×K matrices).
+
+The paper gives TWO estimation methods:
+
+METHOD 1: Monte Carlo dummy variables.
+  Whenever the β_mk change (slowly, every few seconds), the NC generates
+  MANY "dummy" complex Gaussians ĝ_{mk}^dummy ~ 𝒞𝒩(0, γ_mk) (matching
+  the statistics of the real estimate). For each dummy realization, it
+  computes the inner expression
+     (ĜᵀĜ*)⁻¹ · ĝ_[m] · ĝᴴ_[m] · (ĜᵀĜ*)⁻¹
+  and averages over many samples to estimate ν_m (and similarly ν_k).
+  The optimal power allocation (17) is then re-run only when β changes,
+  so this is amortized over many coherence intervals.
+
+METHOD 2: Exponential smoothing.
+  Whenever the NC receives a new real channel estimate Ĝ, it computes
+  the instantaneous ν_{m,curr} from Ĝ and updates:
+       ν̂_m  ←  θ · ν̂_m + (1 − θ) · ν_{m,curr}
+  with some θ ∈ (0, 1). This is a recursive low-pass filter.
+
+Both methods result in estimates of ν_k and ν_m that can be used in
+(13), (14), (15), (17). Method 1 is cleaner but requires an offline
+Monte Carlo batch. Method 2 is cheaper but only tracks if β changes
+slowly enough.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — HISTORICAL / PRIOR DEVELOPMENT
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+3.1  ZERO-FORCING PRECODING: A BRIEF HISTORY
+--------------------------------------------------------------------------------
+
+ZF precoding has its origins in:
+
+  • B. R. Vojcic and W. M. Jang, "Transmitter precoding in synchronous
+    multiuser communications," IEEE Trans. Commun., vol. 46, no. 10,
+    pp. 1346–1355, Oct. 1998. [Early linear precoding for multi-user CDMA.]
+
+  • M. Joham, W. Utschick, and J. A. Nossek, "Linear transmit processing
+    in MIMO communications systems," IEEE Trans. Signal Process.,
+    vol. 53, no. 8, pp. 2700–2712, Aug. 2005. [Comprehensive treatment
+    of linear precoding including ZF and MMSE.]
+
+  • G. Caire and S. Shamai, "On the achievable throughput of a multi-
+    antenna Gaussian broadcast channel," IEEE Trans. Inf. Theory,
+    vol. 49, no. 7, pp. 1691–1706, Jul. 2003. [Compared ZF to DPC.]
+
+  • T. Yoo and A. Goldsmith, "On the optimality of multiantenna broadcast
+    scheduling using zero-forcing beamforming," IEEE J. Sel. Areas
+    Commun., vol. 24, no. 3, pp. 528–541, Mar. 2006. [Showed that with
+    user selection, ZF achieves the same asymptotic sum-rate as DPC.]
+
+  • D. Tse and P. Viswanath, Fundamentals of Wireless Communication,
+    Cambridge Univ. Press, 2005. Ch. 10 (linear MIMO precoding).
+
+--------------------------------------------------------------------------------
+3.2  PER-ANTENNA POWER CONSTRAINTS IN ZF
+--------------------------------------------------------------------------------
+
+The fact that the classical ZF pseudoinverse is sub-optimal under per-
+antenna power constraints was formally analyzed in:
+
+  • A. Wiesel, Y. C. Eldar, S. Shamai, "Zero-forcing precoding and
+    generalized inverses," IEEE Trans. Signal Process., vol. 56, no. 9,
+    pp. 4409–4418, Sep. 2008. [Reference [28] of the paper.]
+
+Their finding: in the per-antenna power-constrained problem, the optimal
+linear zero-interference precoder is NOT Ĝ* (ĜᵀĜ*)⁻¹ but a more general
+"generalized-inverse" matrix that depends on the power constraints
+themselves. In practice, this gap is small for the cell-free setting,
+so Nayebi et al. use the standard ZF for analytical tractability.
+
+--------------------------------------------------------------------------------
+3.3  PERRON-FROBENIUS IN POWER CONTROL
+--------------------------------------------------------------------------------
+
+The use of Perron-Frobenius theory to analyze max-min SINR problems has
+a long tradition in wireless power control. The foundational reference:
+
+  • R. D. Yates, "A framework for uplink power control in cellular radio
+    systems," IEEE J. Sel. Areas Commun., vol. 13, no. 7,
+    pp. 1341–1347, Sep. 1995.
+
+Yates's "standard interference function" framework proves that many
+power-control problems converge under iterative updates because of an
+underlying non-negative-matrix fixed-point structure. The M-matrix
+argument used by Nayebi et al. in Appendix D is in the same spirit.
+
+Further key references:
+  • M. Schubert, H. Boche, "Solution of the multiuser downlink beamforming
+    problem with individual SINR constraints," IEEE Trans. Veh. Technol.,
+    vol. 53, no. 1, pp. 18–28, Jan. 2004.
+  • R. A. Horn and C. R. Johnson, Matrix Analysis, Cambridge Univ. Press,
+    2nd ed., 2013. Ch. 8: Perron-Frobenius theory.
+  • R. J. Plemmons, "M-matrix characterizations: nonsingular M-matrices,"
+    Linear Algebra Appl., vol. 18, no. 2, pp. 175–188, 1977.
+    [Reference [31] of the paper.]
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — MATHEMATICAL DETAILS (Unicode box summary)
+════════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (11):  ZF PRECODING MATRIX                                            │
+│                                                                          │
+│     A_ZF  =  Ĝ* · ( Ĝᵀ Ĝ* )⁻¹ · P                                       │
+│                                                                          │
+│   P = diag(√η_1, …, √η_K):  per-user power coefficients.                │
+│   By construction, ĜᵀA_ZF = P (diagonal ⟹ no inter-user MUI).          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (12):  RECEIVED SIGNAL AT USER k                                      │
+│                                                                          │
+│     y_k  =  √(ρ_f η_k) · s_k                        (J_0: signal)       │
+│            + √(ρ_f) · ~g_kᵀ · Ĝ* (Ĝᵀ Ĝ*)⁻¹ · P · s   (J_1: error leak)  │
+│            +  w_k                                    (noise)            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (13) — THEOREM 1:  ZF ACHIEVABLE-RATE SINR                            │
+│                                                                          │
+│                         ρ_f · η_k                                        │
+│   SINR_{k,ZF}  =  ─────────────────────                                  │
+│                     1  +  ρ_f · Σᵢ₌₁ᴷ η_i · ν_{ki}                      │
+│                                                                          │
+│  R_k = log₂(1 + SINR_{k,ZF}).                                            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (14):  INTERFERENCE LEAKAGE STATISTIC ν_k                             │
+│                                                                          │
+│     ν_k  =  diag{ 𝔼[ (ĜᵀĜ*)⁻¹ · Ĝᵀ · 𝔼[~g_k ~g_kᵀ] · Ĝ* · (ĜᵀĜ*)⁻¹ ] }  │
+│                                                                          │
+│   𝔼[~g_k ~g_kᵀ] is diagonal with m-th entry (β_mk − γ_mk).              │
+│   ν_{ki} = i-th diagonal entry of the outer matrix.                     │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (15):  POWER-COST STATISTIC ν_m                                       │
+│                                                                          │
+│     ν_m  =  diag{ 𝔼[ (ĜᵀĜ*)⁻¹ · ĝ_[m] · ĝᴴ_[m] · (ĜᵀĜ*)⁻¹ ] }           │
+│                                                                          │
+│   ĝ_[m] is the m-th column of Ĝᴴ.                                       │
+│   ν_{mi} = per-user power cost at AP m for unit η_i.                    │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (16):  PER-AP TRANSMIT POWER                                          │
+│                                                                          │
+│     𝔼[|x_m|²]  =  ρ_f · Σᵢ₌₁ᴷ η_i · ν_{mi}                              │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (17):  MAX-MIN POWER CONTROL FOR ZF                                   │
+│                                                                          │
+│   max_η    min_k   ρ_f η_k / (1 + ρ_f Σᵢ η_i ν_{ki})                    │
+│   s.t.     Σᵢ η_i ν_{mi} ≤ 1,  m=1,…,M.                                 │
+│                                                                          │
+│   QUASI-LINEAR. Solve via bisection + equality system (Lemma 1).         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ LEMMA 1 (Appendix D).                                                    │
+│                                                                          │
+│   If  SINR_{k,ZF}(η)  = t,  ∀k,  and  SINR_{k,ZF}(η')  ≥ t,  ∀k,        │
+│   with  η, η' > 0,  then  η' ≥ η  element-wise.                         │
+│                                                                          │
+│   Proof tools: Perron-Frobenius theorem + M-matrix inverse positivity.  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ COROLLARY 1.                                                             │
+│                                                                          │
+│   The feasibility of SINR_{k,ZF}(η) ≥ t with per-AP constraints         │
+│   equals the feasibility of SINR_{k,ZF}(η) = t with per-AP constraints. │
+│                                                                          │
+│   Practical: solve K linear equations (cost O(K³)) instead of an SOCP.  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 5 — NUMERICAL EXAMPLE
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+5.1  TOY EXAMPLE: M = 3, K = 2, PERFECT CSI
+--------------------------------------------------------------------------------
+
+Assume perfect channel estimation (β_mk − γ_mk = 0), so ν_{ki} = 0 for
+all i, and the SINR formula collapses to:
+
+       SINR_{k,ZF}  =  ρ_f · η_k      (no interference term)
+       R_k = log₂(1 + ρ_f η_k).
+
+Channel estimates (fictitious for illustration):
+
+       Ĝ = [  2    0.5  ]
+           [ 1.5    1   ]
+           [  0.5   2   ]
+
+ĜᵀĜ* = [  4 + 2.25 + 0.25   ,  1 + 1.5 + 1    ] = [ 6.5   3.5 ]
+       [  1 + 1.5 + 1        ,  0.25 + 1 + 4  ]   [ 3.5   5.25]
+
+det(ĜᵀĜ*) = 6.5·5.25 − 3.5² = 34.125 − 12.25 = 21.875.
+
+(ĜᵀĜ*)⁻¹ = (1/21.875) · [  5.25   −3.5  ]
+                         [ −3.5    6.5   ]
+                       = [  0.240   −0.160 ]
+                         [ −0.160    0.297 ]
+
+A_classical = Ĝ* · (ĜᵀĜ*)⁻¹:
+
+       Row 1 (AP 1): (2, 0.5) · (ĜᵀĜ*)⁻¹
+                   = (2·0.240 + 0.5·(−0.160),  2·(−0.160) + 0.5·0.297)
+                   = (0.480 − 0.080,  −0.320 + 0.149)
+                   = (0.400, −0.171)
+
+       Row 2 (AP 2): (1.5, 1) · (ĜᵀĜ*)⁻¹
+                   = (1.5·0.240 + 1·(−0.160),  1.5·(−0.160) + 1·0.297)
+                   = (0.360 − 0.160,  −0.240 + 0.297)
+                   = (0.200, 0.057)
+
+       Row 3 (AP 3): (0.5, 2) · (ĜᵀĜ*)⁻¹
+                   = (0.5·0.240 + 2·(−0.160),  0.5·(−0.160) + 2·0.297)
+                   = (0.120 − 0.320,  −0.080 + 0.594)
+                   = (−0.200, 0.514)
+
+Verify: Ĝᵀ · A_classical = ? Should be I_2.
+   Column 1 of A_classical: (0.400, 0.200, −0.200)ᵀ.
+   Ĝᵀ · column 1  =  (2·0.400 + 1.5·0.200 + 0.5·(−0.200),
+                       0.5·0.400 + 1·0.200 + 2·(−0.200))
+                 =  (0.800 + 0.300 − 0.100,  0.200 + 0.200 − 0.400)
+                 =  (1.000, 0.000).   ✓
+
+So the ZF precoder delivers s_1 to user 1 and nothing to user 2.
+
+Now compute the ν_{mi}'s (per-AP power cost, Eq. 15 but
+pc-version since we assumed perfect CSI).
+
+       [A_classical]_{m,i}  =  the (m, i) entry we just computed.
+       |[A_classical]_{m,i}|²  gives the "power cost for unit η_i at AP m".
+
+   AP 1: (0.400)² = 0.160  and  (−0.171)² = 0.0292.
+         ν_{1,1} ≈ 0.160,  ν_{1,2} ≈ 0.0292.
+   AP 2: (0.200)² = 0.040  and  (0.057)² = 0.00325.
+         ν_{2,1} ≈ 0.040,  ν_{2,2} ≈ 0.00325.
+   AP 3: (−0.200)² = 0.040  and  (0.514)² = 0.264.
+         ν_{3,1} ≈ 0.040,  ν_{3,2} ≈ 0.264.
+
+(These are for a single realization; the paper's ν_m is an expectation
+ over small-scale fading, but this illustrates the structure.)
+
+Per-AP constraint (17b):
+   AP 1:  0.160 · η_1 + 0.0292 · η_2 ≤ 1.
+   AP 2:  0.040 · η_1 + 0.00325 · η_2 ≤ 1.
+   AP 3:  0.040 · η_1 + 0.264 · η_2 ≤ 1.
+
+Under PERFECT CSI (ν_{ki} = 0), SINR_{k,ZF} = ρ_f · η_k. Max-min says
+η_1 = η_2 = η (equalize). The binding constraint is the one that first
+hits 1. Let's check with η_1 = η_2 = η:
+   AP 1: 0.189 · η ≤ 1  ⟹  η ≤ 5.29.
+   AP 2: 0.0433 · η ≤ 1  ⟹  η ≤ 23.1.
+   AP 3: 0.304 · η ≤ 1  ⟹  η ≤ 3.29.
+
+The binding constraint is AP 3 (it has the largest value of ν_{3,1}+ν_{3,2}).
+So η* = 3.29, and the max-min SINR is ρ_f · 3.29. For ρ_f = 1 (normalized),
+that's SINR = 3.29, R = log₂(4.29) ≈ 2.10 bits/s/Hz.
+
+OBSERVATION: AP 3 (the AP with the most "expensive" ν_{3i}) determines
+the bottleneck. In the general case, Lemma 2 (next file) shows the same
+thing: at least one AP is at full power.
+
+--------------------------------------------------------------------------------
+5.2  PRACTICE PROBLEM
+--------------------------------------------------------------------------------
+
+PROBLEM. In a cell-free system with M = 4 APs and K = 3 users, perfect CSI,
+suppose the ν_{mi} matrix (4×3) has been computed as:
+
+       ν = | 0.2   0.3   0.1 |   AP 1
+           | 0.1   0.2   0.4 |   AP 2
+           | 0.3   0.1   0.2 |   AP 3
+           | 0.1   0.1   0.1 |   AP 4
+
+Under perfect CSI and uniform power allocation η_1 = η_2 = η_3 = η,
+find the largest η that satisfies all four per-AP constraints. Which AP
+is binding?
+
+SOLUTION. Sum each row of ν:
+   AP 1 row sum: 0.2 + 0.3 + 0.1 = 0.6  ⟹  0.6 · η ≤ 1  ⟹  η ≤ 1.667
+   AP 2 row sum: 0.1 + 0.2 + 0.4 = 0.7  ⟹  0.7 · η ≤ 1  ⟹  η ≤ 1.429
+   AP 3 row sum: 0.3 + 0.1 + 0.2 = 0.6  ⟹  0.6 · η ≤ 1  ⟹  η ≤ 1.667
+   AP 4 row sum: 0.1 + 0.1 + 0.1 = 0.3  ⟹  0.3 · η ≤ 1  ⟹  η ≤ 3.333
+
+The binding AP is AP 2 (smallest η threshold). So η* = 1.429.
+
+SINR (perfect CSI) = ρ_f · 1.429 = ρ_f · 10/7.
+R = log₂(1 + ρ_f · 10/7).
+
+For ρ_f = 10, SINR = 14.29, R ≈ log₂(15.29) ≈ 3.93 bits/s/Hz.
+
+NOTE. This is the "perfect CSI" Lemma 2 solution, which we'll formalize
+in the next file. The key insight is that under perfect CSI, the
+SINRs are equal, and the bottleneck AP determines the common SINR level.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 6 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT WE COVERED IN THIS FILE:
+
+  • ZF PROTOCOL. Centralized: channel estimates shipped to NC, which
+    computes A_ZF and sends precoding coefficients back to APs.
+  • ZF PRECODING MATRIX (Eq. 11): A_ZF = Ĝ* (ĜᵀĜ*)⁻¹ P. Power
+    coefficients depend only on user index k.
+  • RECEIVED SIGNAL DECOMPOSITION (Eq. 12): y_k = √(ρ_f η_k) s_k + J_1
+    + w_k, with J_1 carrying only the channel-estimation-error leakage.
+  • THEOREM 1 (Eq. 13): SINR_{k,ZF} = ρ_f η_k / (1 + ρ_f Σᵢ η_i ν_{ki}),
+    where ν_k is defined in (14).
+  • APPENDIX C: full derivation of (13) via Hassibi-Hochwald worst-case
+    noise + trace manipulation.
+  • PER-AP POWER (Eq. 15, 16): ν_m captures the "cost per η_i" at AP m.
+  • MAX-MIN PROBLEM (Eq. 17): quasi-linear; bisection applicable.
+  • LEMMA 1: monotonicity — any feasible SINR ≥ t solution dominates
+    the equality solution. Proved via Perron-Frobenius + M-matrices.
+  • COROLLARY 1: feasibility check reduces to solving K linear equations.
+    Complexity drop from O((MK)^{3.5}) to O(K³) per bisection step.
+  • Two estimation methods for ν_k, ν_m (Monte Carlo, exponential
+    smoothing).
+
+KEY TAKEAWAYS:
+
+  1. ZF trades simplicity (CB's distributed beauty) for interference
+     cancellation (ZF's centralized mathematical leverage).
+  2. The ZF max-min problem has only K variables (η_1, …, η_K), far
+     fewer than CB's M·K. But the feasibility check is still non-trivial
+     because per-AP constraints involve a K×K matrix inverse implicitly.
+  3. Lemma 1 + Corollary 1 are the algorithmic GEMS of Section IV:
+     they drop the per-bisection cost from a costly SOCP to a cheap
+     K×K linear solve. Without these, ZF max-min power control would
+     be impractical for large cell-free systems.
+  4. The proof of Lemma 1 uses non-trivial linear algebra (Perron-
+     Frobenius, M-matrix inverse positivity), showcasing the depth
+     of the theoretical contribution.
+  5. Channel estimation error ~g_mk shows up in SINR (13) through
+     ν_{ki} — if estimation is good, ν_{ki} → 0 and SINR → ρ_f η_k
+     (perfect-CSI regime). This motivates the closed-form heuristic
+     (21) in the next file.
+
+WHAT'S NEXT (Section IV Part 2):
+  • Perfect-CSI version of the max-min problem, Eq. (19-20).
+  • Lemma 2: in the perfect-CSI case, the solution has all η_k equal
+    and at least one AP at full power.
+  • Closed-form heuristic power, Eq. (21).
+  • Proposition 2: for sufficiently large uplink pilot power, this
+    heuristic is ε-optimal.
+  • Complexity analysis: the heuristic (21) is NOT the bottleneck;
+    the bottleneck is computing ν_m at O(MK²).
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[2]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+     numbers of base station antennas," IEEE Trans. Wireless Commun.,
+     vol. 9, no. 11, pp. 3590–3600, Nov. 2010.
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+
+[27] D. Tse and P. Viswanath, Fundamentals of Wireless Communication.
+     Cambridge Univ. Press, 2005. Ch. 10 (linear MIMO precoding).
+
+[28] A. Wiesel, Y. Eldar, S. Shamai, "Zero-forcing precoding and
+     generalized inverses," IEEE Trans. Signal Process., vol. 56, no. 9,
+     pp. 4409–4418, Sep. 2008. [Sub-optimality of standard ZF under
+     per-antenna power constraints.]
+
+[30] B. Hassibi, B. M. Hochwald, "How much training is needed in
+     multiple-antenna wireless links?" IEEE Trans. Inf. Theory, vol. 49,
+     no. 4, pp. 951–963, Apr. 2003.
+
+[31] R. J. Plemmons, "M-matrix characterizations: nonsingular M-matrices,"
+     Linear Algebra Appl., vol. 18, no. 2, pp. 175–188, 1977.
+     [M-matrix theory used in Lemma 1 proof.]
+
+Additional background (not cited in the paper):
+
+- G. Caire, S. Shamai, "On the achievable throughput of a multi-antenna
+  Gaussian broadcast channel," IEEE Trans. Inf. Theory, vol. 49, no. 7,
+  pp. 1691–1706, Jul. 2003.
+
+- T. Yoo, A. Goldsmith, "On the optimality of multiantenna broadcast
+  scheduling using zero-forcing beamforming," IEEE J. Sel. Areas Commun.,
+  vol. 24, no. 3, pp. 528–541, Mar. 2006.
+
+- M. Joham, W. Utschick, J. A. Nossek, "Linear transmit processing in
+  MIMO communications systems," IEEE Trans. Signal Process., vol. 53,
+  no. 8, pp. 2700–2712, Aug. 2005.
+
+- R. D. Yates, "A framework for uplink power control in cellular radio
+  systems," IEEE J. Sel. Areas Commun., vol. 13, no. 7, pp. 1341–1347,
+  Sep. 1995.  [Standard-interference-function framework.]
+
+- R. A. Horn, C. R. Johnson, Matrix Analysis, Cambridge Univ. Press,
+  2nd ed., 2013. Ch. 8 (Perron-Frobenius theory for non-negative
+  matrices).
+
+================================================================================
+END OF SECTION IV PART 1 ANALYSIS
+(ZF precoder + Theorem 1 + Optimal Power Allocation + Lemma 1)
+================================================================================

@@ -1,0 +1,583 @@
+================================================================================
+ PAPER ANALYSIS — SECTION 0
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Section analyzed: Abstract + Section I (Introduction)
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+Imagine a town where you want every person, regardless of where they stand, to
+get the same good mobile signal. The traditional way is to build a few very tall
+towers ("cells"), and every person gets stuck talking to the tower closest to
+them. The problem is: the person standing right under the tower gets an amazing
+signal, but the person near the edge of the coverage area gets a terrible one.
+This unfairness is the biggest complaint about cellular networks.
+
+Massive MIMO is one attempt to fix this. Instead of one antenna on a tower, you
+put HUNDREDS of antennas on it. With so many antennas, the tower can "aim" its
+signal precisely at each user simultaneously. This helps a lot, but the user at
+the edge of the cell still suffers from:
+  (a) long distance to the tower,
+  (b) interference from neighbouring towers.
+
+The paper studies a very different idea called "Cell-Free Massive MIMO". Now,
+instead of concentrating all antennas on one tower, you SPRINKLE hundreds of
+small, cheap, single-antenna "access points" (APs) all over the town — on
+lampposts, on buildings, anywhere — and connect them all to a single brain
+(called the network controller, NC). The network is NOT divided into cells.
+Every AP in the town serves EVERY user at the same time, using coordinated
+transmissions orchestrated by the central brain.
+
+Two questions dominate this system:
+  Question 1: HOW should each AP shape its signal so that the signals from
+              all APs add up constructively at the intended user and cancel
+              destructively at everyone else? This is called "precoding". The
+              paper studies two popular precoders:
+               • Conjugate Beamforming (CB)  — simple, distributed.
+               • Zero-Forcing (ZF)           — more complex, but kills
+                                                multi-user interference.
+
+  Question 2: HOW much power should each AP spend on each user? If every AP
+              blasts at full power, it wastes energy and creates interference
+              between users. If it's too quiet, users don't hear it. This is
+              "power allocation". The authors use a "max-min" rule: find the
+              power budget that makes the WORST user as happy as possible. This
+              is the fairness principle — raise the floor for the weakest user
+              instead of making strong users stronger.
+
+The paper's headline findings, in plain English:
+  1. Cell-Free Massive MIMO beats "small-cell" systems (where each user only
+     talks to one AP) by a factor of 5× to 10× in terms of what the WORST
+     5% of users experience.
+  2. Zero-Forcing is much better than Conjugate Beamforming in a cell-free
+     network with good central coordination.
+  3. Counterintuitively, when you do optimal max-min power control, MOST of
+     the APs end up transmitting at LESS than their full power. This is
+     strange: you'd expect that in a fairness-seeking scheme, everybody would
+     push their transmit button as hard as possible. But the math says no —
+     APs close to a user should actually transmit GENTLY, because they don't
+     need to shout, and shouting only creates interference for others.
+  4. Because exact max-min power control is computationally expensive, the
+     authors design simple "shortcut" algorithms (heuristics) that almost
+     match the optimal performance but run much faster, which is what a real
+     network would need.
+
+The whole paper is, at heart, a numerical and mathematical study of: "If I
+want to give uniformly good service to everyone in a big area, what are the
+best precoding + power allocation combinations in this new architecture?"
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+The Introduction section serves six distinct technical purposes, which we'll
+dissect one at a time.
+
+--------------------------------------------------------------------------------
+2.1  HISTORICAL POSITIONING: from Shannon-era MIMO to Cell-Free Massive MIMO
+--------------------------------------------------------------------------------
+
+To properly understand where Cell-Free Massive MIMO sits in the intellectual
+lineage of wireless communications, we have to trace the evolution in three
+phases.
+
+PHASE A — CLASSICAL MULTI-USER MIMO (early 2000s).
+The broadcast-channel capacity results of Caire–Shamai (2003) [5],
+Viswanath–Tse (2003) [6], and Vishwanath–Jindal–Goldsmith (2003) [7]
+established that the capacity of a Gaussian MIMO broadcast channel is
+achieved by *Dirty-Paper Coding* (DPC), a clever non-linear scheme in which
+the transmitter "pre-subtracts" interference known at the transmitter but not
+at the receiver. Two crucial assumptions underpinned these results:
+
+      (i)  Both transmitter and receiver perfectly know the channel.
+      (ii) Dirty-Paper Coding (non-linear, computationally heavy) is feasible.
+
+These assumptions gave a beautiful theory but an impractical roadmap, because
+DPC becomes computationally intractable as antenna counts grow and perfect
+CSI at the transmitter is unrealistic in FDD systems.
+
+PHASE B — MASSIVE MIMO (Marzetta 2010).
+Marzetta's landmark 2010 paper [2] reversed the direction of thought: instead
+of trying to achieve capacity with perfect CSI and DPC, *scale up* the number
+of base-station antennas M so that even very simple, sub-optimal tools
+(linear precoding like MRT/ZF, channel reciprocity via TDD, MMSE channel
+estimation from uplink pilots) already give close-to-capacity performance.
+The mechanism behind this miracle is *channel hardening* — when the number
+of base-station antennas M → ∞, the random channel vector g_k between the
+base station and user k concentrates tightly around its mean, so that the
+effective gain ‖g_k‖²/M → β_k deterministically. Fast fading vanishes at
+the array, inter-user interference becomes predictable, and simple linear
+methods approach the information-theoretic limits. This scalability with M
+is the defining feature of Massive MIMO.
+
+PHASE C — DISTRIBUTED / NETWORK / CELL-FREE MIMO (2010–present).
+The natural question became: "Why should all M antennas sit at one physical
+location?" If you instead spread them out across the geographical coverage
+area, you get (1) much shorter distances on average between APs and users,
+(2) stronger diversity against shadowing, and (3) uniform coverage.
+
+Several lines of prior work explored this, using different names and
+assumptions — distributed antenna systems (DAS), network MIMO, cooperative
+multi-cell beamforming, coordinated multipoint (CoMP):
+
+     [10] Gesbert et al.   — multi-cell MIMO cooperative networks survey.
+     [11] Sawahashi et al. — CoMP in LTE-Advanced.
+     [12] Joung et al.     — large-scale DAS for energy efficiency.
+     [13] Lozano et al.    — fundamental limits of cooperation.
+     [14] Huang et al.     — distributed beamforming with limited coordination.
+     [15] Somekh et al.    — cooperative multi-cell ZF in cellular downlink.
+     [16] Huh et al.       — large-system analysis of network MIMO with ZF.
+     [17] Truong & Heath   — viability of distributed antennas for Massive MIMO.
+     [18] Yang & Marzetta  — multi-cell Massive MIMO capacity bounds.
+     [19] Wang & Dai       — asymptotic rate analysis for distributed antennas.
+     [20] Yin, Gesbert & Cottatellucci — statistical interference handling.
+
+Each of these studies, however, retained a "cell" abstraction or focused on
+sum-rate, not per-user fairness. The term "Cell-Free Massive MIMO" was coined
+by Ngo, Ashikhmin, Yang, Larsson, and Marzetta in their 2015 SPAWC paper [21]
+and then expanded in the 2017 TWC paper "Cell-Free Massive MIMO versus Small
+Cells" [22]. These are the direct intellectual ancestors of the present work.
+The key distinction of cell-free massive MIMO versus prior distributed-antenna
+literature is:
+
+      • No cell partition and no user association rules — all APs serve all
+        users jointly.
+      • TDD-based operation, exploiting uplink/downlink channel reciprocity
+        to avoid feedback overhead.
+      • Simple linear precoding (CB or ZF), not DPC.
+      • Performance metric = per-user rate (especially 5%-outage), NOT
+        sum-rate — the focus is uniform quality-of-service.
+
+The present Nayebi et al. 2017 paper plugs into this exact lineage and asks:
+"Given that we have cell-free massive MIMO with CB and ZF, what is the best
+power control strategy, and how large are the complexity/performance
+trade-offs?" That is its contribution slot.
+
+--------------------------------------------------------------------------------
+2.2  CONTRAST WITH Ngo et al. 2017 [22] — WHY A NEW PAPER?
+--------------------------------------------------------------------------------
+
+The reader should understand precisely what [22] (Ngo et al., "Cell-Free
+Massive MIMO versus Small Cells", IEEE TWC 2017) did and what this paper
+adds. Specifically:
+
+     [22] analyzed:
+        • Only conjugate beamforming (CB) for cell-free.
+        • Only matched-filter (MF) receiver for small cells (no ZF).
+        • Proposed a max-min power control for CB that requires solving a
+          non-convex optimization of high computational complexity (through
+          iterative SOCP / geometric programming).
+        • Focused heavily on pilot assignment to mitigate pilot contamination.
+
+     Nayebi et al. (this paper) adds:
+        (a) Zero-Forcing (ZF) precoder for cell-free, including a new
+            capacity lower bound (their Theorem 1).
+        (b) A low-complexity near-optimal power control for ZF derived from
+            a perfect-CSI analytical solution (their Eq. (21)).
+        (c) Three novel low-complexity heuristic power allocations for CB
+            (full power, heuristic fixed-power, heuristic uniform
+            coefficients — Sections III-B, III-C, III-D).
+        (d) ZF precoder extended to the small-cell architecture (Section V)
+            as a fair comparison baseline.
+        (e) A counterintuitive finding and empirical characterization: at
+            the optimal max-min point, most APs transmit at *less* than
+            full power, and APs closer to users transmit with *smaller*
+            power (Figure 3 in Section VI).
+
+Critically, [22] used pilot contamination as a central concern because it
+allowed users to potentially share pilots. Nayebi et al. explicitly assume
+LOW MOBILITY (< 10 km/h, pedestrians), which dramatically increases the
+coherence interval τ_c. Since τ_c ≫ K (number of users), every user gets a
+fresh orthogonal pilot, so pilot contamination becomes negligible. This
+assumption isolates the precoding+power-allocation question from the pilot
+assignment question and allows the authors to focus purely on the max-min
+optimization problem.
+
+--------------------------------------------------------------------------------
+2.3  PERFORMANCE CRITERIA: WHY 5%-OUTAGE AND NOT SUM-RATE?
+--------------------------------------------------------------------------------
+
+A crucial methodological contribution is the insistence on *per-user fairness
+metrics*, rather than sum throughput. Two concrete metrics are used:
+
+     (i) Minimum rate among all users:
+                R_min = min_{k} R_k
+
+     (ii) 5%-outage rate:
+                The smallest rate among the best 95% of users,
+                i.e., R_{5%-outage} = F_R⁻¹(0.05)
+                where F_R is the CDF of the rate distribution.
+
+The authors justify this choice philosophically: in 5G/6G and beyond, the
+service paradigm is not "how much total data can I pipe through the system"
+but "what is the worst experience a user can have?" A bar where ONE user
+gets 1 Gbps while another gets 10 kbps can be sum-rate-optimal but is a
+product failure.
+
+A subtle but important remark: MAX-MIN optimization makes all users equal,
+so R_min and R_{5%-outage} become the same quantity at the optimum, for a
+given channel realization. The empirical CDF over realizations still shows a
+spread (due to different geometric configurations from random user/AP
+dropping). So the authors use max-min as an *engineering tool* — it is NOT
+provably optimal for 5%-outage, but in practice it works well and gives
+uniformly good service.
+
+--------------------------------------------------------------------------------
+2.4  THE MAIN TECHNICAL CONTRIBUTIONS (paraphrased and enumerated)
+--------------------------------------------------------------------------------
+
+Reading carefully between lines 152–169 of the Introduction, the explicit
+list of contributions is:
+
+  C1. Quantitative demonstration that cell-free provides 5×–10× gain over
+      small-cell in 5%-outage rate.
+  C2. ZF precoder significantly outperforms CB in the cell-free architecture.
+  C3. Counterintuitive empirical observation: at the max-min optimum for CB,
+      most APs transmit at less than full power, and their transmit power
+      decreases with their proximity to the strongest served user.
+  C4. Low-complexity heuristic power allocations for CB motivated by the
+      above observation (exponential fitting of p_m vs. β_m^max).
+  C5. A suboptimal but near-optimal closed-form power allocation for ZF,
+      derived from the perfect-CSI case and proven to be ε-optimal for
+      sufficiently large uplink pilot power ρ_r (Proposition 2).
+  C6. Analysis of small-cell systems with both MF and ZF, and power
+      allocation algorithms for both.
+  C7. Capacity lower bounds for cell-free systems with both CB and ZF,
+      accounting for:
+          — channel estimation error (the term T3 in Appendix A),
+          — lack of channel knowledge at users via channel hardening
+            (the term T2),
+          — multi-user interference (T1),
+          — noise (w_k).
+      This gives a rigorous achievable-rate formula usable in the power
+      optimization problem formulation.
+
+--------------------------------------------------------------------------------
+2.5  NOTATIONAL CONVENTIONS SET UP IN THE INTRODUCTION
+--------------------------------------------------------------------------------
+
+The paper's notation (used throughout all subsequent sections):
+
+  • Superscript ᵀ (T)  →  transpose.
+  • Superscript ∗      →  complex conjugate (element-wise).
+  • Superscript ᴴ (H)  →  Hermitian (conjugate-transpose).
+  • Upper-case boldface  →  matrix (e.g., G, Â, P).
+  • Lower-case boldface  →  vector (e.g., g_k, â_[m]).
+  • 𝔼(·)              →  expectation operator.
+  • diag{A}           →  column vector of main-diagonal entries of matrix A.
+
+Readers should keep (in particular) the distinction: diag{A} here returns a
+*vector*, not a diagonal matrix — this is used extensively when formulating
+the α_k, ν_m quantities in Section IV.
+
+--------------------------------------------------------------------------------
+2.6  SYSTEM ASSUMPTIONS (collected)
+--------------------------------------------------------------------------------
+
+By the end of the Introduction, the following assumptions are on the table
+(reinforced in Section II):
+
+  A1. M ≫ K (far more APs than users), consistent with Massive-MIMO ethos.
+  A2. Each AP has a single antenna (simplifies hardware; justifies the
+      "distributed" interpretation).
+  A3. TDD protocol, exploiting channel reciprocity.
+  A4. Low user mobility (≤ 10 km/h) → long coherence block → orthogonal
+      pilots available for all users → no pilot contamination.
+  A5. NC (Network Controller) knows all large-scale fading coefficients
+      β_mk for all m ∈ {1,…,M}, k ∈ {1,…,K}.
+  A6. Large-scale fading changes about 40× slower than small-scale fading
+      [25], making β_mk quasi-static. This minimizes backhaul traffic for
+      power-control coefficient updates.
+  A7. Flat-fading per OFDM subcarrier; β_mk is frequency-independent.
+  A8. Geographic area is small enough that propagation-time differences
+      between any two APs to a given user are within the OFDM cyclic prefix
+      — this justifies treating all APs as synchronously contributing to a
+      single OFDM symbol at each user.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — MATHEMATICAL DETAILS (Unicode format)
+════════════════════════════════════════════════════════════════════════════════
+
+The Introduction does not contain full derivations, but it does set the
+foundational symbols and the structure of the SINR / rate expressions that
+are referenced downstream. Here we establish and explain them.
+
+--------------------------------------------------------------------------------
+3.1  CHANNEL MODEL (Eq. (1) in Section II, previewed here)
+--------------------------------------------------------------------------------
+
+The channel between AP m and user k:
+
+        g_mk  =  √(β_mk) · h_mk                                      (1)
+
+where:
+  β_mk ∈ ℝ₊   = large-scale fading coefficient (path loss + shadowing).
+               Slowly varying; depends on distance and shadowing.
+  h_mk ∈ ℂ    = small-scale (Rayleigh) fading, h_mk ~ 𝒞𝒩(0, 1).
+               i.i.d. across (m, k) and across coherence blocks.
+
+Interpretation: the slow variable β_mk is treated as quasi-deterministic and
+known at the NC; the random part h_mk is what needs to be estimated each
+coherence block.
+
+--------------------------------------------------------------------------------
+3.2  RATE / SINR STRUCTURE (to be used in all sections)
+--------------------------------------------------------------------------------
+
+Throughout the paper, the achievable rate of user k will take the form:
+
+        R_k  =  log₂(1 + SINR_k)                                     (★)
+
+where SINR_k will be different for CB vs. ZF vs. small-cell. All are derived
+under the "worst-case uncorrelated noise" argument (Hassibi–Hochwald 2003
+[30]), which states:
+
+        "Given the transmitted signal decomposition
+            y_k = T₀ · s_k + Σᵢ (interfering terms) + noise,
+         where T₀, the interference terms, and the noise are mutually
+         uncorrelated, treating them as independent Gaussian noise gives a
+         valid lower bound on the achievable rate."
+
+This is the tool that enables the *closed-form capacity lower bounds* used
+as the OBJECTIVE of the max-min optimization problems in Sections III and IV.
+
+--------------------------------------------------------------------------------
+3.3  MAX-MIN OPTIMIZATION: the canonical form
+--------------------------------------------------------------------------------
+
+The generic max-min power allocation problem studied in this paper has the
+form:
+
+        maximize_{η}         min_{k ∈ {1,…,K}} SINR_k(η)            (P)
+
+        subject to           per-antenna transmit-power constraints
+                             on each AP m ∈ {1,…,M}:
+
+                             Σᵢ η_mi · [something β]  ≤  1
+
+Here η = (η_mk) is the collection of power-control coefficients, one per
+(AP, user) pair. These problems are QUASI-CONCAVE (in the CB case) or
+QUASI-LINEAR (in the ZF case), both of which are amenable to the BISECTION
+METHOD from convex optimization — see Boyd & Vandenberghe [26, Ch. 4.2.5].
+
+The bisection strategy works as follows (foreshadowed in the Introduction
+and detailed in Section III-A):
+
+  1. Choose an interval (t_ℓ, t_u) known to contain the optimal SINR target t*.
+  2. At iteration j, set t_j = (t_ℓ + t_u)/2 and check whether the feasibility
+     problem
+                 find η
+                 s.t.  SINR_k(η) ≥ t_j ∀k
+                       Σᵢ η_mi · β's  ≤ 1  ∀m
+     is feasible. This is a convex feasibility problem because for fixed t
+     the set {η : SINR_k(η) ≥ t} is convex (due to quasi-concavity).
+  3. If feasible, update t_ℓ ← t_j; else update t_u ← t_j.
+  4. Stop when |t_u − t_ℓ| < ε.
+
+The computational cost is what motivates the entire "heuristic algorithms"
+agenda of Sections III-B, III-C, III-D and IV-B. Every convex feasibility
+check costs O(polynomial(M·K)), and bisection requires log₂(1/ε) iterations.
+
+--------------------------------------------------------------------------------
+3.4  THE TWO PRECODERS IN ONE LINE EACH
+--------------------------------------------------------------------------------
+
+The Introduction names both precoders; their formal expressions (from
+Sections III, IV) are:
+
+  • CONJUGATE BEAMFORMING (CB) at AP m:
+
+        x_m  =  √(ρ_f) · Σ_{i=1}^{K} √(η_mi) · ĝ_mi* · s_i               (3)
+
+      — i.e., each AP multiplies the data symbol by the CONJUGATE of its
+        channel estimate to user i, scaled by the power coefficient η_mi.
+      — Fully distributed: each AP only needs to know its own ĝ_mi.
+
+  • ZERO-FORCING (ZF) at the NETWORK CONTROLLER (across all APs):
+
+        A_ZF  =  Ĝ* · (ĜᵀĜ*)⁻¹ · P                                    (11)
+
+      where P = diag(√η₁, …, √η_K) and Ĝ is the channel-estimate matrix of
+      size M×K. Here η_k (note: only a function of user index k, NOT of m!)
+      is the per-user power coefficient. ZF requires matrix inversion of a
+      K×K Gram matrix and must be computed centrally at the NC — not
+      distributed. This is the price of inter-user interference nulling.
+
+--------------------------------------------------------------------------------
+3.5  A VERY SHORT NUMERICAL EXAMPLE (rough magnitudes)
+--------------------------------------------------------------------------------
+
+To calibrate intuition for the numbers in the Introduction:
+
+  Scenario (from Experiment 2 in Section VI):
+       M = 128 APs, K = 16 users, 2×2 km² urban area,
+       maximum AP transmit power ρ_f = 200 mW,
+       bandwidth B = 20 MHz,
+       COST-Hata path-loss model,
+       shadowing std σ_shad = 8 dB.
+
+  Reported 5%-outage rates:
+       Small-Cell MF Full Power:         ≈ 0.51 bits/s/Hz
+       Cell-Free CB Optimal Max-Min:     ≈ 2.82 bits/s/Hz
+       Cell-Free ZF Optimal Max-Min:     ≈ 5.28 bits/s/Hz
+
+  Gains over small-cell full-power baseline:
+       CB gain   =  2.82 / 0.51  ≈  5.5×
+       ZF gain   =  5.28 / 0.51  ≈ 10.4×
+
+This is where the paper's abstract claims "five- to ten-fold improvement"
+come from. In absolute terms:
+       At B = 20 MHz:
+            5%-outage throughput =  5.28 bits/s/Hz × 20 MHz ≈ 106 Mbps
+            (cell-free ZF) versus
+            0.51 bits/s/Hz × 20 MHz ≈ 10 Mbps (small-cell baseline).
+
+--------------------------------------------------------------------------------
+3.6  PRACTICE PROBLEM (for the reader)
+--------------------------------------------------------------------------------
+
+PROBLEM. Suppose a cell-free Massive MIMO system has M = 100 APs and K = 10
+users. Each AP transmits a signal x_m of the CB form (3), with power
+coefficients η_mk such that
+
+                 Σᵢ η_mi · β_mi ≤ 1      ∀m.
+
+Assume:
+  • f = 200 mW,
+  • For AP m = 1: β_{1,1} = 10⁻⁸, β_{1,k} = 10⁻⁹ for k=2,…,10.
+  • η_{1,1} = η₁, η_{1,k} = η for k=2,…,10.
+
+Find the largest η₁ and η satisfying both the per-AP constraint and η₁ = η
+(uniform). Then, if we relax η₁ and set η = 0 for k ≥ 2, find the largest η₁.
+
+SOLUTION SKETCH.
+
+  (i) Uniform case: η₁ · β_{1,1} + η · (9 · β_{1,k}) ≤ 1 with η₁ = η = η̄.
+       ⟹  η̄ · (10⁻⁸ + 9·10⁻⁹) ≤ 1
+       ⟹  η̄ · (1.9 × 10⁻⁸) ≤ 1
+       ⟹  η̄ ≤ 5.26 × 10⁷.
+      (Units are such that η itself is dimensionless; the physical transmit
+      power for user 1 is f · η̄ · β_{1,1} = 200 mW × 5.26×10⁷ × 10⁻⁸ =
+      105 mW — i.e., AP 1 spends roughly half its power on user 1.)
+
+ (ii) Focus-on-user-1 case: η_{1,1} · β_{1,1} ≤ 1 ⟹ η_{1,1} ≤ 10⁸. This is
+      almost twice the uniform value. But this assumes AP 1 helps only user 1
+      and no one else — a policy that would hurt all other users, which
+      is why max-min forbids it.
+
+This simple exercise shows why per-AP power constraints *couple* the
+individual η_mk across users on the same AP, and why the optimal allocation
+is not obvious.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+• CORE IDEA. Cell-Free Massive MIMO replaces large centralized antenna arrays
+  with M ≫ K randomly-placed single-antenna APs jointly serving all K users,
+  coordinated by a Network Controller (NC).
+
+• TWO LINEAR PRECODERS studied:
+     (a) Conjugate Beamforming (CB) — distributed, simple, each AP uses its
+         own channel estimate.
+     (b) Zero-Forcing (ZF) — centralized, requires K×K matrix inversion at
+         the NC, but cancels multi-user interference.
+
+• PERFORMANCE METRIC. Max-min SINR, a fairness-oriented criterion, leading
+  to minimum rate R_min and 5%-outage rate R_{5%} as the observed KPIs.
+
+• KEY CONTRIBUTIONS.
+    1. Capacity lower bounds for both CB and ZF in cell-free (Theorem 1 and
+       Appendix A).
+    2. Exact max-min power allocation via bisection + convex feasibility
+       check.
+    3. Low-complexity heuristic power allocations for CB (full power,
+       heuristic fixed-power using exponential fitting, heuristic uniform
+       coefficients) in Sections III-B/C/D.
+    4. A near-optimal closed-form power allocation for ZF (Eq. 21) derived
+       from the perfect-CSI solution (Lemma 2) and proven ε-optimal
+       (Proposition 2).
+    5. Small-cell baseline with MF and ZF for fair comparison (Section V).
+
+• HEADLINE RESULT. Cell-Free ZF with optimal max-min power control
+  achieves ≈ 10× gain in 5%-outage rate over small-cell MF with full power,
+  and ≈ 5× gain with CB.
+
+• COUNTERINTUITIVE RESULT. At the max-min optimum for CB, most APs
+  transmit at less than full power, and APs close to users transmit with
+  smaller power (empirically characterized in Fig. 3).
+
+• LINEAGE. The paper sits directly after:
+     [2]  Marzetta 2010        — Massive MIMO foundation,
+     [22] Ngo et al. 2017      — "Cell-Free Massive MIMO vs. Small Cells",
+  and refines the power-control question left open in [22].
+
+• ASSUMPTIONS CRITICAL TO THE ANALYSIS.
+     - TDD + channel reciprocity.
+     - Low mobility (no pilot contamination).
+     - NC knows all β_mk.
+     - MMSE channel estimation from orthogonal uplink pilots.
+     - Per-AP (not sum-) transmit-power constraints.
+
+• ROADMAP PROMISED BY THE INTRODUCTION.
+     Sec. II  — System model + channel estimation.
+     Sec. III — CB: optimal + 3 heuristic power allocations.
+     Sec. IV  — ZF: optimal + low-complexity near-optimal allocation.
+     Sec. V   — Small-cell systems (MF and ZF), the comparison baseline.
+     Sec. VI  — Numerical results.
+
+Everything the rest of the paper does — the Theorems, the Lemmas, the
+numerical experiments — is aimed at substantiating the four headline results
+declared in this Introduction.
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[1] E. Nayebi, A. Ashikhmin, T. L. Marzetta, H. Yang, B. D. Rao, "Precoding
+    and Power Optimization in Cell-Free Massive MIMO Systems," IEEE Trans.
+    Wireless Commun., vol. 16, no. 7, pp. 4445-4459, Jul. 2017.
+    DOI: 10.1109/TWC.2017.2698449  (the paper analyzed).
+
+[2] T. L. Marzetta, "Noncooperative cellular wireless with unlimited numbers
+    of base station antennas," IEEE Trans. Wireless Commun., vol. 9, no. 11,
+    pp. 3590-3600, Nov. 2010.  [Foundation of Massive MIMO.]
+
+[5] G. Caire and S. Shamai, "On the achievable throughput of a multi-antenna
+    Gaussian broadcast channel," IEEE Trans. Inf. Theory, vol. 49, no. 7,
+    pp. 1691-1706, Jul. 2003.
+
+[6] P. Viswanath and D. N. C. Tse, "Sum capacity of the vector Gaussian
+    broadcast channel and uplink-downlink duality," IEEE Trans. Inf. Theory,
+    vol. 49, no. 8, pp. 1912-1921, Aug. 2003.
+
+[7] S. Vishwanath, N. Jindal, A. Goldsmith, "Duality, achievable rates, and
+    sum-rate capacity of Gaussian MIMO broadcast channels," IEEE Trans. Inf.
+    Theory, vol. 49, no. 10, pp. 2658-2668, Oct. 2003.
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834-1850, Mar. 2017.
+     [Direct intellectual predecessor paper.]
+
+[26] S. Boyd and L. Vandenberghe, Convex Optimization. Cambridge Univ.
+     Press, 2004.  [Bisection method and quasi-convex optimization basics.]
+
+[30] B. Hassibi and B. M. Hochwald, "How much training is needed in
+     multiple-antenna wireless links?" IEEE Trans. Inf. Theory, vol. 49,
+     no. 4, pp. 951-963, Apr. 2003.  [Worst-case uncorrelated noise argument.]
+
+================================================================================
+END OF SECTION 0 ANALYSIS  (Abstract + Introduction)
+================================================================================

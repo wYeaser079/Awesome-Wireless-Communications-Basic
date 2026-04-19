@@ -1,0 +1,782 @@
+================================================================================
+ PAPER ANALYSIS — SECTION III, PART 2 of 2
+ Paper: "Precoding and Power Optimization in Cell-Free Massive MIMO Systems"
+ Authors: Elina Nayebi, Alexei Ashikhmin, Thomas L. Marzetta, Hong Yang,
+          Bhaskar D. Rao
+ Venue:   IEEE Transactions on Wireless Communications, 2017
+ DOI:     10.1109/TWC.2017.2698449
+ Sections analyzed: III-B (Full Power Transmission),
+                    III-C (Heuristic Fixed-Power Transmission),
+                    III-D (Heuristic Uniform Power Coefficients),
+                    plus Appendix B (proof of Prop. 1).
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 1 — HIGH-LEVEL / LAYMAN'S EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+In the previous file, we saw that the OPTIMAL max-min power allocation for
+Conjugate Beamforming (Eq. 6) can be solved by bisection + SOCP — but the
+cost scales badly with M and K. For real systems with M = 128 APs and
+K = 16 users, that's a lot of variables to wrestle with every few seconds.
+
+Sections III-B, III-C, III-D replace the optimal solution with three
+progressively CHEAPER approximations:
+
+  III-B  "FULL POWER TRANSMISSION" (Eq. 8):
+         The naïve idea — every AP spends its entire power budget.
+         The problem becomes CONVEX (not just quasi-concave), so it is
+         easier to solve, but numerically gives TERRIBLE 5%-outage. The
+         authors use this as a BASELINE to demonstrate that full-power
+         is wrong, and to prove the counterintuitive claim "most APs
+         should transmit at less than full power".
+
+  III-C  "HEURISTIC FIXED-POWER" (Eq. 9):
+         An offline statistical study of the optimal solution reveals
+         that at the max-min optimum, the per-AP power p_m* correlates
+         strongly with β_m^max = max_k β_mk. The pattern is roughly
+         EXPONENTIAL DECAY:
+                p_m = e^(−α · β_m^max).
+         APs CLOSE to a user (large β_m^max) reduce their power; APs
+         far from any user (small β_m^max) transmit at full power.
+         The paper fits the exponent α once, offline, and then uses the
+         rule online. The saved online computation is one convex problem
+         (instead of a whole bisection cascade of them). Performance
+         recovers ~140% of the gain lost by full power.
+
+  III-D  "HEURISTIC UNIFORM COEFFICIENTS" (Eq. 10):
+         The EXTREME simplification. Every AP m uses the same
+         exponential power rule as in III-C, AND distributes its
+         total power EQUALLY across all K users (η_mk = η_m
+         for all k). Under this assumption, the per-AP constraint
+         Σᵢ η_m · γ_mi = p_m directly gives a closed-form formula for
+         η_m. No optimization at all. Each AP can compute its own η_m
+         without talking to the NC — i.e., the whole power-allocation
+         problem becomes DECENTRALIZED. This is a HUGE win for
+         backhaul: the NC only needs to send the pre-fitted exponent α.
+
+The stunning thing is that III-D, the simplest possible scheme, gives
+performance nearly as good as III-C (which is near-optimal), when M ≫ K.
+
+The conceptual message is deeper than algorithmic: it tells us that in a
+massive distributed antenna system, LOCAL power decisions based on
+long-term statistics work almost as well as global optimization. This is
+the bedrock that later "scalable" cell-free papers (Björnson-Sanguinetti
+2020) will build on.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 2 — DETAILED, TECHNICAL (PhD-LEVEL) EXPLANATION
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+2.1  SUB-SECTION III-B: "FULL POWER TRANSMISSION"
+--------------------------------------------------------------------------------
+
+The premise: force every AP to spend its entire power budget. Equation (6b)
+becomes an equality:
+
+       Σᵢ₌₁ᴷ η_mi · γ_mi  =  1,    ∀m.                              (8b)
+
+This lets us SIMPLIFY the SINR denominator. Start from the interference
+expression derived in Appendix A:
+
+       1  +  ρ_f · Σᵢ Σₘ η_mi · β_mk · γ_mi.
+
+Swap the summation order:
+       =  1  +  ρ_f · Σₘ β_mk · (Σᵢ η_mi γ_mi)
+       =  1  +  ρ_f · Σₘ β_mk · 1                                  (by (8b))
+       =  1  +  ρ_f · Σₘ β_mk.
+
+This is a CONSTANT w.r.t. η. So the SINR denominator becomes a pure
+function of β (not η), and ONLY the numerator involves η.
+
+The problem (8) then reads:
+
+       max_η   min_k  SINR_k(η)
+              =  max_η   min_k   [ ρ_f · (Σₘ √(η_mk) γ_mk)² ] /
+                                  [ 1 + ρ_f · Σₘ β_mk ]             (8a)
+
+              s.t.       Σᵢ η_mi γ_mi = 1,  ∀m.                     (8b)
+
+Because the denominator is a constant, maximizing the ratio is equivalent
+to maximizing the numerator. And since log and squaring are monotonic,
+it's also equivalent to maximizing
+
+       min_k  Σₘ √(η_mk) · γ_mk
+              ─────────────────
+              √(1 + ρ_f Σₘ β_mk)
+
+which is a min over k of LINEAR functions in the variables u_mk = √(η_mk).
+Actually not quite — the constraint Σᵢ η_mi γ_mi = 1 is quadratic in
+u_mi: Σᵢ u²_mi γ_mi = 1. So this is a linear objective over a quadratic
+equality — a SPHERE intersected with the non-negative orthant (one sphere
+per AP), plus K linear lower bounds.
+
+PROPOSITION 1 (paper). The objective function min_k SINR_k(η) in (8a) is
+a concave function of η, and the problem (8) is convex.
+
+PROOF SKETCH (from Appendix B, reworked cleanly).
+
+The denominator (1 + ρ_f Σₘ β_mk) is a constant w.r.t. η, so the ratio is
+proportional to the numerator (Σₘ √η_mk γ_mk)². But a squared sum of
+square roots is NOT concave in η in general — we need to show it.
+
+Let's define:
+       c_mk  :=  γ_mk / √( 1/ρ_f + Σₘ₌₁ᴹ β_mk ).
+
+Then (with the constant denominator absorbed) we have:
+
+       SINR_k(η)  =  ( Σₘ c_mk · √(η_mk) )².
+
+The paper shows that (Σₘ c_mk · √η_mk)² is a concave function of η on the
+non-negative orthant by a DIRECT AM-GM argument. Given η, η' ≥ 0 and
+θ ∈ [0, 1]:
+
+  SINR_k(θη + (1−θ)η')
+  = ( Σₘ c_mk · √( θη_mk + (1−θ)η'_mk ) )².
+
+Square and expand; the cross term has √((θη_mk+(1−θ)η'_mk)(θη_nk+(1−θ)η'_nk))
+  which equals √(θ²·η_mk η_nk + (1−θ)²·η'_mk η'_nk + θ(1−θ)·[η_mk η'_nk + η_nk η'_mk]).
+
+Apply the arithmetic-geometric mean inequality:
+
+       η_mk η'_nk + η_nk η'_mk  ≥  2 · √(η_mk η'_nk η_nk η'_mk)
+                                  =  2 · √(η_mk η_nk) · √(η'_mk η'_nk).
+
+Substituting this lower bound back gives:
+
+       √(θ²·η_mk η_nk + (1−θ)²·η'_mk η'_nk + 2θ(1−θ)·√(η_mk η_nk)·√(η'_mk η'_nk))
+     = | θ·√(η_mk η_nk)  +  (1−θ)·√(η'_mk η'_nk) |
+     = θ·√(η_mk η_nk)  +  (1−θ)·√(η'_mk η'_nk).
+
+Summing over m,n, the squared form on the LHS becomes ≥ θ·SINR_k(η) +
+(1−θ)·SINR_k(η'), which is exactly the DEFINITION OF CONCAVITY for
+SINR_k(η) in the variable η (not the square-root variable!).
+
+Since each SINR_k is concave in η and the minimum of concave functions is
+concave, the objective of (8) is concave. The constraints (8b) are linear
+in η. Therefore (8) is a CONVEX problem.  ∎
+
+WHY THIS MATTERS. A convex problem with a concave objective and linear
+constraints can be solved in ONE SHOT with any standard interior-point
+method — no bisection needed. Complexity is drastically lower than (6).
+
+But the price is that full-power transmission IS NOT OPTIMAL — the
+paper's Figure 5 shows that full-power transmission loses more than
+100% of the 5%-outage rate relative to the true optimum of (6).
+
+--------------------------------------------------------------------------------
+2.2  WHY IS FULL POWER NOT OPTIMAL?  (The counterintuitive observation)
+--------------------------------------------------------------------------------
+
+Intuitively: if you're trying to maximize throughput, why would you
+transmit at less than full power? Doesn't more power always help?
+
+The answer lies in the STRUCTURE OF THE SINR. The problem (6) is
+QUADRATIC (the numerator is (Σₘ √η_mk γ_mk)²). Unlike LINEAR
+optimization, where the optimum always lies at a vertex of the feasible
+set (i.e., at full power), QUADRATIC optimization can have its optimum
+in the INTERIOR of the feasible set.
+
+The paper gives the exact mechanism via Figure 3 (scatter plot of
+p_m^opt / ρ_f vs β_m^max over many channel realizations). The pattern
+is:
+
+  • For M = 8 APs: most APs transmit at full power. Not much structure.
+  • For M = 32: a visible trend where APs with large β_m^max transmit
+    at LESS than full power.
+  • For M = 128: the trend is strong and roughly exponential:
+           p_m^opt / ρ_f  ≈  e^(−α · β_m^max),
+    where α > 0 depends on M and K.
+
+INTUITION FOR THIS RULE:
+  - β_m^max = max_k β_mk is large when AP m has at least one NEARBY user.
+  - A nearby AP creates STRONG signal to its own user but also STRONG
+    interference to OTHER users within the same "cell footprint".
+  - In a max-min problem, if the nearby AP shouts at full power, it
+    forces OTHER users' SINRs down (via β_mk · γ_mi cross-products), and
+    the minimum over users drops.
+  - The optimal compromise: the nearby AP should REDUCE its power so it
+    helps its "owner" user just enough without blasting interference into
+    other users.
+  - APs FAR from all users (small β_m^max) have negligible interference
+    impact and should transmit at full power — every bit of signal they
+    contribute is useful without creating harm elsewhere.
+
+This is an INSTANCE of the classical "interference-limited" regime: when
+the system is limited by multi-user interference (not noise), the optimal
+strategy is not "maximum power" but "balanced power". It is reminiscent of
+the WATER-FILLING solution in information theory, where power is poured
+only into non-full channels.
+
+--------------------------------------------------------------------------------
+2.3  SUB-SECTION III-C: "HEURISTIC FIXED-POWER TRANSMISSION"
+--------------------------------------------------------------------------------
+
+The authors formalize the observation into an algorithm.
+
+STEP 1 (offline, one time).
+  (a) Pick a representative (M, K) pair for the system.
+  (b) Solve the optimal power allocation (6) for 100+ random channel
+      realizations.
+  (c) Collect all pairs ( β_m^max, p_m^opt / ρ_f ) — Figure 3 in the paper.
+  (d) Fit a function p_m^fit(β_m^max) = e^(−α · β_m^max) to the scatter.
+      The exponent α is chosen (e.g., via least-squares regression on
+      log-transformed data) to best match the cloud.
+
+This offline step is expensive (many bisections × many channel
+realizations × curve fitting), but it is amortized over the entire
+lifetime of the deployment. It does not contribute to online complexity.
+
+STEP 2 (online, every time β_mk changes).
+  Define
+       p_m  :=  e^(−α · β_m^max),   m = 1, …, M.        (heuristic fit)
+
+  Replace the "≤ 1" constraint in (6b) by an EQUALITY "= p_m":
+
+       Σᵢ η_mi · γ_mi  =  p_m,    ∀m.                                (9b)
+
+  The max-min problem becomes:
+
+       max_η    min_k   ρ_f · (Σₘ √(η_mk) γ_mk)² /
+                         (1 + ρ_f · Σₘ p_m · β_mk)                   (9a)
+
+       s.t.     Σᵢ η_mi γ_mi = p_m,    ∀m.                           (9b)
+
+Now the denominator of SINR_k is again CONSTANT in η (just as in III-B,
+because each Σᵢ η_mi γ_mi is fixed at p_m). So (9) is EXACTLY the same
+structure as (8) — a concave-objective problem with linear equality
+constraints — and hence CONVEX. Proposition 1's proof applies verbatim.
+
+COMPARISON TO FULL POWER (III-B):
+  • Same online complexity: one convex problem.
+  • But with RIGHT per-AP power budgets rather than the uniform p_m = 1.
+  • Numerical result: ~140% improvement in 5%-outage rate vs. full power
+    (paper, Figure 5).
+
+WHY IS (9) BETTER THAN (8)? Because in (8), every AP is forced to spend
+its entire budget — including APs close to users, which hurts the
+max-min. In (9), APs close to users spend LESS (via e^(−α β_m^max)),
+reducing the β_mk · γ_mi interference terms, and boosting the
+minimum SINR.
+
+The catch is that the exponential fit is HEURISTIC. For a different
+(M, K) than the one fitted, the rule may become less accurate. But the
+paper's Remark 2 notes that the exponential behavior only holds for
+large M anyway — exactly the Massive MIMO regime where the paper lives.
+
+--------------------------------------------------------------------------------
+2.4  SUB-SECTION III-D: "HEURISTIC UNIFORM POWER COEFFICIENTS"
+--------------------------------------------------------------------------------
+
+Now the authors push the simplification to the limit.
+
+ASSUMPTION 1 (from III-C). AP m transmits with total power
+       p_m  =  e^(−α · β_m^max).
+
+ASSUMPTION 2 (new, for III-D). At AP m, the power coefficients η_mk are
+equal for all users:
+       η_mk  =  η_m,   ∀k.                                        (D.1)
+
+In other words, the AP does NOT differentiate between users when deciding
+how much power to spend. It just uses one scalar η_m.
+
+Plugging (D.1) into the per-AP budget:
+
+       Σᵢ₌₁ᴷ η_m · γ_mi  =  p_m
+       ⟹   η_m  =  p_m  /  Σᵢ γ_mi.                               (10)
+
+This is a CLOSED-FORM FORMULA. No optimization whatsoever. Each AP can
+compute its own η_m from:
+  (i)  β_m^max (its own strongest β, available at AP m),
+  (ii) Σᵢ γ_mi (AP m can compute γ_mi from its own β_mi, ρ_r, τ),
+  (iii) the global constant α (sent by the NC once, offline).
+
+RESULT: the power allocation is FULLY DECENTRALIZED. Each AP acts
+independently. The NC is not needed for power updates. This is HUGE:
+  • Zero online computation at the NC for power updates.
+  • Zero backhaul traffic for conveying η_mk from NC to APs.
+  • Trivial to scale to arbitrary M.
+
+WHAT DOES THIS COST IN PERFORMANCE?
+  • Relative to the optimal (6): a small but measurable loss.
+  • Relative to the heuristic fixed-power (9): the loss is small when
+    M ≫ K (the Massive MIMO regime).
+  • The paper quotes that (10) is "quite close" to the performance of (9)
+    and much better than full power (8).
+
+The INTUITIVE REASON why uniform coefficients are nearly optimal in the
+M ≫ K regime:
+
+     When M is large, each user has MANY APs contributing, and the per-AP
+     coefficient η_mk matters less than the TOTAL power p_m spent at
+     AP m. The "mix" of power across users at each AP gets averaged out
+     by the large number of serving APs. Hence, how AP m divides its
+     budget among users is less important than how large the budget is.
+
+This is a flavor of the law-of-large-numbers argument central to Massive
+MIMO: fluctuations in individual channel coefficients average out, and
+coarse decisions work well.
+
+REMARK 2 (paper). The exponential-fit behavior is only accurate for large
+M. Hence the heuristic methods (III-C, III-D) become more accurate as M
+grows relative to K, which is precisely the Massive MIMO operating point.
+
+--------------------------------------------------------------------------------
+2.5  HIERARCHY OF COMPLEXITY (summary table)
+--------------------------------------------------------------------------------
+
+┌──────────┬─────────────────────────┬──────────────────┬─────────────────┐
+│ Scheme   │ Online computation      │ Distributed?     │ 5%-outage       │
+│          │                         │                  │  rate (relative)│
+├──────────┼─────────────────────────┼──────────────────┼─────────────────┤
+│ Optimal  │ Bisection + many SOCPs  │ No (central NC)  │  100% (baseline)│
+│ (6)      │  (high)                 │                  │                 │
+├──────────┼─────────────────────────┼──────────────────┼─────────────────┤
+│ Full     │ One convex problem (8)  │ No (central NC)  │  ≲ 50%          │
+│ power    │  (moderate)             │                  │  (−100%+ loss)  │
+│ (8)      │                         │                  │                 │
+├──────────┼─────────────────────────┼──────────────────┼─────────────────┤
+│ Heur.    │ One convex problem (9)  │ No (central NC)  │  ~90-95%        │
+│ fixed    │  (moderate; constraints │                  │  (small loss)   │
+│ power (9)│  are tight so faster)   │                  │                 │
+├──────────┼─────────────────────────┼──────────────────┼─────────────────┤
+│ Heur.    │ CLOSED-FORM (10)        │ YES — each AP    │  ~85-90%        │
+│ uniform  │  (nearly zero)          │  computes its    │  (slight loss)  │
+│ (10)     │                         │  own η_m         │                 │
+└──────────┴─────────────────────────┴──────────────────┴─────────────────┘
+
+(The percentages are rough summaries of Figure 5 in Section VI.)
+
+Progression: as we move down the table, complexity drops sharply but
+performance drops only modestly. The design sweet spot depends on:
+  • Backhaul capacity (critical → use III-D),
+  • NC computational capacity (scarce → use III-D),
+  • Absolute rate requirement (strict → use III-C or III-A).
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 3 — HISTORICAL / PRIOR DEVELOPMENT
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+3.1  EQUAL VS. UNEQUAL POWER ALLOCATION IN MASSIVE MIMO
+--------------------------------------------------------------------------------
+
+The question "should we transmit at full power?" has been asked repeatedly
+in the Massive MIMO literature, with different answers depending on the
+setting:
+
+  • In SINGLE-CELL Massive MIMO with a centralized array and sum-rate
+    objective, the optimal solution is typically "close to full power"
+    (e.g., Ngo, Larsson, Marzetta 2013). The system is interference-
+    limited only by MUI from the serving cell itself, and equal or
+    slightly-tapered power suffices.
+
+  • In MULTI-CELL Massive MIMO with inter-cell interference, optimal
+    power is lower than full power, reflecting a "cell-edge help,
+    cell-center back off" policy (Björnson et al. 2015–2017).
+
+  • In CELL-FREE Massive MIMO with max-min criterion (our paper),
+    the same "back off when close" intuition applies, but now the
+    "cell" is the footprint of a single AP: an AP with a nearby user
+    should back off, because otherwise it overrides the max-min. This
+    is a cleaner and starker version of the multi-cell story.
+
+The Nayebi et al. 2017 paper is the first to explicitly map out the
+quantitative p_m* vs β_m^max relationship via the scatter plot (Figure 3)
+and exploit it for heuristic design.
+
+--------------------------------------------------------------------------------
+3.2  EXPONENTIAL FIT AS A DESIGN HEURISTIC
+--------------------------------------------------------------------------------
+
+Empirical curve-fitting of optimal solutions is an old technique in
+optimization and control — sometimes called "lookup-table control" or
+"function-approximation control". In the communications literature, it
+appears in:
+
+  • Bandwidth-allocation literature (Kelly et al., 1998): offline
+    computation of Lagrange-dual price curves, then online use.
+
+  • Reinforcement-learning-based power control (various 2018–2024
+    deep-learning papers): train a neural net to mimic the optimal
+    power allocation.
+
+The exponential rule p_m = e^(−α β_m^max) is simpler than these ML
+approaches and has the virtue of being EXPLAINABLE: one scalar parameter
+α, one summary statistic β_m^max.
+
+--------------------------------------------------------------------------------
+3.3  DECENTRALIZED POWER CONTROL
+--------------------------------------------------------------------------------
+
+The idea of letting each AP make its own power decision without central
+coordination has a long history in:
+
+  • Wireless ad-hoc networks (Goodman & Mandayam, 2000): distributed
+    game-theoretic power control.
+  • Cellular networks with autonomous cells (3GPP Rel-8 LTE ICIC: inter-
+    cell interference coordination via X2 signaling).
+  • Massive MIMO scalable solutions (Björnson & Sanguinetti 2020: the
+    "Scalable Cell-Free Massive MIMO" framework, directly motivated by
+    the limitations of centralized approaches like Section III-A).
+
+The heuristic uniform scheme (III-D) is the first cell-free massive MIMO
+power control method with NO backhaul load for η_mk. Björnson &
+Sanguinetti's later "scalable" paradigm generalizes this to other design
+decisions (combining vectors, pilot assignment, etc.).
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 4 — MATHEMATICAL DETAILS (Unicode box summary)
+════════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (8):  FULL POWER TRANSMISSION MAX-MIN                                 │
+│                                                                          │
+│   max_η  min_k  SINR_k(η)                                               │
+│       =  ρ_f · (Σₘ √(η_mk) γ_mk)² /                                     │
+│          [1 + ρ_f · Σₘ β_mk]                  (denom is CONSTANT in η)  │
+│                                                                          │
+│   s.t.   Σᵢ₌₁ᴷ η_mi γ_mi  =  1,    ∀m ∈ {1,…,M}.      (8b)              │
+│                                                                          │
+│   CONVEX problem (Proposition 1, proved in Appendix B).                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PROPOSITION 1 (proof via AM-GM).                                         │
+│                                                                          │
+│ SINR_k(θη + (1−θ)η')                                                    │
+│   = (Σₘ c_mk · √( θη_mk + (1−θ)η'_mk ))²                                │
+│                                                                          │
+│   After squaring and applying AM ≥ GM on cross terms:                   │
+│                                                                          │
+│   ≥  θ · SINR_k(η) + (1−θ) · SINR_k(η').                                │
+│                                                                          │
+│   So SINR_k is CONCAVE in η. Min over k preserves concavity.            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ HEURISTIC EXPONENTIAL PER-AP POWER RULE                                  │
+│                                                                          │
+│   p_m  =  e^(−α · β_m^max)                                              │
+│                                                                          │
+│   where β_m^max = max_{k=1,…,K} β_mk,                                   │
+│   and α > 0 is fitted OFFLINE from scatter plots of p_m^opt vs β_m^max │
+│   for a representative (M, K).                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (9):  HEURISTIC FIXED-POWER MAX-MIN                                   │
+│                                                                          │
+│   max_η  min_k  SINR_k(η)                                               │
+│       =  ρ_f · (Σₘ √(η_mk) γ_mk)² /                                     │
+│          [1 + ρ_f · Σₘ p_m · β_mk]           (denom CONSTANT in η)      │
+│                                                                          │
+│   s.t.   Σᵢ₌₁ᴷ η_mi γ_mi  =  p_m,    ∀m ∈ {1,…,M}.    (9b)              │
+│                                                                          │
+│   CONVEX (same proof as Proposition 1, with tight budget p_m ≠ 1).      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Eq (10):  HEURISTIC UNIFORM POWER COEFFICIENTS (CLOSED FORM)             │
+│                                                                          │
+│   Assume η_mk = η_m  ∀k  (user-independent at AP m).                    │
+│   Then  Σᵢ η_m γ_mi = p_m  ⟹                                           │
+│                                                                          │
+│          η_m  =  p_m  /  Σᵢ₌₁ᴷ γ_mi                                     │
+│               =  e^(−α β_m^max)  /  Σᵢ γ_mi                             │
+│                                                                          │
+│   FULLY DECENTRALIZED: each AP computes its own η_m.                    │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 5 — NUMERICAL EXAMPLE
+════════════════════════════════════════════════════════════════════════════════
+
+--------------------------------------------------------------------------------
+5.1  DEMONSTRATION OF p_m vs β_m^max SCATTER
+--------------------------------------------------------------------------------
+
+Assume a small system: M = 8 APs, K = 2 users, ρ_f = 1 (normalized).
+Suppose β_mk (normalized by noise variance) is:
+
+       β (M×K) =
+         ┌              ┐
+         │  100    1    │  AP 1: very close to user 1
+         │   50    2    │  AP 2
+         │   10    5    │  AP 3
+         │    5   10    │  AP 4
+         │    2   50    │  AP 5
+         │    1  100    │  AP 6
+         │  0.5    1    │  AP 7: far from everyone
+         │  0.3  0.3    │  AP 8: very far
+         └              ┘
+
+β_m^max per AP: [100, 50, 10, 10, 50, 100, 1, 0.3].
+
+ASSUME (for illustration; we're not solving (6)) that the max-min
+optimal power pattern looks like:
+
+       p_m^opt  ≈  e^(−α · β_m^max),   with α = 0.03  (say).
+
+Compute the implied p_m^opt:
+
+   AP 1: e^(−0.03·100)  = e^(−3)    ≈ 0.050
+   AP 2: e^(−0.03·50)   = e^(−1.5)  ≈ 0.223
+   AP 3: e^(−0.03·10)   = e^(−0.3)  ≈ 0.741
+   AP 4: e^(−0.03·10)   = e^(−0.3)  ≈ 0.741
+   AP 5: e^(−0.03·50)   = e^(−1.5)  ≈ 0.223
+   AP 6: e^(−0.03·100)  = e^(−3)    ≈ 0.050
+   AP 7: e^(−0.03·1)    = e^(−0.03) ≈ 0.970
+   AP 8: e^(−0.03·0.3)  = e^(−0.009)≈ 0.991
+
+Interpretation:
+  • Close APs (1, 6): ~5% power — heavily throttled.
+  • Medium APs (2, 5): ~22% power.
+  • Moderate APs (3, 4): ~74% power.
+  • Far APs (7, 8): ~97–99% power — effectively full.
+
+The sum of all power (if they were fighting for a global sum budget)
+would be ~3.99, i.e., ~50% of the total 8·1 = 8 available. This matches
+the paper's qualitative observation that "total transmit power for CB
+with optimal allocation is much less than the total power limit".
+
+--------------------------------------------------------------------------------
+5.2  APPLYING THE UNIFORM COEFFICIENT RULE (10) TO THE SAME EXAMPLE
+--------------------------------------------------------------------------------
+
+Assume γ_mk = β_mk (perfect estimation) for simplicity.
+
+For AP 1: Σᵢ γ_{1,i} = 100 + 1 = 101.
+          η_1 = p_1 / 101 = 0.050 / 101 ≈ 4.95 · 10⁻⁴.
+
+For AP 2: Σᵢ γ_{2,i} = 50 + 2 = 52.
+          η_2 = 0.223 / 52 ≈ 4.29 · 10⁻³.
+
+For AP 3: Σᵢ γ_{3,i} = 10 + 5 = 15.
+          η_3 = 0.741 / 15 ≈ 4.94 · 10⁻².
+
+For AP 4: Σᵢ γ_{4,i} = 5 + 10 = 15.
+          η_4 = 0.741 / 15 ≈ 4.94 · 10⁻².
+
+For AP 5: Σᵢ γ_{5,i} = 2 + 50 = 52.
+          η_5 = 0.223 / 52 ≈ 4.29 · 10⁻³.
+
+For AP 6: Σᵢ γ_{6,i} = 1 + 100 = 101.
+          η_6 = 0.050 / 101 ≈ 4.95 · 10⁻⁴.
+
+For AP 7: Σᵢ γ_{7,i} = 0.5 + 1 = 1.5.
+          η_7 = 0.970 / 1.5 ≈ 0.647.
+
+For AP 8: Σᵢ γ_{8,i} = 0.3 + 0.3 = 0.6.
+          η_8 = 0.991 / 0.6 ≈ 1.65.
+
+OBSERVATION. η_m is LARGEST at the APs that are FARTHEST from users
+(APs 7, 8). This is because those APs have small γ_mi values, so even
+a big η_m costs very little budget per user. Meanwhile, η_m is tiny at
+APs 1 and 6 because their γ values are huge and even a small η consumes
+the budget fast.
+
+The contribution of each AP to user 1's received signal (numerator of
+Eq. 5) is √(η_m) · γ_{m,1}. Let's compute:
+
+   AP 1: √(4.95·10⁻⁴) · 100  ≈  0.0223 · 100  =  2.23
+   AP 2: √(4.29·10⁻³) · 50   ≈  0.0655 · 50   =  3.28
+   AP 3: √(4.94·10⁻²) · 10   ≈  0.222 · 10    =  2.22
+   AP 4: √(4.94·10⁻²) · 5    ≈  0.222 · 5     =  1.11
+   AP 5: √(4.29·10⁻³) · 2    ≈  0.0655 · 2    =  0.131
+   AP 6: √(4.95·10⁻⁴) · 1    ≈  0.0223 · 1    =  0.0223
+   AP 7: √(0.647)      · 0.5 ≈  0.804 · 0.5   =  0.402
+   AP 8: √(1.65)       · 0.3 ≈  1.285 · 0.3   =  0.386
+
+Sum: 2.23 + 3.28 + 2.22 + 1.11 + 0.131 + 0.022 + 0.402 + 0.386 ≈ 9.78.
+
+Squared (× ρ_f = 1):   ≈ 95.7.
+So SINR_1 numerator ≈ 95.7.
+
+For the denominator (interference + noise):
+   1 + ρ_f · Σₘ β_{m,1} · Σᵢ η_m · γ_{m,i}
+ = 1 + Σₘ β_{m,1} · η_m · Σᵢ γ_{m,i}
+ = 1 + Σₘ β_{m,1} · p_m                    (by definition of η_m in (10))
+ = 1 + (100·0.050 + 50·0.223 + 10·0.741 + 5·0.741 + 2·0.223 + 1·0.050
+       + 0.5·0.970 + 0.3·0.991)
+ = 1 + (5.00 + 11.15 + 7.41 + 3.705 + 0.446 + 0.050 + 0.485 + 0.297)
+ = 1 + 28.54
+ = 29.54.
+
+SINR_1 ≈ 95.7 / 29.54 ≈ 3.24.
+R_1 = log₂(1 + 3.24) = log₂(4.24) ≈ 2.08 bits/s/Hz.
+
+By symmetry, SINR_2 ≈ 3.24 and R_2 ≈ 2.08.
+
+COMPARE: if we had used FULL POWER (ignoring the exponential fit),
+   p_m = 1 for all m,
+   Σᵢ γ_{m,i} is the same,
+   η_m = 1 / Σᵢ γ_{m,i}.
+
+The denominator 1 + Σₘ β_{m,1} · 1 = 1 + 168.8 ≈ 169.8 (worse!).
+
+The numerator √(η_m) · γ_{m,1} contributions would be:
+   AP 1: √(1/101) · 100    ≈ 9.95
+   AP 2: √(1/52)  · 50     ≈ 6.93
+   AP 3: √(1/15)  · 10     ≈ 2.58
+   AP 4: √(1/15)  · 5      ≈ 1.29
+   AP 5: √(1/52)  · 2      ≈ 0.277
+   AP 6: √(1/101) · 1      ≈ 0.0995
+   AP 7: √(1/1.5) · 0.5    ≈ 0.408
+   AP 8: √(1/0.6) · 0.3    ≈ 0.387
+   Sum ≈ 21.92
+   Squared ≈ 480.5.
+
+Full-power SINR_1 = 480.5 / 169.8 ≈ 2.83. R_1 ≈ log₂(3.83) ≈ 1.94 bits/s/Hz.
+
+And compare to the heuristic uniform scheme (III-D) at R_1 ≈ 2.08. The
+heuristic wins by ~7% in rate, despite being much simpler computationally.
+
+OF COURSE, this is a stylized example with a hand-picked α. In real
+deployments the gain of III-D vs. III-B is 5–20% in 5%-outage rate
+depending on (M, K, ρ_f, geometry), and the win of III-A (true optimum)
+over III-D is a similar few percent.
+
+--------------------------------------------------------------------------------
+5.3  PRACTICE PROBLEM
+--------------------------------------------------------------------------------
+
+PROBLEM. In the heuristic uniform scheme (III-D) with M = 100, K = 10,
+assume γ_mk = β_mk and that the β_mk have been pre-computed. Using
+α = 5 × 10⁹ (chosen to match a typical urban scenario with β ~ 10⁻¹⁰),
+
+(a) If AP m has β_{m, k=1} = 5·10⁻¹⁰ and β_{m, k} = 10⁻¹¹ for k=2,…,10
+    (very close to user 1, far from others), compute p_m and η_m.
+
+(b) If AP m has β_{m, k} = 10⁻¹¹ for all k = 1,…,10 (a "bystander" AP),
+    compute p_m and η_m.
+
+(c) Which AP has larger η_m? Interpret.
+
+SOLUTION.
+
+(a) β_m^max = max_k β_mk = 5·10⁻¹⁰.
+    p_m = exp(−α · β_m^max) = exp(−5·10⁹ · 5·10⁻¹⁰) = exp(−2.5) ≈ 0.082.
+    Σᵢ γ_{m,i} = 5·10⁻¹⁰ + 9·10⁻¹¹ = 5.9·10⁻¹⁰.
+    η_m = 0.082 / (5.9·10⁻¹⁰) ≈ 1.39 · 10⁸.
+
+(b) β_m^max = 10⁻¹¹.
+    p_m = exp(−α · β_m^max) = exp(−5·10⁹ · 10⁻¹¹) = exp(−0.05) ≈ 0.951.
+    Σᵢ γ_{m,i} = 10 · 10⁻¹¹ = 10⁻¹⁰.
+    η_m = 0.951 / 10⁻¹⁰ = 9.51 · 10⁹.
+
+(c) The bystander AP (b) has η_m ≈ 9.51·10⁹, nearly 70× larger than the
+    close AP (a)'s η_m ≈ 1.39·10⁸.
+    INTERPRETATION: the uniform coefficient η_m is inversely related to
+    Σᵢ γ_mi, not directly to the "importance" of the AP. A bystander AP
+    has tiny γ_mi's, so a given η_m costs only a small fraction of its
+    budget per user. The AP can "afford" a big η_m. Of course, the
+    actual contribution to the received signal, √(η_m) · γ_mk, is still
+    small because γ_mk is small. But the budget-normalized coefficient
+    η_m is large.
+
+This illustrates a subtle point: η_m itself is an allocation variable,
+not an absolute power. The actual per-user power spent is η_m · γ_mi,
+which is small for the bystander.
+
+
+════════════════════════════════════════════════════════════════════════════════
+PART 6 — SECTION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT WE COVERED IN THIS FILE:
+  • III-B: Full Power Transmission. Convex (Proposition 1, proof by
+    AM-GM), but gives poor performance. Motivates the need for
+    non-full-power solutions.
+  • III-C: Heuristic Fixed-Power Transmission. Per-AP budget is set by
+    p_m = e^(−α β_m^max), with α fitted offline. Same online complexity
+    as III-B but ~140% improvement in 5%-outage rate.
+  • III-D: Heuristic Uniform Coefficients. η_mk = η_m for all k, with
+    η_m = p_m / Σᵢ γ_mi. Closed form — no optimization needed. Fully
+    decentralized (no backhaul for η).
+  • Counterintuitive observation: at the max-min optimum for CB, most APs
+    transmit at LESS than full power. Mechanism: nearby APs generate
+    disproportionate interference and must back off.
+  • Complexity/performance hierarchy: Optimal > III-C ≈ III-D ≫ Full Power.
+
+KEY TAKEAWAYS:
+  1. The full-power baseline is a USEFUL SANITY CHECK, not a practical
+     strategy. It proves that max-min optima are INTERIOR points.
+  2. The exponential rule p_m = e^(−α β_m^max) captures the empirical
+     structure of optimal power allocation in massive cell-free systems.
+  3. The uniform coefficient assumption η_mk = η_m ∀k works because in
+     the M ≫ K regime, HOW AP m divides its budget among users matters
+     less than TOTAL power spent.
+  4. III-D is the first cell-free massive MIMO power control with ZERO
+     backhaul load — foundational for later "scalable" frameworks.
+
+EQUATIONS INTRODUCED IN THIS FILE:
+  (8)  Max-min with per-AP equality constraint at full power.
+  (9)  Max-min with per-AP equality at heuristic p_m.
+  (10) Uniform coefficient η_m = p_m / Σᵢ γ_mi (closed form).
+  (Proposition 1) Concavity of SINR_k(η), proof via AM-GM.
+
+WHAT'S NEXT (Section IV):
+  • Zero-Forcing precoder in cell-free. Requires ĜᵀĜ inversion at the NC.
+  • Theorem 1: achievable-rate SINR for ZF (Eq. 13), accounting for
+    estimation error.
+  • Lemma 1: monotonicity property of ZF SINR that allows the bisection
+    method to replace convex feasibility with a SYSTEM OF K LINEAR
+    EQUATIONS.
+  • Lemma 2: perfect-CSI solution — at least one AP transmits at full
+    power, and all user power coefficients are equal.
+  • Proposition 2: the closed-form heuristic (Eq. 21) is ε-near-optimal
+    for large enough uplink pilot power.
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCES CITED IN THIS ANALYSIS (credible sources)
+════════════════════════════════════════════════════════════════════════════════
+
+[2]  T. L. Marzetta, "Noncooperative cellular wireless with unlimited
+     numbers of base station antennas," IEEE Trans. Wireless Commun.,
+     vol. 9, no. 11, pp. 3590–3600, Nov. 2010.
+
+[22] H. Q. Ngo, A. Ashikhmin, H. Yang, E. G. Larsson, T. L. Marzetta,
+     "Cell-Free Massive MIMO Versus Small Cells," IEEE Trans. Wireless
+     Commun., vol. 16, no. 3, pp. 1834–1850, Mar. 2017.
+
+[25] A. Ashikhmin, T. L. Marzetta, L. Li, "Interference reduction in
+     multi-cell massive MIMO systems I: Large-scale fading precoding
+     and decoding," arXiv:1411.4182, 2014.
+     [Slow-fading-precoded reference for β_mk update rate ≈ 40× slower
+      than h_mk.]
+
+[26] S. Boyd and L. Vandenberghe, Convex Optimization. Cambridge Univ.
+     Press, 2004. [Convex problem structure.]
+
+Additional background:
+
+- H. Q. Ngo, E. G. Larsson, T. L. Marzetta, "Energy and Spectral
+  Efficiency of Very Large Multiuser MIMO Systems," IEEE Trans. Commun.,
+  vol. 61, no. 4, pp. 1436–1449, Apr. 2013.  [Equal-power-allocation
+  analysis for single-cell Massive MIMO with MRT.]
+
+- E. Björnson, J. Hoydis, L. Sanguinetti, "Massive MIMO has Unlimited
+  Capacity," IEEE Trans. Wireless Commun., vol. 17, no. 1, pp. 574–590,
+  Jan. 2018.  [Power allocation and multi-cell Massive MIMO scaling.]
+
+- E. Björnson and L. Sanguinetti, "Scalable Cell-Free Massive MIMO
+  Systems," IEEE Trans. Commun., vol. 68, no. 7, pp. 4247–4261, Jul. 2020.
+  [Direct descendant paper; the decentralization ideas of III-D are
+   generalized to the full cell-free pipeline.]
+
+- D. J. Goodman, N. B. Mandayam, "Power control for wireless data,"
+  IEEE Personal Commun., vol. 7, no. 2, pp. 48–54, Apr. 2000.
+  [Early decentralized power control via utility maximization.]
+
+================================================================================
+END OF SECTION III PART 2 ANALYSIS
+(Full Power, Heuristic Fixed-Power, Heuristic Uniform Coefficients)
+================================================================================
